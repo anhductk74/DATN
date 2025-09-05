@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { Button } from '@/components/ui/Button';
+import { Button } from 'antd';
 import { mockCalendarEvents } from '@/lib/mockData';
 import { CalendarEvent } from '@/types';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlusOutlined } from '@ant-design/icons';
 import { useTheme } from '@/components/ThemeProvider';
 
 export default function CalendarPage() {
@@ -37,8 +37,7 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="flex items-center space-x-4">
-          <Button>
-            <PlusIcon className="w-4 h-4 mr-2" />
+          <Button type="primary" icon={<PlusOutlined />}>
             Create New Event
           </Button>
         </div>
@@ -92,10 +91,10 @@ export default function CalendarPage() {
               </div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => setSelectedEvent(null)}>
+              <Button onClick={() => setSelectedEvent(null)}>
                 Close
               </Button>
-              <Button>
+              <Button type="primary">
                 Edit
               </Button>
             </div>
