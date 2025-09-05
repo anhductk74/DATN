@@ -190,7 +190,7 @@ export default function ReportsPage() {
                     <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
                       <div className="flex items-center">
                         <UsersIcon className="w-4 h-4 mr-1" />
-                        {project.members.length}
+                        {project.members?.length || 0}
                       </div>
                       <div className="flex items-center">
                         <ClockIcon className="w-4 h-4 mr-1" />

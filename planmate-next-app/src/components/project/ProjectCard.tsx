@@ -8,20 +8,7 @@ import {
   EditOutlined 
 } from '@ant-design/icons';
 import { useTheme } from '../ThemeProvider';
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'todo' | 'in-progress' | 'completed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  progress: number;
-  members: Array<{ id: string; name: string; avatar?: string }>;
-  endDate: string | Date;
-  budget?: number;
-  manager: { id: string; name: string; avatar?: string };
-  tasks: Array<{ id: string; status: 'todo' | 'in-progress' | 'completed' }>;
-}
+import { Project } from '@/types';
 
 interface ProjectCardProps {
   project: Project;
@@ -112,7 +99,7 @@ export function ProjectCard({ project, onView, onEdit }: ProjectCardProps) {
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className={`flex items-center text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           <TeamOutlined className="mr-2" />
-          <span className="metric-value">{project.members.length}</span> members
+          <span className="metric-value">{project.teamMembers?.length || project.members?.length || 0}</span> members
         </div>
         <div className={`flex items-center text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           <CalendarOutlined className="mr-2" />
@@ -145,10 +132,10 @@ export function ProjectCard({ project, onView, onEdit }: ProjectCardProps) {
         </div>
         <div className="flex items-center">
           <Avatar size="small" style={{ backgroundColor: '#f97316' }}>
-            {project.manager.name.charAt(0)}
+            {project.manager?.name?.charAt(0) || 'M'}
           </Avatar>
           <span className={`ml-2 text-sm ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-            {project.manager.name}
+            {project.manager?.name || 'No Manager'}
           </span>
         </div>
       </div>
@@ -161,9 +148,9 @@ export function ProjectCard({ project, onView, onEdit }: ProjectCardProps) {
           </span>
         </div>
         <div className={`flex space-x-4 text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          <span><span className="metric-value">{project.tasks.filter(t => t.status === 'todo').length}</span> To Do</span>
-          <span><span className="metric-value">{project.tasks.filter(t => t.status === 'in-progress').length}</span> In Progress</span>
-          <span><span className="metric-value">{project.tasks.filter(t => t.status === 'completed').length}</span> Completed</span>
+          <span><span className="metric-value">{project.tasks?.filter(t => t.status === 'todo').length || 0}</span> To Do</span>
+          <span><span className="metric-value">{project.tasks?.filter(t => t.status === 'in-progress').length || 0}</span> In Progress</span>
+          <span><span className="metric-value">{project.tasks?.filter(t => t.status === 'completed').length || 0}</span> Completed</span>
         </div>
       </div>
 

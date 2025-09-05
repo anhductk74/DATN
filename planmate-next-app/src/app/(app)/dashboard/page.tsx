@@ -1,114 +1,84 @@
 'use client';
 
 import React from 'react';
-import { Card, Row, Col, Progress, Avatar, Tag, Typography } from 'antd';
+import { Card, Row, Col, Progress, Avatar, Tag, Typography, Spin } from 'antd';
 import {
   ProjectOutlined,
   CheckCircleOutlined,
   TeamOutlined,
   TrophyOutlined,
-  AlertOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import { useTheme } from '@/components/ThemeProvider';
+import { useProjects } from '@/components/ProjectProvider';
 
 const { Title, Text } = Typography;
 
 export default function DashboardPage() {
   const { isDark } = useTheme();
+  const { projects, loading, getProjectStats } = useProjects();
+  
+  const stats = getProjectStats();
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   const projectStats = [
     {
-      title: 'Active Projects',
-      value: 12,
-      total: 18,
+      title: 'Total Projects',
+      value: stats.total,
       icon: <ProjectOutlined className="text-blue-500" />,
-      suffix: '/ 18',
+      color: 'blue',
+    },
+    {
+      title: 'Active Projects',
+      value: stats.active,
+      icon: <CheckCircleOutlined className="text-green-500" />,
+      color: 'green',
     },
     {
       title: 'Completed Projects',
-      value: 6,
-      percentage: 75,
-      icon: <CheckCircleOutlined className="text-green-500" />,
+      value: stats.completed,
+      percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
+      icon: <TrophyOutlined className="text-yellow-500" />,
+      color: 'yellow',
       suffix: '%',
     },
     {
-      title: 'Overdue Tasks',
-      value: 3,
-      icon: <AlertOutlined className="text-red-500" />,
-    },
-    {
-      title: 'Team Members',
-      value: 24,
-      icon: <TeamOutlined className="text-purple-500" />,
+      title: 'Total Budget',
+      value: `$${(stats.totalBudget / 1000).toFixed(0)}k`,
+      icon: <DollarOutlined className="text-purple-500" />,
+      color: 'purple',
     },
   ];
 
-  const recentProjects = [
-    {
-      id: 1,
-      name: 'Website Redesign',
-      progress: 85,
-      status: 'In Progress',
-      team: ['John', 'Sarah', 'Mike'],
-      dueDate: '2025-09-15',
-    },
-    {
-      id: 2,
-      name: 'Mobile App Development',
-      progress: 60,
-      status: 'In Progress',
-      team: ['Alice', 'Bob', 'Carol'],
-      dueDate: '2025-10-01',
-    },
-    {
-      id: 3,
-      name: 'Marketing Campaign',
-      progress: 40,
-      status: 'Planning',
-      team: ['David', 'Emma'],
-      dueDate: '2025-09-30',
-    },
-  ];
+  // Get recent projects (sorted by updatedAt)
+  const recentProjects = projects
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5);
 
-  const recentTasks = [
-    {
-      title: 'Review design mockups',
-      assignee: 'John Doe',
-      priority: 'High',
-      dueDate: 'Today',
-      status: 'In Progress',
-    },
-    {
-      title: 'Update project documentation',
-      assignee: 'Sarah Wilson',
-      priority: 'Medium',
-      dueDate: 'Tomorrow',
-      status: 'Todo',
-    },
-    {
-      title: 'Code review for feature X',
-      assignee: 'Mike Johnson',
-      priority: 'High',
-      dueDate: '2 days',
-      status: 'Review',
-    },
-  ];
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High': return 'red';
-      case 'Medium': return 'orange';
-      case 'Low': return 'green';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+      case 'in-progress': return 'blue';
+      case 'completed': return 'green';
+      case 'planning': return 'orange';
+      case 'on-hold': return 'red';
       default: return 'default';
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'In Progress': return 'blue';
-      case 'Review': return 'purple';
-      case 'Todo': return 'default';
-      case 'Completed': return 'green';
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': 
+      case 'urgent': return 'red';
+      case 'medium': return 'orange';
+      case 'low': return 'green';
       default: return 'default';
     }
   };
@@ -212,10 +182,16 @@ export default function DashboardPage() {
                           color={getStatusColor(project.status)}
                           className="px-3 py-1 rounded-full"
                         >
-                          {project.status}
+                          {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                        </Tag>
+                        <Tag 
+                          color={getPriorityColor(project.priority)}
+                          className="px-3 py-1 rounded-full"
+                        >
+                          {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
                         </Tag>
                         <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                          Due: {project.dueDate}
+                          Due: {project.endDate.toLocaleDateString()}
                         </Text>
                       </div>
                     </div>
@@ -235,14 +211,14 @@ export default function DashboardPage() {
                   
                   <div className="flex items-center justify-between">
                     <Avatar.Group size="default" max={{ count: 3 }}>
-                      {project.team.map((member, idx) => (
-                        <Avatar key={idx} className="bg-orange-500">
-                          {member[0]}
+                      {project.teamMembers && project.teamMembers.map((member) => (
+                        <Avatar key={member.id} src={member.avatar} className="bg-orange-500">
+                          {member.name[0]}
                         </Avatar>
                       ))}
                     </Avatar.Group>
                     <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {project.team.length} team members
+                      {project.teamMembers?.length || 0} team members
                     </Text>
                   </div>
                 </div>
@@ -251,29 +227,23 @@ export default function DashboardPage() {
           </Card>
         </Col>
 
-        {/* My Tasks */}
+        {/* Project Budget Overview */}
         <Col xs={24} lg={8}>
           <Card 
             title={
               <div className="flex items-center justify-between">
                 <span className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  My Tasks
+                  Budget Overview
                 </span>
-                <a 
-                  href="/tasks" 
-                  className="text-orange-500 hover:text-orange-600 font-medium"
-                >
-                  View All →
-                </a>
               </div>
             }
             className={`h-full ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}
             styles={{ body: { padding: '24px' } }}
           >
             <div className="space-y-4">
-              {recentTasks.map((task, index) => (
+              {projects.slice(0, 4).map((project) => (
                 <div 
-                  key={index} 
+                  key={project.id} 
                   className={`p-4 rounded-lg border transition-all duration-200 hover:shadow-md ${
                     isDark ? 'bg-gray-750 border-gray-600 hover:bg-gray-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                   }`}
@@ -281,41 +251,48 @@ export default function DashboardPage() {
                   <div className="mb-3">
                     <Text 
                       className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}
-                      style={{ fontSize: '15px' }}
+                      style={{ fontSize: '14px' }}
                     >
-                      {task.title}
+                      {project.name}
                     </Text>
                   </div>
                   
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    <Tag 
-                      color={getPriorityColor(task.priority)}
-                      className="px-2 py-1 rounded"
-                    >
-                      {task.priority}
-                    </Tag>
-                    <Tag 
-                      color={getStatusColor(task.status)}
-                      className="px-2 py-1 rounded"
-                    >
-                      {task.status}
-                    </Tag>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {task.assignee}
-                    </Text>
-                    <Text 
-                      className={`text-xs font-medium ${
-                        task.dueDate === 'Today' ? 'text-red-500' : isDark ? 'text-gray-400' : 'text-gray-600'
-                      }`}
-                    >
-                      {task.dueDate}
-                    </Text>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Budget: ${project.budget?.toLocaleString() || 0}
+                      </Text>
+                      <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Spent: ${project.spent?.toLocaleString() || 0}
+                      </Text>
+                    </div>
+                    
+                    <Progress 
+                      percent={project.budget ? Math.round((project.spent || 0) / project.budget * 100) : 0}
+                      size="small"
+                      strokeColor={
+                        project.budget && project.spent && (project.spent / project.budget) > 0.8 
+                          ? '#ff4d4f' 
+                          : '#f97316'
+                      }
+                      showInfo={false}
+                    />
                   </div>
                 </div>
               ))}
+              
+              <div className={`p-4 rounded-lg border ${
+                isDark ? 'bg-blue-900 border-blue-700' : 'bg-blue-50 border-blue-200'
+              }`}>
+                <div className="text-center">
+                  <Text className={`text-lg font-bold currency-value ${isDark ? 'text-white' : 'text-blue-900'}`}>
+                    ${stats.totalBudget.toLocaleString()}
+                  </Text>
+                  <div className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
+                    Total Budget Allocated
+                  </div>
+                </div>
+              </div>
             </div>
           </Card>
         </Col>

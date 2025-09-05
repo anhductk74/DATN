@@ -64,7 +64,7 @@ export default function RoleTestPage() {
   ];
 
   const permissionData = allResources.map(resource => {
-    const row: any = { resource, key: resource };
+    const row: Record<string, boolean | string> = { resource, key: resource };
     allActions.forEach(action => {
       row[action] = hasPermission(resource, action);
     });

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Menu, Button } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
   ProjectOutlined,
@@ -189,21 +190,26 @@ export function Sidebar({ collapsed }: SidebarProps) {
   const menuItems = getAllMenuItems();
 
   // Convert MenuItem to Ant Design menu format
-  const convertToAntMenuItem = (item: MenuItem): any => {
-    const antItem: any = {
+  const convertToAntMenuItem = (item: MenuItem): NonNullable<MenuProps['items']>[number] => {
+    const baseItem = {
       key: item.key,
       icon: item.icon,
       label: item.label,
     };
-    
+
     if (item.children && item.children.length > 0) {
-      antItem.children = item.children.map(convertToAntMenuItem);
+      return {
+        ...baseItem,
+        children: item.children.map(convertToAntMenuItem),
+      };
     }
-    
-    return antItem;
+
+    return baseItem;
   };
 
-  const antMenuItems = menuItems.map(item => item ? convertToAntMenuItem(item) : null).filter(Boolean);
+  const antMenuItems = menuItems
+    .filter((item): item is MenuItem => Boolean(item))
+    .map(convertToAntMenuItem);
 
   const handleMenuClick = ({ key }: { key: string }) => {
     if (key.startsWith('/')) {

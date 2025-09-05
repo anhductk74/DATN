@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthState, LoginCredentials, UserRole, ROLE_PERMISSIONS } from '@/types/auth';
+import { AuthState, LoginCredentials, UserRole, ROLE_PERMISSIONS } from '@/types/auth';
 import { mockLogin } from '@/lib/mockAuth';
 
 interface AuthContextType extends AuthState {
@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const user = JSON.parse(storedUser);
         setAuthState(prev => ({ ...prev, user }));
-      } catch (error) {
+      } catch {
         localStorage.removeItem('planmate_user');
       }
     }

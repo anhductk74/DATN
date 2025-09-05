@@ -22,7 +22,7 @@ export const LoginForm: React.FC = () => {
   const handleLogin = async (values: LoginFormData) => {
     try {
       await login(values);
-    } catch (err) {
+    } catch {
       // Error is already handled in the auth context
     }
   };

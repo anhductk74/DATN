@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from '../components/ThemeProvider';
 import { AntProvider } from '../components/providers/AntProvider';
 import { AuthProvider } from '../components/AuthProvider';
+import { ProjectProvider } from '../components/ProjectProvider';
 
 export const metadata: Metadata = {
   title: "PlanMate - Enterprise Task Management",
@@ -19,9 +20,11 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider>
           <AuthProvider>
-            <AntProvider>
-              {children}
-            </AntProvider>
+            <ProjectProvider>
+              <AntProvider>
+                {children}
+              </AntProvider>
+            </ProjectProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

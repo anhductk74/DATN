@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Input, Select, Card, Statistic, Row, Col } from 'antd';
+import { Button, Input, Select, Card, Statistic, Row, Col, Spin } from 'antd';
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { TaskBoard } from '@/components/project/TaskBoard';
-import { mockProjects, mockTasks } from '@/lib/mockData';
+import { mockTasks } from '@/lib/mockData';
 import { Project, Task } from '@/types';
 import { 
   PlusOutlined, 
@@ -13,13 +13,24 @@ import {
   UnorderedListOutlined 
 } from '@ant-design/icons';
 import { useTheme } from '@/components/ThemeProvider';
+import { useProjects } from '@/components/ProjectProvider';
 
 export default function ProjectsPage() {
   const { isDark } = useTheme();
+  const { projects, loading, getProjectStats } = useProjects();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'board'>('grid');
-  const [projects] = useState<Project[]>(mockProjects);
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
+
+  const stats = getProjectStats();
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   const handleProjectView = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
@@ -124,7 +135,7 @@ export default function ProjectsPage() {
             <Card>
               <Statistic
                 title="Members"
-                value={selectedProject.members.length}
+                value={selectedProject.teamMembers?.length || selectedProject.members?.length || 0}
                 valueStyle={{ 
                   color: '#722ed1',
                   fontFamily: 'JetBrains Mono, monospace'
@@ -148,6 +159,58 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Project Statistics */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Total Projects"
+              value={stats.total}
+              valueStyle={{ 
+                color: '#1890ff',
+                fontFamily: 'JetBrains Mono, monospace'
+              }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Active Projects"
+              value={stats.active}
+              valueStyle={{ 
+                color: '#52c41a',
+                fontFamily: 'JetBrains Mono, monospace'
+              }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Completed"
+              value={stats.completed}
+              valueStyle={{ 
+                color: '#faad14',
+                fontFamily: 'JetBrains Mono, monospace'
+              }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Total Budget"
+              value={`$${(stats.totalBudget / 1000).toFixed(0)}k`}
+              valueStyle={{ 
+                color: '#722ed1',
+                fontFamily: 'JetBrains Mono, monospace'
+              }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -223,18 +286,7 @@ export default function ProjectsPage() {
         {projects.map((project) => (
           <ProjectCard
             key={project.id}
-            project={{
-              ...project,
-              endDate: project.endDate,
-              status: project.status === 'planning' ? 'todo' : 
-                     project.status === 'on-hold' ? 'todo' : 
-                     project.status as 'todo' | 'in-progress' | 'completed',
-              tasks: (project.tasks || []).map(task => ({
-                id: task.id,
-                status: task.status === 'review' ? 'in-progress' : 
-                       task.status as 'todo' | 'in-progress' | 'completed'
-              }))
-            }}
+            project={project}
             onView={handleProjectView}
             onEdit={(id) => console.log('Edit project', id)}
           />

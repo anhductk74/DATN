@@ -6,12 +6,22 @@ import {
   UserAddOutlined, 
   EditOutlined, 
   DeleteOutlined, 
-  EyeOutlined,
-  MoreOutlined
+  EyeOutlined
 } from '@ant-design/icons';
 import { useAuth } from '@/components/AuthProvider';
 import { mockUsers } from '@/lib/mockAuth';
 import { UserRole } from '@/types/auth';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  department: string;
+  joinedAt: Date;
+  isActive: boolean;
+  avatar: string;
+}
 
 const { Option } = Select;
 
@@ -19,7 +29,7 @@ export default function UserManagementPage() {
   const { user, hasPermission, getRoleDisplayName } = useAuth();
   const [users, setUsers] = useState(mockUsers);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form] = Form.useForm();
 
   const getRoleColor = (role: UserRole) => {
@@ -36,7 +46,7 @@ export default function UserManagementPage() {
     {
       title: 'User',
       key: 'user',
-      render: (record: any) => (
+      render: (record: User) => (
         <Space>
           <Avatar src={record.avatar} size={40} />
           <div>
@@ -80,7 +90,7 @@ export default function UserManagementPage() {
     {
       title: 'Actions',
       key: 'actions',
-      render: (record: any) => (
+      render: (record: User) => (
         <Space>
           <Button icon={<EyeOutlined />} size="small" />
           {hasPermission('users', 'update') && (
@@ -103,7 +113,7 @@ export default function UserManagementPage() {
     },
   ];
 
-  const handleEdit = (userRecord: any) => {
+  const handleEdit = (userRecord: User) => {
     setEditingUser(userRecord);
     form.setFieldsValue(userRecord);
     setModalVisible(true);
@@ -120,18 +130,22 @@ export default function UserManagementPage() {
     });
   };
 
-  const handleSubmit = (values: any) => {
+  const handleSubmit = (values: Record<string, string | UserRole | boolean>) => {
     if (editingUser) {
       // Update existing user
-      setUsers(users.map(u => u.id === (editingUser as any).id ? { ...u, ...values } : u));
+      setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...values } : u));
       message.success('User updated successfully');
     } else {
       // Create new user
-      const newUser = {
-        ...values,
+      const newUser: User = {
         id: Date.now().toString(),
         joinedAt: new Date(),
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${values.name}`,
+        name: values.name as string,
+        email: values.email as string,
+        role: values.role as UserRole,
+        department: values.department as string,
+        isActive: values.isActive as boolean,
       };
       setUsers([...users, newUser]);
       message.success('User created successfully');
@@ -152,7 +166,7 @@ export default function UserManagementPage() {
     return (
       <div className="text-center py-8">
         <h2 className="text-xl font-semibold text-red-600">Access Denied</h2>
-        <p>You don't have permission to view user management.</p>
+        <p>You don&apos;t have permission to view user management.</p>
       </div>
     );
   }

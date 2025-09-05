@@ -1,3 +1,6 @@
+export type ProjectStatus = 'planning' | 'active' | 'in-progress' | 'completed' | 'on-hold';
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
 export interface User {
   id: string;
   name: string;
@@ -7,20 +10,30 @@ export interface User {
   department?: string;
 }
 
+export interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  avatar?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   description: string;
-  status: 'planning' | 'in-progress' | 'completed' | 'on-hold';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: ProjectStatus;
+  priority: Priority;
   startDate: Date;
   endDate: Date;
   progress: number;
-  manager: User;
-  members: User[];
-  tasks: Task[];
+  manager?: User;
+  members?: User[];
+  teamMembers?: TeamMember[];
+  tasks?: Task[];
   budget?: number;
-  department: string;
+  spent?: number;
+  department?: string;
+  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,18 +43,18 @@ export interface Task {
   title: string;
   description: string;
   status: 'todo' | 'in-progress' | 'review' | 'completed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  priority: Priority;
   assignee?: User;
-  reporter: User;
+  reporter?: User;
   projectId: string;
   startDate?: Date;
   dueDate?: Date;
   estimatedHours?: number;
   actualHours?: number;
   dependencies?: string[];
-  tags: string[];
-  comments: Comment[];
-  attachments: Attachment[];
+  tags?: string[];
+  comments?: Comment[];
+  attachments?: Attachment[];
   createdAt: Date;
   updatedAt: Date;
 }

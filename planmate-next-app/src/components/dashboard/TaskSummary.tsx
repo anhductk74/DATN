@@ -92,7 +92,7 @@ export function TaskSummary({ tasks }: TaskSummaryProps) {
                   <div className="flex items-center space-x-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-center">
                       <UserIcon className="w-3 h-3 mr-1" />
-                      {task.reporter.name}
+                      {task.reporter?.name || 'Unassigned'}
                     </div>
                     {task.dueDate && (
                       <div className="flex items-center">

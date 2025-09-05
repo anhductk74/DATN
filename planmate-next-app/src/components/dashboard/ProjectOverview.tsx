@@ -75,7 +75,7 @@ export function ProjectOverview({ projects }: ProjectOverviewProps) {
                   <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
                     <div className="flex items-center">
                       <UsersIcon className="w-4 h-4 mr-1" />
-                      {project.members.length} thành viên
+                      {project.members?.length || 0} thành viên
                     </div>
                     <div className="flex items-center">
                       <CalendarIcon className="w-4 h-4 mr-1" />
