@@ -206,7 +206,7 @@ export default function DashboardPage() {
                     percent={project.progress} 
                     strokeColor="#f97316"
                     className="mb-4"
-                    strokeWidth={8}
+                    style={{ width: '100%', height: 8 }}
                   />
                   
                   <div className="flex items-center justify-between">

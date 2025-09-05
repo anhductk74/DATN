@@ -122,13 +122,21 @@ export function Header({ collapsed, setCollapsed }: HeaderProps) {
 
       {/* Right Section */}
       <div className="flex items-center space-x-4">
-        {/* Dark Mode Toggle */}
+        {/* Dark Mode Toggle với smooth animation */}
         <Button
           type="text"
           icon={isDark ? <SunOutlined /> : <MoonOutlined />}
           onClick={toggleTheme}
-          className="flex items-center justify-center"
-          style={{ color: isDark ? '#fbbf24' : '#6b7280' }}
+          className={`flex items-center justify-center transition-all duration-300 hover:scale-110 ${
+            isDark 
+              ? 'hover:bg-yellow-500/10 text-yellow-400' 
+              : 'hover:bg-gray-500/10 text-gray-600'
+          }`}
+          style={{ 
+            color: isDark ? '#fbbf24' : '#6b7280',
+            transform: 'rotate(0deg)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
         />
 
         {/* Notifications */}

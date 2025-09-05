@@ -13,15 +13,19 @@ export function AntProvider({ children }: AntProviderProps) {
   const { isDark } = useTheme();
   const [forceUpdate, setForceUpdate] = useState(0);
 
-  // Force re-render khi theme thay đổi
+  // Force re-render khi theme thay đổi với smooth timing
   useEffect(() => {
-    setForceUpdate(prev => prev + 1);
+    const timer = setTimeout(() => {
+      setForceUpdate(prev => prev + 1);
+    }, 50); // Smaller delay for quicker response
+    
+    return () => clearTimeout(timer);
   }, [isDark]);
 
   return (
     <AntdRegistry>
       <ConfigProvider
-        key={forceUpdate} // Force re-render khi theme thay đổi
+        key={`ant-theme-${isDark ? 'dark' : 'light'}-${forceUpdate}`} // Better key cho force update
         theme={{
           algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
           token: {
@@ -31,6 +35,12 @@ export function AntProvider({ children }: AntProviderProps) {
             colorError: '#ef4444',
             borderRadius: 8,
             fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            // Smooth motion tokens
+            motionDurationSlow: '0.4s',
+            motionDurationMid: '0.3s',
+            motionDurationFast: '0.2s',
+            motionEaseInOut: 'cubic-bezier(0.4, 0, 0.2, 1)',
+            motionEaseOut: 'cubic-bezier(0, 0, 0.2, 1)',
           },
           components: {
             Layout: {

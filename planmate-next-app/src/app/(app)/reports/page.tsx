@@ -124,62 +124,61 @@ const DraggableCard = ({
 export default function ReportsPage() {
   const { isDark } = useTheme();
   const [forceUpdate, setForceUpdate] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Force re-render khi theme thay đổi với sync timing
+  // Smooth re-render khi theme thay đổi
   useEffect(() => {
-    setIsTransitioning(true);
-    
-    // Force immediate update
+    // Immediate update cho responsive feel
     setForceUpdate(prev => prev + 1);
-    
-    // Wait cho DOM update và reset transition state
-    const timer = setTimeout(() => {
-      setIsTransitioning(false);
-    }, 150);
-    
-    return () => clearTimeout(timer);
   }, [isDark]);
 
-  // CSS override cho Ant Design dark mode với better targeting
+  // Enhanced CSS override cho smooth dark mode transitions
   const overrideStyles = isDark ? `
     body .ant-card {
       background: #1f2937 !important;
       border: 1px solid #374151 !important;
-      transition: all 0.3s ease !important;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-card-head {
       background: #1f2937 !important;
       border-bottom: 1px solid #374151 !important;
       color: #f9fafb !important;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-card-head-title {
       color: #f9fafb !important;
+      transition: color 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-card-body {
       background: #1f2937 !important;
       color: #f3f4f6 !important;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-typography {
       color: #f3f4f6 !important;
+      transition: color 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-typography-title {
       color: #f9fafb !important;
+      transition: color 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-tag {
       border-color: transparent !important;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     body .ant-progress-bg, body .ant-progress-inner {
       background: #374151 !important;
-    }
-    /* Force immediate dark theme for all components */
-    body.dark * {
-      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+      transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
   ` : `
-    /* Light mode transition support */
-    body * {
-      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+    /* Smooth light mode transitions */
+    body .ant-card,
+    body .ant-card-head,
+    body .ant-card-body,
+    body .ant-typography,
+    body .ant-tag,
+    body .ant-progress-bg,
+    body .ant-progress-inner {
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
   `;
 
@@ -283,7 +282,7 @@ export default function ReportsPage() {
                       percent={(item.count / totalProjects) * 100}
                       showInfo={false}
                       size="small"
-                      strokeWidth={6}
+                      style={{ width: '100%', height: 6 }}
                       strokeColor={
                         {
                           green: "#52c41a",
@@ -369,7 +368,7 @@ export default function ReportsPage() {
                     <Progress
                       percent={member.completionRate}
                       size="small"
-                      strokeWidth={4}
+                      style={{ width: '100%', height: 4 }}
                     />
                   </div>
                 </div>
@@ -471,7 +470,7 @@ export default function ReportsPage() {
                   <Progress
                     percent={project.progress}
                     size="small"
-                    strokeWidth={6}
+                    style={{ width: '100%', height: 6 }}
                   />
                 </div>
               </div>
@@ -631,9 +630,12 @@ export default function ReportsPage() {
         dangerouslySetInnerHTML={{ __html: overrideStyles }} 
       />
       <div
-        className={`min-h-screen p-6 space-y-8 transition-all duration-300 ${
+        className={`min-h-screen p-6 space-y-8 ${
           isDark ? "bg-gray-900 dark" : "bg-gray-50"
         }`}
+        style={{
+          transition: 'background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
       >
         {/* Page Header */}
         <div
