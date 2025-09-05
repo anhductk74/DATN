@@ -31,7 +31,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               : 'bg-gray-50 text-gray-900'
           }`}
           style={{
-            minHeight: 'calc(100vh - 64px)',
+            minHeight: '100vh',
           }}
         >
           {children}
