@@ -22,16 +22,16 @@ import { useAuth } from './AuthProvider';
 import { UserRole } from '@/types/auth';
 import { SidebarUserInfo } from './SidebarUserInfo';
 
-interface SidebarProps {
-  collapsed: boolean;
-}
-
 interface MenuItem {
   key: string;
   icon?: React.ReactNode;
   label: string;
   show: boolean;
   children?: MenuItem[];
+}
+
+interface SidebarProps {
+  collapsed: boolean;
 }
 
 export function Sidebar({ collapsed }: SidebarProps) {
@@ -122,6 +122,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
       ],
     },
   ];
+
 
   // Additional items for all roles
   const commonMenuItems: MenuItem[] = [
@@ -223,7 +224,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
       style={{
         position: 'fixed',
         left: 0,
-        top: '64px',
+        top: 0,
         bottom: 0,
         width: collapsed ? 80 : 240,
         zIndex: 1000,
@@ -231,9 +232,25 @@ export function Sidebar({ collapsed }: SidebarProps) {
         transition: 'width 0.2s',
         display: 'flex',
         flexDirection: 'column',
+        height: '100vh',
       }}
     >
-      {/* Create Button - Fixed at top */}
+      {/* Logo at top - aligned with header height */}
+      <div 
+        className="flex items-center justify-center border-b border-gray-200 dark:border-gray-700"
+        style={{ height: '64px' }}
+      >
+        <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-xl">P</span>
+        </div>
+        {!collapsed && (
+          <span className={`ml-3 text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            PlanMate
+          </span>
+        )}
+      </div>
+
+      {/* Create Button - Fixed below logo */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <Button
           type="primary"
@@ -249,7 +266,6 @@ export function Sidebar({ collapsed }: SidebarProps) {
       <div
         className="flex-1"
         style={{
-          height: 'calc(100% - 80px)',
           overflowY: 'auto',
           overflowX: 'hidden',
         }}

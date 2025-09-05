@@ -86,14 +86,20 @@ export function Header({ collapsed, setCollapsed }: HeaderProps) {
 
   return (
     <AntHeader 
-      className={`fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-2 shadow-sm border-b ${
+      className={`fixed top-0 z-10 flex items-center justify-between px-2 shadow-sm border-b ${
         isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
       }`}
-      style={{ height: '64px', lineHeight: '64px' }}
+      style={{ 
+        height: '64px', 
+        lineHeight: '64px',
+        left: collapsed ? '80px' : '240px',
+        right: 0,
+        width: `calc(100% - ${collapsed ? '80px' : '240px'})`,
+        transition: 'all 0.2s'
+      }}
     >
-      {/* Left Section - Logo and Collapse Button */}
-      <div className="flex items-center space-x-2">
-        {/* Collapse Button */}
+      {/* Collapse Button only */}
+      <div className="flex items-center">
         <Button
           type="text"
           icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
@@ -101,13 +107,6 @@ export function Header({ collapsed, setCollapsed }: HeaderProps) {
           className="flex items-center justify-center"
           style={{ color: isDark ? '#ffffff' : '#374151', marginLeft: '4px' }}
         />
-        
-        <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-lg">P</span>
-        </div>
-        <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          PlanMate
-        </span>
       </div>
 
       {/* Center Section - Search Bar */}
