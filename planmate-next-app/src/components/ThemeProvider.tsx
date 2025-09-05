@@ -26,11 +26,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem('theme', theme);
+    // Add transition to html element for smooth switching
+    document.documentElement.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+    
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    // Remove transition after effect to avoid interfering with other animations
+    setTimeout(() => {
+      document.documentElement.style.transition = '';
+    }, 300);
   }, [theme]);
 
   const toggleTheme = () => {

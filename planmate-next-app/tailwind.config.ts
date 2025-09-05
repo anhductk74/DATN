@@ -6,7 +6,7 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'class',
+  darkMode: 'class', // dùng class="dark" để switch dark mode
   theme: {
     extend: {
       colors: {
@@ -24,6 +24,10 @@ const config: Config = {
           800: '#9a3412',
           900: '#7c2d12',
         },
+      },
+      fontFamily: {
+        sans: ['Inter', 'var(--font-geist-sans)', 'sans-serif'],
+        mono: ['JetBrains Mono', 'var(--font-geist-mono)', 'monospace'],
       },
     },
   },
