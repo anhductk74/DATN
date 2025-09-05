@@ -26,14 +26,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem('theme', theme);
-    // Add transition to html element for smooth switching
-    document.documentElement.style.transition = 'background-color 0.3s ease, color 0.3s ease';
     
+    // Add transition to html element for smooth switching
+    document.documentElement.style.transition = 'all 0.3s ease';
+    
+    // Force immediate class update
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
     }
+    
+    // Force a repaint để ensure DOM updates
+    void document.documentElement.offsetHeight;
     
     // Remove transition after effect to avoid interfering with other animations
     setTimeout(() => {

@@ -124,47 +124,64 @@ const DraggableCard = ({
 export default function ReportsPage() {
   const { isDark } = useTheme();
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Force re-render khi theme thay đổi với delay
+  // Force re-render khi theme thay đổi với sync timing
   useEffect(() => {
+    setIsTransitioning(true);
+    
+    // Force immediate update
+    setForceUpdate(prev => prev + 1);
+    
+    // Wait cho DOM update và reset transition state
     const timer = setTimeout(() => {
-      setForceUpdate(prev => prev + 1);
-    }, 100); // Delay 100ms để đảm bảo DOM đã update
+      setIsTransitioning(false);
+    }, 150);
     
     return () => clearTimeout(timer);
   }, [isDark]);
 
-  // CSS override cho Ant Design dark mode - chỉ khi dark mode
+  // CSS override cho Ant Design dark mode với better targeting
   const overrideStyles = isDark ? `
-    .ant-card {
+    body .ant-card {
       background: #1f2937 !important;
       border: 1px solid #374151 !important;
+      transition: all 0.3s ease !important;
     }
-    .ant-card-head {
+    body .ant-card-head {
       background: #1f2937 !important;
       border-bottom: 1px solid #374151 !important;
       color: #f9fafb !important;
     }
-    .ant-card-head-title {
+    body .ant-card-head-title {
       color: #f9fafb !important;
     }
-    .ant-card-body {
+    body .ant-card-body {
       background: #1f2937 !important;
       color: #f3f4f6 !important;
     }
-    .ant-typography {
+    body .ant-typography {
       color: #f3f4f6 !important;
     }
-    .ant-typography-title {
+    body .ant-typography-title {
       color: #f9fafb !important;
     }
-    .ant-tag {
+    body .ant-tag {
       border-color: transparent !important;
     }
-    .ant-progress-bg, .ant-progress-inner {
+    body .ant-progress-bg, body .ant-progress-inner {
       background: #374151 !important;
     }
-  ` : '';
+    /* Force immediate dark theme for all components */
+    body.dark * {
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+    }
+  ` : `
+    /* Light mode transition support */
+    body * {
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+    }
+  `;
 
   const totalProjects = mockProjects.length;
   const completedProjects = mockProjects.filter(
@@ -608,7 +625,11 @@ export default function ReportsPage() {
 
   return (
     <>
-      {isDark && <style key={forceUpdate} dangerouslySetInnerHTML={{ __html: overrideStyles }} />}
+      {/* Inject CSS immediately với unique key cho mỗi theme change */}
+      <style 
+        key={`theme-${isDark ? 'dark' : 'light'}-${forceUpdate}`} 
+        dangerouslySetInnerHTML={{ __html: overrideStyles }} 
+      />
       <div
         className={`min-h-screen p-6 space-y-8 transition-all duration-300 ${
           isDark ? "bg-gray-900 dark" : "bg-gray-50"

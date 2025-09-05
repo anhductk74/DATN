@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { ConfigProvider, theme } from 'antd';
 import { useTheme } from '../ThemeProvider';
@@ -11,10 +11,17 @@ interface AntProviderProps {
 
 export function AntProvider({ children }: AntProviderProps) {
   const { isDark } = useTheme();
+  const [forceUpdate, setForceUpdate] = useState(0);
+
+  // Force re-render khi theme thay đổi
+  useEffect(() => {
+    setForceUpdate(prev => prev + 1);
+  }, [isDark]);
 
   return (
     <AntdRegistry>
       <ConfigProvider
+        key={forceUpdate} // Force re-render khi theme thay đổi
         theme={{
           algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
           token: {
