@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=JetBrains+Mono:wght@100;200;300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: 'Inter', var(--font-geist-sans);
+  --font-mono: 'JetBrains Mono', var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+}
+
+/* Custom classes for beautiful numbers and statistics */
+.stat-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.currency-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom styles for search inputs */
+.search-light .ant-input-search .ant-input {
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  padding: 12px 16px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.search-light .ant-input-search .ant-input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.search-light .ant-input-search .ant-input-search-button {
+  border-radius: 0 12px 12px 0;
+  border: 2px solid #f97316;
+  background: #f97316;
+  height: calc(100% - 2px);
+}
+
+.search-dark .ant-input-search .ant-input {
+  border-radius: 12px;
+  border: 2px solid #374151;
+  background: #1f2937;
+  color: #ffffff;
+  padding: 12px 16px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.search-dark .ant-input-search .ant-input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+.search-dark .ant-input-search .ant-input-search-button {
+  border-radius: 0 12px 12px 0;
+  border: 2px solid #f97316;
+  background: #f97316;
+  height: calc(100% - 2px);
+}

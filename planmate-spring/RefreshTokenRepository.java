@@ -1,0 +1,1 @@
+SELECT rt2.id as id FROM RefreshToken rt2 
