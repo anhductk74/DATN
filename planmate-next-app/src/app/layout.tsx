@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from '../components/ThemeProvider';
 import { AntProvider } from '../components/providers/AntProvider';
-import { AppLayout } from '../components/AppLayout';
+import { AuthProvider } from '../components/AuthProvider';
 
 export const metadata: Metadata = {
   title: "PlanMate - Enterprise Task Management",
@@ -18,11 +18,11 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <ThemeProvider>
-          <AntProvider>
-            <AppLayout>
+          <AuthProvider>
+            <AntProvider>
               {children}
-            </AppLayout>
-          </AntProvider>
+            </AntProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

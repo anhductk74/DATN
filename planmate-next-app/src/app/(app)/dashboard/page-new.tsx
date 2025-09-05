@@ -9,7 +9,7 @@ import {
   TrophyOutlined,
   AlertOutlined,
 } from '@ant-design/icons';
-import { useTheme } from '../../components/ThemeProvider';
+import { useTheme } from '@/components/ThemeProvider';
 
 const { Title, Text } = Typography;
 

@@ -19,20 +19,20 @@ export default function Home() {
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
               <span className="text-blue-600">PlanMate</span>
               <br />
-              Quản lý công việc thông minh
+              Smart Work Management
             </h1>
             <p className="mt-6 text-lg leading-8 text-gray-600">
-              Hệ thống quản lý dự án và công việc hiện đại, giúp doanh nghiệp tối ưu hóa quy trình làm việc,
-              theo dõi tiến độ và nâng cao hiệu suất làm việc nhóm.
+              Modern project and task management system that helps businesses optimize workflows,
+              track progress, and enhance team productivity.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Link href="/dashboard">
                 <Button size="lg" className="px-8 py-4 text-lg">
-                  Bắt đầu ngay
+                  Get Started
                 </Button>
               </Link>
               <Link href="/projects" className="text-sm font-semibold leading-6 text-gray-900">
-                Xem dự án <span aria-hidden="true">→</span>
+                View Projects <span aria-hidden="true">→</span>
               </Link>
             </div>
           </div>
@@ -44,10 +44,10 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              Tính năng nổi bật
+              Key Features
             </h2>
             <p className="mt-6 text-lg leading-8 text-gray-600">
-              Tất cả những gì bạn cần để quản lý dự án hiệu quả trong một nền tảng duy nhất
+              Everything you need to manage projects effectively in one unified platform
             </p>
           </div>
           <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
@@ -57,12 +57,12 @@ export default function Home() {
                   <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
                     <FolderIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </div>
-                  Quản lý dự án
+                  Project Management
                 </dt>
                 <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-600">
                   <p className="flex-auto">
-                    Tạo, theo dõi và quản lý dự án một cách có hệ thống. Phân chia công việc, 
-                    giao nhiệm vụ và theo dõi tiến độ realtime.
+                    Create, track and manage projects systematically. Divide tasks, 
+                    assign responsibilities and monitor progress in real-time.
                   </p>
                 </dd>
               </div>
@@ -71,12 +71,12 @@ export default function Home() {
                   <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
                     <CalendarIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </div>
-                  Lịch làm việc
+                  Work Calendar
                 </dt>
                 <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-600">
                   <p className="flex-auto">
-                    Quản lý lịch trình, deadline và các sự kiện quan trọng. 
-                    Tích hợp thông báo để không bỏ lỡ công việc nào.
+                    Manage schedules, deadlines and important events. 
+                    Integrated notifications so you never miss any tasks.
                   </p>
                 </dd>
               </div>
@@ -85,12 +85,12 @@ export default function Home() {
                   <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
                     <ChartBarIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </div>
-                  Báo cáo & Phân tích
+                  Reports & Analytics
                 </dt>
                 <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-600">
                   <p className="flex-auto">
-                    Xem báo cáo chi tiết về hiệu suất làm việc, tiến độ dự án 
-                    và các chỉ số KPI quan trọng.
+                    View detailed reports on work performance, project progress 
+                    and important KPI metrics.
                   </p>
                 </dd>
               </div>
@@ -99,12 +99,12 @@ export default function Home() {
                   <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
                     <UsersIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </div>
-                  Quản lý nhóm
+                  Team Management
                 </dt>
                 <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-600">
                   <p className="flex-auto">
-                    Tổ chức nhóm làm việc, phân quyền truy cập và theo dõi 
-                    hoạt động của từng thành viên.
+                    Organize work teams, manage access permissions and track 
+                    activities of each member.
                   </p>
                 </dd>
               </div>
@@ -113,12 +113,12 @@ export default function Home() {
                   <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
                     <ClockIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </div>
-                  Timeline dự án
+                  Project Timeline
                 </dt>
                 <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-600">
                   <p className="flex-auto">
-                    Visualize tiến độ dự án với timeline trực quan, 
-                    theo dõi mốc thời gian và dependencies.
+                    Visualize project progress with intuitive timeline, 
+                    track milestones and dependencies.
                   </p>
                 </dd>
               </div>
@@ -131,8 +131,8 @@ export default function Home() {
                 </dt>
                 <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-600">
                   <p className="flex-auto">
-                    Quản lý nhiệm vụ với kanban board, drag & drop, 
-                    priority management và workflow tự động.
+                    Manage tasks with kanban board, drag & drop, 
+                    priority management and automated workflows.
                   </p>
                 </dd>
               </div>
@@ -146,15 +146,15 @@ export default function Home() {
         <div className="px-6 py-24 sm:px-6 sm:py-32 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Sẵn sàng nâng cao hiệu suất làm việc?
+              Ready to boost your productivity?
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-blue-100">
-              Hãy trải nghiệm PlanMate ngay hôm nay và khám phá cách quản lý dự án hiệu quả.
+              Try PlanMate today and discover how to manage projects effectively.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Link href="/dashboard">
                 <Button variant="secondary" size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
-                  Khám phá Dashboard
+                  Explore Dashboard
                 </Button>
               </Link>
             </div>

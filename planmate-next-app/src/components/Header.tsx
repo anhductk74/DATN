@@ -1,5 +1,7 @@
+'use client';
+
 import React from 'react';
-import { Layout, Input, Button, Dropdown, Avatar, Badge } from 'antd';
+import { Layout, Input, Button, Dropdown, Avatar, Badge, Tag } from 'antd';
 import {
   SearchOutlined,
   BellOutlined,
@@ -13,6 +15,8 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useTheme } from './ThemeProvider';
+import { useAuth } from './AuthProvider';
+import { UserRole } from '@/types/auth';
 
 const { Header: AntHeader } = Layout;
 
@@ -23,6 +27,17 @@ interface HeaderProps {
 
 export function Header({ collapsed, setCollapsed }: HeaderProps) {
   const { isDark, toggleTheme } = useTheme();
+  const { user, logout, getRoleDisplayName } = useAuth();
+
+  const getRoleColor = (role: UserRole) => {
+    const colors = {
+      [UserRole.ADMIN]: '#ff4d4f',
+      [UserRole.PROJECT_MANAGER]: '#1890ff',
+      [UserRole.TEAM_LEAD]: '#52c41a',
+      [UserRole.TEAM_MEMBER]: '#faad14'
+    };
+    return colors[role];
+  };
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -43,6 +58,7 @@ export function Header({ collapsed, setCollapsed }: HeaderProps) {
       icon: <LogoutOutlined />,
       label: 'Logout',
       danger: true,
+      onClick: logout
     },
   ];
 
@@ -141,11 +157,21 @@ export function Header({ collapsed, setCollapsed }: HeaderProps) {
           <div className="flex items-center space-x-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg px-2 py-1">
             <Avatar 
               size="default" 
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face" 
+              src={user?.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face"} 
             />
-            <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-700'}`}>
-              John Doe
-            </span>
+            <div className="flex flex-col">
+              <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-700'}`}>
+                {user?.name || 'Guest User'}
+              </span>
+              {user?.role && (
+                <Tag 
+                  color={getRoleColor(user.role)}
+                  className="text-xs"
+                >
+                  {getRoleDisplayName(user.role)}
+                </Tag>
+              )}
+            </div>
           </div>
         </Dropdown>
       </div>
