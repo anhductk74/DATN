@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import UserProfile from "@/components/UserProfile";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -304,15 +303,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* User Profile Section for Testing */}
-      {session && (
-        <section className="py-8 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <UserProfile />
-          </div>
-        </section>
-      )}
 
       <Footer />
     </div>

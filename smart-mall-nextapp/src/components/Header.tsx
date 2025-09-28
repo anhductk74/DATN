@@ -142,7 +142,7 @@ export default function Header() {
                   </div>
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-semibold text-gray-800 leading-tight">
-                      {currentUser.name || currentUser.email?.split('@')[0]}
+                      {currentUser.fullName || currentUser.name || currentUser.email?.split('@')[0]}
                     </span>
                     <span className="text-xs text-gray-500">
                       My Account
@@ -163,7 +163,7 @@ export default function Header() {
                           <UserOutlined className="text-white text-xl" />
                         </div>
                         <div>
-                          <p className="text-lg font-bold text-gray-900">{currentUser.name || currentUser.email?.split('@')[0]}</p>
+                          <p className="text-lg font-bold text-gray-900">{currentUser.fullName || currentUser.name || currentUser.email?.split('@')[0]}</p>
                           <p className="text-sm text-gray-600 truncate">{currentUser.email}</p>
                           <div className="flex items-center mt-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
@@ -288,7 +288,7 @@ export default function Header() {
                     <UserOutlined className="text-white" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{currentUser.name || currentUser.email?.split('@')[0]}</p>
+                    <p className="font-medium text-gray-900">{currentUser.fullName || currentUser.email?.split('@')[0]}đ</p>
                     <p className="text-sm text-gray-500">{currentUser.email}</p>
                   </div>
                 </div>
