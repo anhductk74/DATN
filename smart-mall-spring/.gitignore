@@ -46,6 +46,5 @@ out/
 *.log
 
 # Docker (chỉ ignore nếu bạn không muốn push)
-Dockerfile
 docker-compose.yml
 .dockerignore
