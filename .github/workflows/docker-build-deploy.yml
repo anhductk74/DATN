@@ -57,7 +57,7 @@ jobs:
 
       # Bước 4: Cấp quyền thực thi cho file gradlew (Gradle Wrapper)
       - name: Make gradlew executable
-        run: chmod +x ./gradlew
+        run: chmod +x ./smart-mall-spring/gradlew
 
       # Bước 5: Chạy unit tests (hiện tại đang bị comment)
       # Nên bỏ comment để đảm bảo code quality trước khi deploy
@@ -65,10 +65,19 @@ jobs:
       #   run: cd demo && ./gradlew test
       # Bước 6: Build ứng dụng Spring Boot thành file JAR
       - name: Build with Gradle
-        run: ./gradlew clean bootJar --no-daemon
+        run: cd ./smart-mall-spring && ./gradlew clean bootJar --no-daemon
         # clean: xóa thư mục build cũ
         # bootJar: tạo file JAR có thể chạy độc lập (executable JAR)
         # --no-daemon: không sử dụng Gradle daemon để tránh memory leak
+      - name: Create .env file from secrets
+        run: |
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> ./smart-mall-spring/.env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> ./smart-mall-spring/.env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> ./smart-mall-spring/.env
+          echo "JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION }}" >> ./smart-mall-spring/.env
+          echo "JWT_REFRESH_EXPIRATION=${{ secrets.JWT_REFRESH_EXPIRATION }}" >> ./smart-mall-spring/.env
+          echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" >> ./smart-mall-spring/.env
+          echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" >> ./smart-mall-spring/.env
 
       # Bước 7: Thiết lập Docker Buildx (công cụ build Docker nâng cao)
       - name: Set up Docker Buildx
@@ -103,9 +112,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           # Thư mục chứa Dockerfile và source code
-          context: ./
+          context: ./smart-mall-spring
           # Đường dẫn đến Dockerfile
-          file: ./Dockerfile
+          file: ./smart-mall-spring/Dockerfile
           # Có push image lên registry hay không
           push: true
           # Sử dụng tags được tạo ở bước trước
