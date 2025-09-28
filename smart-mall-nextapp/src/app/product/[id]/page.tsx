@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -18,6 +18,7 @@ import {
   ThunderboltOutlined,
   CrownOutlined
 } from "@ant-design/icons";
+import { useSession } from "next-auth/react";
 
 export default function ProductDetail() {
   const [userEmail, setUserEmail] = useState("");
@@ -30,10 +31,10 @@ export default function ProductDetail() {
   const [activeTab, setActiveTab] = useState("description");
   const router = useRouter();
   const params = useParams();
+  const {data: session} = useSession();
   
   useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn");
-    const email = localStorage.getItem("userEmail");
+    const loggedIn = session?.user?.email ? true : false; 
     
     if (!loggedIn) {
       router.push("/login");
@@ -41,8 +42,8 @@ export default function ProductDetail() {
     }
     
     setIsLoggedIn(true);
-    if (email) {
-      setUserEmail(email);
+    if (session?.user?.email) {
+      setUserEmail(session.user.email);
     }
   }, [router]);
 
@@ -100,7 +101,7 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      <Header isLoggedIn={isLoggedIn} userEmail={userEmail} />
+      <Header  />
       
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100">
