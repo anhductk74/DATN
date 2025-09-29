@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Products;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Categories.Category;
+import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Enum.Status;
 import jakarta.persistence.*;
@@ -24,8 +25,8 @@ public class Product extends BaseEntity {
     private Category category;
 
     @ManyToOne
-    @JoinColumn(name = "seller_id")
-    private User seller;
+    @JoinColumn(name = "shop_id")
+    private Shop shop;
 
     private String name;
     private String description;
