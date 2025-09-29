@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Orders;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Users.User;
+import com.example.smart_mall_spring.Entities.Users.UserAddress;
 import com.example.smart_mall_spring.Enum.PaymentMethod;
 import com.example.smart_mall_spring.Enum.StatusOrder;
 import jakarta.persistence.*;
@@ -27,7 +28,10 @@ public class Order extends BaseEntity {
     private StatusOrder status;
 
     private Double totalAmount;
-    private String shippingAddr;
+
+    @ManyToOne
+    @JoinColumn(name = "shipping_address_id", nullable = false)
+    private UserAddress shippingAddress;
 
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;

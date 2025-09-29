@@ -47,6 +47,9 @@ dependencies {
     
     // Actuator for health checks
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Cloudinary dependencies
+    implementation 'com.cloudinary:cloudinary-http44:1.37.0'
 }
 
 tasks.named('test') {
