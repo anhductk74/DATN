@@ -1,7 +1,7 @@
 package com.example.smart_mall_spring.Config;
 
-import com.example.smart_mall_spring.Entities.Role;
-import com.example.smart_mall_spring.Entities.User;
+import com.example.smart_mall_spring.Entities.Users.Role;
+import com.example.smart_mall_spring.Entities.Users.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

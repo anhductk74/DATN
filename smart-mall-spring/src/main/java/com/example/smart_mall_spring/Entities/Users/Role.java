@@ -1,7 +1,8 @@
-package com.example.smart_mall_spring.Entities;
+package com.example.smart_mall_spring.Entities.Users;
 
 import java.util.List;
 
+import com.example.smart_mall_spring.Entities.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
 import jakarta.persistence.ManyToMany;

@@ -1,5 +1,6 @@
-package com.example.smart_mall_spring.Entities;
+package com.example.smart_mall_spring.Entities.Users;
 
+import com.example.smart_mall_spring.Entities.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;

@@ -1,0 +1,42 @@
+package com.example.smart_mall_spring.Entities.Products;
+
+import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.example.smart_mall_spring.Entities.Carts.CartItem;
+import com.example.smart_mall_spring.Entities.Orders.OrderItem;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Entity
+@Table(name = "product_variants")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+public class ProductVariant extends BaseEntity {
+    @ManyToOne
+    @JoinColumn(name = "product_id")
+    private Product product;
+
+    @Column(unique = true)
+    private String sku;
+
+    private Double price;
+    private Integer stock;
+    private Double weight;
+    private String dimensions;
+
+
+    @OneToMany(mappedBy = "variant")
+    private List<VariantAttribute> attributes;
+
+    @OneToMany(mappedBy = "variant")
+    private List<OrderItem> orderItems;
+
+    @OneToMany(mappedBy = "variant")
+    private List<CartItem> cartItems;
+}

@@ -1,8 +1,9 @@
-package com.example.smart_mall_spring.Entities;
+package com.example.smart_mall_spring.Entities.Users;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.example.smart_mall_spring.Entities.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,7 +11,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.EqualsAndHashCode;

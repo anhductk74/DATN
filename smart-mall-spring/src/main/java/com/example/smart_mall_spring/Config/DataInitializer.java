@@ -1,8 +1,8 @@
 package com.example.smart_mall_spring.Config;
 
-import com.example.smart_mall_spring.Entities.Role;
-import com.example.smart_mall_spring.Entities.User;
-import com.example.smart_mall_spring.Entities.UserProfile;
+import com.example.smart_mall_spring.Entities.Users.Role;
+import com.example.smart_mall_spring.Entities.Users.User;
+import com.example.smart_mall_spring.Entities.Users.UserProfile;
 import com.example.smart_mall_spring.Repositories.RoleRepository;
 import com.example.smart_mall_spring.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;

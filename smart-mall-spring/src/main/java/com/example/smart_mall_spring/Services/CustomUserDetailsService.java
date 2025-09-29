@@ -1,7 +1,7 @@
 package com.example.smart_mall_spring.Services;
 
 import com.example.smart_mall_spring.Config.CustomUserDetails;
-import com.example.smart_mall_spring.Entities.User;
+import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
