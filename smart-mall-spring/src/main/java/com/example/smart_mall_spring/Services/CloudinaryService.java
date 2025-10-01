@@ -22,13 +22,18 @@ public class CloudinaryService {
     }
 
     public Map<String, String> uploadFile(MultipartFile file) {
+        return uploadFileToFolder(file, "image");
+    }
+
+    public Map<String, String> uploadFileToFolder(MultipartFile file, String folder) {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> uploadResult = cloudinary.uploader().upload(
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "resource_type", "auto",
-                            "chunk_size", 6000000));
+                            "chunk_size", 6000000,
+                            "folder", folder));
 
             String secureUrl = uploadResult.get("secure_url").toString();
             // Cắt từ "/<cloud_name>" trở đi

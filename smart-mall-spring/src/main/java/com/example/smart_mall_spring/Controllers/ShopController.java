@@ -1,14 +1,12 @@
 package com.example.smart_mall_spring.Controllers;
 
-import com.example.smart_mall_spring.Dtos.Shop.CreateShopDto;
 import com.example.smart_mall_spring.Dtos.Shop.ShopResponseDto;
-import com.example.smart_mall_spring.Dtos.Shop.UpdateShopDto;
 import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Shop.ShopService;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -23,9 +21,19 @@ public class ShopController {
         this.shopService = shopService;
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<ApiResponse<ShopResponseDto>> createShop(@Valid @RequestBody CreateShopDto createShopDto){
-        return ResponseEntity.ok(ApiResponse.success("Create Shop Success!",shopService.createShop(createShopDto)));
+    @PostMapping(value = "/create", consumes = {"multipart/form-data"})
+    public ResponseEntity<ApiResponse<ShopResponseDto>> createShop(
+            @RequestParam("shopData") String shopDataJson,
+            @RequestParam("image") MultipartFile imageFile) {
+        
+        try {
+            ShopResponseDto result = shopService.createShop(shopDataJson, imageFile);
+            return ResponseEntity.ok(ApiResponse.success("Create Shop Success!", result));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to create shop: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/{id}")
@@ -38,9 +46,20 @@ public class ShopController {
         return ResponseEntity.ok(ApiResponse.success("Get All Shops Success!", shopService.getAllShops()));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ShopResponseDto>> updateShop(@PathVariable UUID id, @Valid @RequestBody UpdateShopDto updateShopDto) {
-        return ResponseEntity.ok(ApiResponse.success("Update Shop Success!", shopService.updateShop(id, updateShopDto)));
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    public ResponseEntity<ApiResponse<ShopResponseDto>> updateShop(
+            @PathVariable UUID id,
+            @RequestParam("shopData") String shopDataJson,
+            @RequestParam(value = "image", required = false) MultipartFile imageFile) {
+        
+        try {
+            ShopResponseDto result = shopService.updateShopWithImage(id, shopDataJson, imageFile);
+            return ResponseEntity.ok(ApiResponse.success("Update Shop Success!", result));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update shop: " + e.getMessage()));
+        }
     }
 
     @DeleteMapping("/{id}")

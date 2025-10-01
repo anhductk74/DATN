@@ -8,10 +8,14 @@ import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Repositories.AddressRespository;
 import com.example.smart_mall_spring.Repositories.ShopRespository;
+import com.example.smart_mall_spring.Services.CloudinaryService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,10 +25,17 @@ public class ShopService {
     private final ShopRespository shopRes;
     @Autowired
     private final AddressRespository addressRes;
+    @Autowired
+    private final CloudinaryService cloudinaryService;
+    @Autowired
+    private final ObjectMapper objectMapper;
 
-    public ShopService(ShopRespository shopRes, AddressRespository addressRes) {
+    public ShopService(ShopRespository shopRes, AddressRespository addressRes, 
+                       CloudinaryService cloudinaryService, ObjectMapper objectMapper) {
         this.shopRes = shopRes;
         this.addressRes = addressRes;
+        this.cloudinaryService = cloudinaryService;
+        this.objectMapper = objectMapper;
     }
 
 
@@ -48,6 +59,22 @@ public class ShopService {
         
         shop = shopRes.save(shop);
         return convertDto(shop);
+    }
+
+    public ShopResponseDto createShop(String shopDataJson, MultipartFile imageFile) {
+        try {
+            // Parse JSON string to CreateShopDto
+            CreateShopDto createShopDto = objectMapper.readValue(shopDataJson, CreateShopDto.class);
+            
+            // Upload image (required)
+            Map<String, String> uploadResult = cloudinaryService.uploadFile(imageFile);
+            createShopDto.setAvatar(uploadResult.get("url"));
+            
+            return createShop(createShopDto);
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create shop: " + e.getMessage(), e);
+        }
     }
 
     private ShopResponseDto convertDto(Shop shop) {
@@ -151,6 +178,24 @@ public class ShopService {
 
         shop = shopRes.save(shop);
         return convertDto(shop);
+    }
+
+    public ShopResponseDto updateShopWithImage(UUID id, String shopDataJson, MultipartFile imageFile) {
+        try {
+            // Parse JSON string to UpdateShopDto
+            UpdateShopDto updateShopDto = objectMapper.readValue(shopDataJson, UpdateShopDto.class);
+            
+            // Upload new image if provided
+            if (imageFile != null && !imageFile.isEmpty()) {
+                Map<String, String> uploadResult = cloudinaryService.uploadFile(imageFile);
+                updateShopDto.setAvatar(uploadResult.get("url"));
+            }
+            
+            return updateShop(id, updateShopDto);
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update shop: " + e.getMessage(), e);
+        }
     }
 
     // Delete shop
