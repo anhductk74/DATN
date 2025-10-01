@@ -1,4 +1,4 @@
-package com.example.smart_mall_spring.Services;
+package com.example.smart_mall_spring.Services.Auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

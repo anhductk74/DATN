@@ -1,6 +1,6 @@
 package com.example.smart_mall_spring.Config;
 
-import com.example.smart_mall_spring.Services.CustomUserDetailsService;
+import com.example.smart_mall_spring.Services.Auth.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -60,6 +60,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/swagger-ui/index.html/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

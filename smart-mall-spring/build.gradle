@@ -50,6 +50,8 @@ dependencies {
 
     // Cloudinary dependencies
     implementation 'com.cloudinary:cloudinary-http44:1.37.0'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
 }
 
 tasks.named('test') {

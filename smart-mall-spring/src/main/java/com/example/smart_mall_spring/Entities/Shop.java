@@ -15,7 +15,7 @@ public class Shop extends BaseEntity {
     @Column(nullable = false)
     private String name;
     private String description;
-    private String number;
+    private String phoneNumber;
     private String avatar;
 
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, optional = false)

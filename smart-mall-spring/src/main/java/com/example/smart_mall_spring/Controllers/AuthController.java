@@ -2,7 +2,7 @@ package com.example.smart_mall_spring.Controllers;
 
 import com.example.smart_mall_spring.Dtos.Auth.*;
 import com.example.smart_mall_spring.Exception.ApiResponse;
-import com.example.smart_mall_spring.Services.AuthService;
+import com.example.smart_mall_spring.Services.Auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

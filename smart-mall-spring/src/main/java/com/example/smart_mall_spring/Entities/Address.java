@@ -18,10 +18,13 @@ public class Address {
     private UUID id;
 
     @Column(nullable = false)
-    private String streetName;
+    private String street;
 
     @Column(nullable = false)
     private String commune; // phường/xã
+
+    @Column(nullable = false)
+    private String district;
 
     @Column(nullable = false)
     private String city;

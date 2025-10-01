@@ -2,7 +2,7 @@ package com.example.smart_mall_spring.Controllers;
 
 import com.example.smart_mall_spring.Dtos.Auth.GoogleLoginRequestDto;
 import com.example.smart_mall_spring.Exception.ApiResponse;
-import com.example.smart_mall_spring.Services.GoogleOAuth2Service;
+import com.example.smart_mall_spring.Services.Auth.GoogleOAuth2Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

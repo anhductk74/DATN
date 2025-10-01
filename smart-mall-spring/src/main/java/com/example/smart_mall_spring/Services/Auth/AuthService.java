@@ -1,4 +1,4 @@
-package com.example.smart_mall_spring.Services;
+package com.example.smart_mall_spring.Services.Auth;
 
 import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.example.smart_mall_spring.Config.EmailValidator;
