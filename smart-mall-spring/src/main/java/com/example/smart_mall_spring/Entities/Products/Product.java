@@ -32,6 +32,11 @@ public class Product extends BaseEntity {
     private String description;
     private String brand;
 
+    @ElementCollection
+    @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
+    @Column(name = "image_url")
+    private List<String> images;
+
     @Enumerated(EnumType.STRING)
     private Status status;
 
