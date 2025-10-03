@@ -17,6 +17,8 @@ public class ShopResponseDto {
     private String description;
     private String numberPhone;
     private String avatar;
+    private UUID ownerId;
+    private String ownerName; // Tên của owner để hiển thị
 
     private CreateAddressDto address;
 }

@@ -67,4 +67,39 @@ public class ShopController {
         shopService.deleteShop(id);
         return ResponseEntity.ok(ApiResponse.success("Delete Shop Success!", "Shop deleted successfully"));
     }
+
+    // Get shops by owner ID (UUID user)
+    @GetMapping("/owner/{ownerId}")
+    public ResponseEntity<ApiResponse<List<ShopResponseDto>>> getShopsByOwnerId(@PathVariable UUID ownerId) {
+        try {
+            List<ShopResponseDto> result = shopService.getShopsByOwnerId(ownerId);
+            return ResponseEntity.ok(ApiResponse.success("Get Shops by Owner Success!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get shops by owner: " + e.getMessage()));
+        }
+    }
+
+    // Search shops by name
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<ShopResponseDto>>> searchShopsByName(@RequestParam String name) {
+        List<ShopResponseDto> result = shopService.searchShopsByName(name);
+        return ResponseEntity.ok(ApiResponse.success("Search Shops Success!", result));
+    }
+
+    // Search shops by owner and name
+    @GetMapping("/owner/{ownerId}/search")
+    public ResponseEntity<ApiResponse<List<ShopResponseDto>>> searchShopsByOwnerAndName(
+            @PathVariable UUID ownerId, 
+            @RequestParam String name) {
+        List<ShopResponseDto> result = shopService.searchShopsByOwnerAndName(ownerId, name);
+        return ResponseEntity.ok(ApiResponse.success("Search Shops by Owner and Name Success!", result));
+    }
+
+    // Get shop count by owner
+    @GetMapping("/owner/{ownerId}/count")
+    public ResponseEntity<ApiResponse<Long>> getShopCountByOwner(@PathVariable UUID ownerId) {
+        long count = shopService.getShopCountByOwner(ownerId);
+        return ResponseEntity.ok(ApiResponse.success("Get Shop Count by Owner Success!", count));
+    }
 }

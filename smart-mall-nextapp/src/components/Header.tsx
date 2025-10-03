@@ -189,7 +189,7 @@ export default function Header() {
                         <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <HeartOutlined className="text-white text-sm" />
                         </div>
-                        <span className="font-medium group-hover:text-pink-700">Wishlist</span>
+                        <span className="font-medium group-hover:text-pink-700">My Shop</span>
                       </a>
                       <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">

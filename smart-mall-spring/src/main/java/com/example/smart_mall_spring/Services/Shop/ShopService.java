@@ -6,8 +6,10 @@ import com.example.smart_mall_spring.Dtos.Shop.ShopResponseDto;
 import com.example.smart_mall_spring.Dtos.Shop.UpdateShopDto;
 import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Entities.Shop;
+import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Repositories.AddressRespository;
 import com.example.smart_mall_spring.Repositories.ShopRespository;
+import com.example.smart_mall_spring.Repositories.UserRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,14 +28,18 @@ public class ShopService {
     @Autowired
     private final AddressRespository addressRes;
     @Autowired
+    private final UserRepository userRepository;
+    @Autowired
     private final CloudinaryService cloudinaryService;
     @Autowired
     private final ObjectMapper objectMapper;
 
     public ShopService(ShopRespository shopRes, AddressRespository addressRes, 
-                       CloudinaryService cloudinaryService, ObjectMapper objectMapper) {
+                       UserRepository userRepository, CloudinaryService cloudinaryService, 
+                       ObjectMapper objectMapper) {
         this.shopRes = shopRes;
         this.addressRes = addressRes;
+        this.userRepository = userRepository;
         this.cloudinaryService = cloudinaryService;
         this.objectMapper = objectMapper;
     }
@@ -49,6 +55,13 @@ public class ShopService {
             shop.setPhoneNumber(createShopDto.getPhoneNumber());
         if(createShopDto.getAvatar() != null)
             shop.setAvatar(createShopDto.getAvatar());
+        
+        // Set owner if provided
+        if(createShopDto.getOwnerId() != null) {
+            User owner = userRepository.findById(createShopDto.getOwnerId())
+                    .orElseThrow(() -> new RuntimeException("Owner not found with id: " + createShopDto.getOwnerId()));
+            shop.setOwner(owner);
+        }
         
         // Handle address if provided
         if(createShopDto.getAddress() != null) {
@@ -84,6 +97,8 @@ public class ShopService {
                 .description(shop.getDescription())
                 .numberPhone(shop.getPhoneNumber())
                 .avatar(shop.getAvatar())
+                .ownerId(shop.getOwner() != null ? shop.getOwner().getId() : null)
+                .ownerName(shop.getOwner() != null ? shop.getOwner().getProfile().getFullName() : null)
                 .address(shop.getAddress() != null ? convertAddressToDto(shop.getAddress()) : null)
                 .build();
     }
@@ -150,6 +165,13 @@ public class ShopService {
             shop.setAvatar(updateShopDto.getAvatar());
         }
 
+        // Update owner if provided (chuyển quyền sở hữu)
+        if (updateShopDto.getOwnerId() != null) {
+            User newOwner = userRepository.findById(updateShopDto.getOwnerId())
+                    .orElseThrow(() -> new RuntimeException("Owner not found with id: " + updateShopDto.getOwnerId()));
+            shop.setOwner(newOwner);
+        }
+
         // Update address if provided
         if (updateShopDto.getAddress() != null) {
             if (shop.getAddress() != null) {
@@ -214,5 +236,34 @@ public class ShopService {
         
         // Delete shop
         shopRes.delete(shop);
+    }
+
+    // Get shops by owner ID (UUID user)
+    public List<ShopResponseDto> getShopsByOwnerId(UUID ownerId) {
+        List<Shop> shops = shopRes.findByOwnerId(ownerId);
+        return shops.stream()
+                .map(this::convertDto)
+                .toList();
+    }
+
+    // Search shops by name
+    public List<ShopResponseDto> searchShopsByName(String name) {
+        List<Shop> shops = shopRes.findByNameContaining(name);
+        return shops.stream()
+                .map(this::convertDto)
+                .toList();
+    }
+
+    // Search shops by owner and name
+    public List<ShopResponseDto> searchShopsByOwnerAndName(UUID ownerId, String name) {
+        List<Shop> shops = shopRes.findByOwnerIdAndNameContaining(ownerId, name);
+        return shops.stream()
+                .map(this::convertDto)
+                .toList();
+    }
+
+    // Get shop count by owner
+    public long getShopCountByOwner(UUID ownerId) {
+        return shopRes.countByOwnerId(ownerId);
     }
 }

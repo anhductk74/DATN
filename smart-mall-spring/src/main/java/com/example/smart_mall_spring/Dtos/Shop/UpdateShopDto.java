@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -15,5 +17,6 @@ public class UpdateShopDto {
     private String description;
     private String phoneNumber;
     private String avatar;
+    private UUID ownerId; // Có thể chuyển quyền sở hữu shop
     private CreateAddressDto address;
 }
