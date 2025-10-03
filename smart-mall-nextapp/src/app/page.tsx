@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { 
   MobileOutlined,
@@ -17,24 +16,10 @@ import {
 } from "@ant-design/icons";
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
-
-  useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn");
-    const email = localStorage.getItem("userEmail");
-    if (loggedIn) {
-      setIsLoggedIn(true);
-    }
-    if (email) {
-      setUserEmail(email);
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <Header isLoggedIn={isLoggedIn} userEmail={userEmail} />
+      <Header />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">

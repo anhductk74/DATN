@@ -13,7 +13,7 @@ class UserService {
   /**
    * Update user profile
    */
-  async updateUserProfile(profileData: any): Promise<ApiResponse<any>> {
+  async updateUserProfile(profileData: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
     const response = await apiClient.put('/user/profile', profileData);
     return response.data;
   }
@@ -21,7 +21,7 @@ class UserService {
   /**
    * Change user password
    */
-  async changePassword(passwordData: { currentPassword: string; newPassword: string }): Promise<ApiResponse<any>> {
+  async changePassword(passwordData: { currentPassword: string; newPassword: string }): Promise<ApiResponse<{ message: string }>> {
     const response = await apiClient.put('/user/change-password', passwordData);
     return response.data;
   }
@@ -29,7 +29,7 @@ class UserService {
   /**
    * Upload user avatar
    */
-  async uploadAvatar(formData: FormData): Promise<ApiResponse<any>> {
+  async uploadAvatar(formData: FormData): Promise<ApiResponse<{ avatarUrl: string }>> {
     const response = await apiClient.post('/user/upload-avatar', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

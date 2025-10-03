@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -14,28 +14,11 @@ import {
 } from "@ant-design/icons";
 
 function ProductsContent() {
-  const [userEmail, setUserEmail] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [sortBy, setSortBy] = useState("featured");
   const router = useRouter();
   const searchParams = useSearchParams();
   const category = searchParams.get('category') || 'all';
-  
-  useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn");
-    const email = localStorage.getItem("userEmail");
-    
-    if (!loggedIn) {
-      router.push("/login");
-      return;
-    }
-    
-    setIsLoggedIn(true);
-    if (email) {
-      setUserEmail(email);
-    }
-  }, [router]);
 
   // Mock products data
   const products = Array.from({ length: 24 }, (_, i) => ({
@@ -66,7 +49,7 @@ function ProductsContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      <Header isLoggedIn={isLoggedIn} userEmail={userEmail} />
+      <Header />
       
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100">

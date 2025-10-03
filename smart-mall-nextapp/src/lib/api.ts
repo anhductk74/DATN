@@ -16,6 +16,7 @@ import {
   RefreshTokenRequestDto,
   GoogleUserData
 } from '@/types/auth';
+import { UserProfile } from '@/types/common';
 
 // Import from new services
 import { authService, userService, apiClient } from '@/services';
@@ -34,7 +35,7 @@ export const authApi = {
   /**
    * @deprecated Use authService.register() instead
    */
-  register: async (userData: RegisterRequestDto): Promise<ApiResponse<any>> => {
+  register: async (userData: RegisterRequestDto): Promise<ApiResponse<AuthResponseDto>> => {
     return authService.register(userData);
   },
 
@@ -48,14 +49,14 @@ export const authApi = {
   /**
    * @deprecated Use authService.logout() instead
    */
-  logout: async (): Promise<ApiResponse<any>> => {
+  logout: async (): Promise<ApiResponse<{ message: string }>> => {
     return authService.logout();
   },
 
   /**
    * @deprecated Use userService.getUserProfile() instead
    */
-  getUserProfile: async (): Promise<ApiResponse<any>> => {
+  getUserProfile: async (): Promise<ApiResponse<UserProfile>> => {
     return userService.getUserProfile();
   },
 

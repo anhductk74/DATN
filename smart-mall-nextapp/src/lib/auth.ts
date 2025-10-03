@@ -3,7 +3,15 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { authService } from "@/services";
 import { LoginRequestDto, GoogleUserData } from "@/types/auth";
-import { access } from "fs";
+
+// Google Profile interface
+interface GoogleProfile {
+  sub: string;
+  name: string;
+  email: string;
+  picture?: string;
+  email_verified?: boolean;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -76,11 +84,12 @@ export const authOptions: NextAuthOptions = {
           hasAccessToken: !!account.access_token
         });
 
+        const googleProfile = profile as GoogleProfile;
         console.log('Google SignIn - Profile:', {
-          email: profile?.email,
-          name: profile?.name,
-          picture: (profile as any)?.picture,
-          sub: profile?.sub,
+          email: googleProfile?.email,
+          name: googleProfile?.name,
+          picture: googleProfile?.picture,
+          sub: googleProfile?.sub,
           data: account.id_token || ''
         });
         
@@ -117,7 +126,7 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       // Initial sign in
       if (user) {
         token.accessToken = user.accessToken;

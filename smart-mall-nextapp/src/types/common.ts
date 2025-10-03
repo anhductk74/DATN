@@ -1,5 +1,5 @@
 // Common API response types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   status: number;
   message: string;
   data: T;

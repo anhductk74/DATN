@@ -20,7 +20,7 @@ class AuthService {
   /**
    * Register new user
    */
-  async register(userData: RegisterRequestDto): Promise<ApiResponse<any>> {
+  async register(userData: RegisterRequestDto): Promise<ApiResponse<AuthResponseDto>> {
     const response = await apiClient.post('/auth/register', userData);
     return response.data;
   }
@@ -36,7 +36,7 @@ class AuthService {
   /**
    * Logout user
    */
-  async logout(): Promise<ApiResponse<any>> {
+  async logout(): Promise<ApiResponse<{ message: string }>> {
     const response = await apiClient.post('/auth/logout');
     return response.data;
   }
@@ -57,11 +57,12 @@ class AuthService {
         idToken: googleUser.idToken
       });
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Google Auth API Error:', error);
-      if (error.response) {
-        console.error('Error Response:', error.response.data);
-        console.error('Error Status:', error.response.status);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { data: unknown; status: number } };
+        console.error('Error Response:', axiosError.response.data);
+        console.error('Error Status:', axiosError.response.status);
       }
       throw error;
     }
