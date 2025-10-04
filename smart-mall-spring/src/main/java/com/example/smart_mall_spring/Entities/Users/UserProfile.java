@@ -1,6 +1,8 @@
 package com.example.smart_mall_spring.Entities.Users;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.example.smart_mall_spring.Enum.Gender;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
@@ -27,6 +29,12 @@ public class UserProfile extends BaseEntity {
 
     @Column(name = "phone_number")
     private String phoneNumber;
+
+    @Column(name = "gender")
+    private Gender gender;
+
+    @Column(name = "date_of_birth")
+    private String dateOfBirth;
 
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
