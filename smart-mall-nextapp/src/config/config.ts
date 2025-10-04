@@ -1,0 +1,1 @@
+export const CLOUDINARY_API_URL = process.env.NEXT_PUBLIC_CLOUDINARY_API_URL || 'https://res.cloudinary.com/your-cloud-name';

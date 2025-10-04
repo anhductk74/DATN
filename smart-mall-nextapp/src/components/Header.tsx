@@ -32,6 +32,8 @@ export default function Header() {
   // Use auth state from NextAuth session only
   const currentUser = user;
 
+  
+
   const handleLogoutClick = async () => {
     setShowUserMenu(false);
     setIsLoggingOut(true);
@@ -72,6 +74,8 @@ export default function Header() {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
+
+  
 
   return (
     <>
@@ -173,24 +177,30 @@ export default function Header() {
                       </div>
                     </div>
                     <div className="px-2 py-2">
-                      <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-2xl transition-all duration-200 group">
+                      <button 
+                        onClick={() => router.push("/profile")}
+                        className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-2xl transition-all duration-200 group"
+                      >
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <UserOutlined className="text-white text-sm" />
                         </div>
                         <span className="font-medium group-hover:text-blue-700">My Profile</span>
-                      </a>
+                      </button>
                       <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <TagOutlined className="text-white text-sm" />
                         </div>
                         <span className="font-medium group-hover:text-green-700">My Orders</span>
                       </a>
-                      <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group">
+                      <button 
+                        onClick={() => router.push("/shop")}
+                        className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group"
+                      >
                         <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <HeartOutlined className="text-white text-sm" />
                         </div>
                         <span className="font-medium group-hover:text-pink-700">My Shop</span>
-                      </a>
+                      </button>
                       <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <CustomerServiceOutlined className="text-white text-sm" />

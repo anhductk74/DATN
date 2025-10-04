@@ -1,6 +1,8 @@
 "use client";
 
 import Header from "@/components/Header";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import { 
   MobileOutlined,
   LaptopOutlined,
@@ -14,8 +16,19 @@ import {
   InstagramOutlined,
   TwitterOutlined
 } from "@ant-design/icons";
+import router from "next/dist/shared/lib/router/router";
+import { useEffect } from "react";
+
+
 
 export default function Home() {
+  const {session,status} = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/home");
+    }
+  }, [session,status]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}

@@ -10,6 +10,7 @@ declare module "next-auth" {
       username?: string;
       fullName?: string;
       phoneNumber?: string;
+      avatar?: string;
       isActive?: boolean;
       roles?: string[];
     } & DefaultSession["user"];
@@ -20,6 +21,7 @@ declare module "next-auth" {
     username?: string;
     fullName?: string;
     phoneNumber?: string;
+    avatar?: string;
     isActive?: boolean;
     roles?: string[];
     accessToken?: string;
