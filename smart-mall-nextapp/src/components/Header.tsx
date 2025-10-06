@@ -20,17 +20,24 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
+import { useUserProfile } from "@/contexts/UserProfileContext";
+import { CLOUDINARY_API_URL } from "@/config/config";
+import Image from "next/image";
 
 export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
-  const { session, status, signOut, user } = useAuth();
+  const { signOut, user } = useAuth();
   const { message } = useAntdApp();
+  const { userProfile } = useUserProfile();
 
-  // Use auth state from NextAuth session only
-  const currentUser = user;
+  // Use enhanced user profile with priority to API data, fallback to session
+  const currentUser = userProfile || user;
+  
+  // Debug: Log when userProfile changes
+  console.log('🎯 Header render - userProfile:', userProfile, 'user:', user);
 
   
 
@@ -141,12 +148,22 @@ export default function Header() {
                     setShowUserMenu(!showUserMenu);
                   }}
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300">
-                    <UserOutlined className="text-white text-lg" />
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
+                    {currentUser?.avatar ? (
+                      <Image 
+                        src={`${CLOUDINARY_API_URL}${currentUser.avatar}`} 
+                        alt="Avatar" 
+                        width={40}
+                        height={40}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <UserOutlined className="text-white text-lg" />
+                    )}
                   </div>
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-semibold text-gray-800 leading-tight">
-                      {currentUser.fullName || currentUser.name || currentUser.email?.split('@')[0]}
+                      {currentUser.fullName || currentUser.email?.split('@')[0]}
                     </span>
                     <span className="text-xs text-gray-500">
                       My Account
@@ -163,11 +180,21 @@ export default function Header() {
                   >
                     <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-t-3xl">
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                          <UserOutlined className="text-white text-xl" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                          {currentUser?.avatar ? (
+                            <Image 
+                              src={`${CLOUDINARY_API_URL}${currentUser.avatar}`} 
+                              alt="Avatar" 
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <UserOutlined className="text-white text-xl" />
+                          )}
                         </div>
                         <div>
-                          <p className="text-lg font-bold text-gray-900">{currentUser.fullName || currentUser.name || currentUser.email?.split('@')[0]}</p>
+                          <p className="text-lg font-bold text-gray-900">{currentUser.fullName || currentUser.email?.split('@')[0]}</p>
                           <p className="text-sm text-gray-600 truncate">{currentUser.email}</p>
                           <div className="flex items-center mt-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
@@ -294,11 +321,21 @@ export default function Header() {
             {currentUser ? (
               <>
                 <div className="flex items-center space-x-3 px-3 py-3 bg-gray-50 rounded-lg mb-2">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                    <UserOutlined className="text-white" />
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                    {currentUser?.avatar ? (
+                      <Image 
+                        src={`${CLOUDINARY_API_URL}${currentUser.avatar}`} 
+                        alt="Avatar" 
+                        width={40}
+                        height={40}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <UserOutlined className="text-white" />
+                    )}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{currentUser.fullName || currentUser.email?.split('@')[0]}đ</p>
+                    <p className="font-medium text-gray-900">{currentUser.fullName || currentUser.email?.split('@')[0]}</p>
                     <p className="text-sm text-gray-500">{currentUser.email}</p>
                   </div>
                 </div>

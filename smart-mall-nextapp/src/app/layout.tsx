@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import AntdProvider from "@/components/AntdProvider";
 import SessionProvider from "@/components/SessionProvider";
 import ClearLegacyStorage from "@/components/ClearLegacyStorage";
@@ -34,8 +35,10 @@ export default function RootLayout({
         <SessionProvider>
           <AntdProvider>
             <AuthProvider>
-              <ClearLegacyStorage />
-              {children}
+              <UserProfileProvider>
+                <ClearLegacyStorage />
+                {children}
+              </UserProfileProvider>
             </AuthProvider>
           </AntdProvider>
         </SessionProvider>

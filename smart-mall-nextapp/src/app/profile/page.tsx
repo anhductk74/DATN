@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {CLOUDINARY_API_URL} from "@/config/config";
@@ -16,20 +20,59 @@ import {
   ManOutlined,
   WomanOutlined,
   CheckCircleOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  LockOutlined,
+  CloseOutlined
 } from "@ant-design/icons";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import { userService } from "@/services";
+
+// Validation schema for change password form
+const changePasswordSchema = yup.object({
+  currentPassword: yup
+    .string()
+    .required("Current password is required"),
+  newPassword: yup
+    .string()
+    .min(6, "New password must be at least 6 characters")
+    .required("New password is required"),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref("newPassword")], "Passwords must match")
+    .required("Please confirm your new password"),
+});
+
+type ChangePasswordFormData = yup.InferType<typeof changePasswordSchema>;
 
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
-  const { session,status } = useAuth();
+  const { session, status } = useAuth();
+  const { refreshProfile } = useUserProfile();
   const { message } = useAntdApp();
+
+  // React Hook Form for change password
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset
+  } = useForm<ChangePasswordFormData>({
+    resolver: yupResolver(changePasswordSchema),
+    mode: "onChange"
+  });
 
   const [profileData, setProfileData] = useState({
     fullName: "",
@@ -40,6 +83,8 @@ export default function Profile() {
     avatar: "",
     active: false
   });
+
+
 
   const loadUserProfile = useCallback(async () => {
     try {
@@ -89,6 +134,35 @@ export default function Profile() {
     }
   }, [session, status, router, loadUserProfile,profileData.avatar]);
 
+  // Modal close function
+  const closePasswordModal = useCallback(() => {
+    setShowChangePasswordModal(false);
+    reset(); // Reset form using react-hook-form
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  }, [reset]);
+
+  // Handle ESC key for modal
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showChangePasswordModal) {
+        closePasswordModal();
+      }
+    };
+
+    if (showChangePasswordModal) {
+      document.addEventListener('keydown', handleEscKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showChangePasswordModal, closePasswordModal]);
+
   const handleInputChange = (field: string, value: string) => {
     setProfileData(prev => ({
       ...prev,
@@ -117,6 +191,9 @@ export default function Profile() {
       setIsEditing(false);
       // Reload profile data after successful update
       loadUserProfile();
+      // Refresh profile data in header
+      console.log('🔄 Calling refreshProfile after profile update');
+      refreshProfile();
     } catch (error) {
       console.error("Update profile error:", error);
       message.error("Failed to update profile!");
@@ -154,11 +231,33 @@ export default function Profile() {
       }));
 
       message.success("Avatar updated successfully!");
+      // Refresh profile data in header
+      console.log('🔄 Calling refreshProfile after avatar upload');
+      refreshProfile();
     } catch (error) {
       console.error("Upload avatar error:", error);
       message.error("Failed to upload avatar!");
     } finally {
       setAvatarLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (data: ChangePasswordFormData) => {
+    setChangePasswordLoading(true);
+    try {
+      await userService.changePassword({
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword
+      });
+
+      message.success("Password changed successfully!");
+      closePasswordModal();
+    } catch (error) {
+      console.error("Change password error:", error);
+      message.error("Failed to change password!");
+    } finally {
+      setChangePasswordLoading(false);
     }
   };
 
@@ -409,7 +508,10 @@ export default function Profile() {
                   <div className="font-medium text-gray-900">Password</div>
                   <div className="text-sm text-gray-500">Last changed 30 days ago</div>
                 </div>
-                <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
+                <button 
+                  onClick={() => setShowChangePasswordModal(true)}
+                  className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                >
                   Change
                 </button>
               </div>
@@ -449,6 +551,157 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && typeof window !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/35 backdrop-blur-sm flex items-center justify-center"
+          style={{ zIndex: 999999 }}  // Z-index cực cao
+          onClick={closePasswordModal}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <LockOutlined className="text-xl" />
+                  <h2 className="text-xl font-bold">Change Password</h2>
+                </div>
+                <button
+                  onClick={closePasswordModal}
+                  className="text-white hover:text-gray-200 transition-colors"
+                >
+                  <CloseOutlined className="text-xl" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSubmit(handleChangePassword)}>
+              <div className="p-6 space-y-4">
+                {/* Current Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Current Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? "text" : "password"}
+                      {...register("currentPassword")}
+                      className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                        errors.currentPassword ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter current password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showCurrentPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                    </button>
+                  </div>
+                  {errors.currentPassword && (
+                    <p className="text-sm text-red-500 mt-1">{errors.currentPassword.message}</p>
+                  )}
+                </div>
+
+                {/* New Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      {...register("newPassword")}
+                      className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                        errors.newPassword ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter new password (min 6 characters)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showNewPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                    </button>
+                  </div>
+                  {errors.newPassword && (
+                    <p className="text-sm text-red-500 mt-1">{errors.newPassword.message}</p>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      {...register("confirmPassword")}
+                      className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+                        errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Confirm new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showConfirmPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="text-sm text-red-500 mt-1">{errors.confirmPassword.message}</p>
+                  )}
+                </div>
+
+                {/* Password Requirements */}
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <p className="text-xs text-blue-700 font-medium mb-1">Password Requirements:</p>
+                  <ul className="text-xs text-blue-600 space-y-1">
+                    <li>• At least 6 characters long</li>
+                    <li>• Must be different from current password</li>
+                    <li>• Confirm password must match new password</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  disabled={changePasswordLoading}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={changePasswordLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {changePasswordLoading ? (
+                    <LoadingOutlined className="animate-spin" />
+                  ) : (
+                    <LockOutlined />
+                  )}
+                  <span>{changePasswordLoading ? "Changing..." : "Change Password"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <Footer />
     </div>

@@ -28,8 +28,11 @@ class UserService {
   /**
    * Change user password
    */
-  async changePassword(passwordData: { currentPassword: string; newPassword: string }): Promise<ApiResponse<{ message: string }>> {
-    const response = await apiClient.put('/user/change-password', passwordData);
+  async changePassword(passwordData: { currentPassword: string; newPassword: string; confirmPassword: string }): Promise<ApiResponse<{ message: string }>> {
+    const response = await apiClient.put('/user/change-password', passwordData,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
     return response.data;
   }
 
