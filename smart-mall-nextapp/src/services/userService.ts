@@ -14,7 +14,14 @@ class UserService {
    * Update user profile
    */
   async updateUserProfile(profileData: Partial<UserProfile>): Promise<ApiResponse<UserProfile>> {
-    const response = await apiClient.put('/user/profile', profileData);
+    const formData = new FormData();
+    formData.append('profileData', JSON.stringify(profileData));
+    
+    const response = await apiClient.put('/user/profile', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   }
 
@@ -30,7 +37,7 @@ class UserService {
    * Upload user avatar
    */
   async uploadAvatar(formData: FormData): Promise<ApiResponse<{ avatarUrl: string }>> {
-    const response = await apiClient.post('/user/upload-avatar', formData, {
+    const response = await apiClient.put('/user/profile', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

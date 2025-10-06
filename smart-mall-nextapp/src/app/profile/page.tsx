@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import {CLOUDINARY_API_URL} from "@/config/config";
 import { 
   UserOutlined,
   EditOutlined,
@@ -33,11 +34,48 @@ export default function Profile() {
   const [profileData, setProfileData] = useState({
     fullName: "",
     email: "",
-    phone: "",
+    phoneNumber: "",
     dateOfBirth: "",
     gender: "OTHER" as "MALE" | "FEMALE" | "OTHER",
-    avatar: ""
+    avatar: "",
+    active: false
   });
+
+  const loadUserProfile = useCallback(async () => {
+    try {
+      const response = await userService.getUserProfile();
+      
+      if (response.status === 200 && response.data) {
+        const userData = response.data;
+        
+        setProfileData({
+          fullName: userData.fullName || "",
+          email: userData.username || "",
+          phoneNumber: userData.phoneNumber || "",
+          dateOfBirth: userData.dateOfBirth || "",
+          gender: userData.gender || "OTHER",
+          avatar: userData.avatar || "",
+          active: userData.isActive || false
+        });
+      }
+    } catch (error) {
+      console.error("Load profile error:", error);
+      console.log("Falling back to session data");
+      
+      // Fallback to session data if API fails
+      if (session?.user) {
+        setProfileData({
+          fullName: session.user?.fullName || "",
+          email: session.user?.email || "",
+          phoneNumber: session.user?.phoneNumber || "",
+          dateOfBirth: session.user?.dateOfBirth || "",
+          gender: session.user?.gender || "OTHER",
+          avatar: session.user?.avatar || "",
+          active: session.user?.isActive || false
+        });
+      }
+    }
+  }, [session]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -46,22 +84,17 @@ export default function Profile() {
     }
 
     if (session?.user) {
-      setProfileData({
-        fullName: session?.user?.fullName || "",
-        email: session?.user?.email || "",
-        phone: session?.user?.phoneNumber || "",
-        dateOfBirth: "",
-        gender: "OTHER",
-        avatar: session?.user?.avatar || ""
-      });
+      // First try to load complete profile from API
+      loadUserProfile();
     }
-  }, [session, status, router]);
+  }, [session, status, router, loadUserProfile,profileData.avatar]);
 
   const handleInputChange = (field: string, value: string) => {
     setProfileData(prev => ({
       ...prev,
       [field]: value
     }));
+
   };
 
   const handleSaveProfile = async () => {
@@ -72,15 +105,18 @@ export default function Profile() {
 
     setIsLoading(true);
     try {
+      
       await userService.updateUserProfile({
         fullName: profileData.fullName,
-        phone: profileData.phone,
+        phoneNumber: profileData.phoneNumber, // Backend expects 'phone' not 'phoneNumber'
         dateOfBirth: profileData.dateOfBirth,
         gender: profileData.gender
       });
 
       message.success("Profile updated successfully!");
       setIsEditing(false);
+      // Reload profile data after successful update
+      loadUserProfile();
     } catch (error) {
       console.error("Update profile error:", error);
       message.error("Failed to update profile!");
@@ -108,6 +144,7 @@ export default function Profile() {
     setAvatarLoading(true);
     try {
       const formData = new FormData();
+      formData.append('profileData', JSON.stringify({}));
       formData.append('avatar', file);
 
       const response = await userService.uploadAvatar(formData);
@@ -161,7 +198,7 @@ export default function Profile() {
                   <div className="w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                     {profileData.avatar ? (
                       <Image 
-                        src={profileData.avatar} 
+                        src={`${CLOUDINARY_API_URL}${profileData.avatar}`} 
                         alt="Avatar" 
                         width={128}
                         height={128}
@@ -286,14 +323,14 @@ export default function Profile() {
                 {isEditing ? (
                   <input
                     type="tel"
-                    value={profileData.phone}
+                    value={profileData.phoneNumber}
                     onChange={(e) => handleInputChange("phone", e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     placeholder="Enter your phone number"
                   />
                 ) : (
                   <div className="px-4 py-3 bg-gray-50 rounded-xl text-gray-900">
-                    {profileData.phone || "Not provided"}
+                    {profileData.phoneNumber || "Not provided"}
                   </div>
                 )}
               </div>

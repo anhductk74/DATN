@@ -135,6 +135,8 @@ export const authOptions: NextAuthOptions = {
         token.username = user.username;
         token.fullName = user.fullName;
         token.phoneNumber = user.phoneNumber;
+        token.dateOfBirth = user.dateOfBirth;
+        token.gender = user.gender;
         token.isActive = user.isActive;
         token.roles = user.roles;
       }
@@ -150,6 +152,8 @@ export const authOptions: NextAuthOptions = {
       session.user.username = token.username;
       session.user.fullName = token.fullName;
       session.user.phoneNumber = token.phoneNumber;
+      session.user.dateOfBirth = token.dateOfBirth;
+      session.user.gender = token.gender;
       session.user.isActive = token.isActive;
       session.user.roles = token.roles;
 

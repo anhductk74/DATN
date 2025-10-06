@@ -10,6 +10,8 @@ declare module "next-auth" {
       username?: string;
       fullName?: string;
       phoneNumber?: string;
+      dateOfBirth?: string;
+      gender?: "MALE" | "FEMALE" | "OTHER";
       avatar?: string;
       isActive?: boolean;
       roles?: string[];
@@ -22,6 +24,8 @@ declare module "next-auth" {
     fullName?: string;
     phoneNumber?: string;
     avatar?: string;
+    dateOfBirth?: string;
+    gender?: "MALE" | "FEMALE" | "OTHER";
     isActive?: boolean;
     roles?: string[];
     accessToken?: string;
@@ -37,6 +41,8 @@ declare module "next-auth/jwt" {
     username?: string;
     fullName?: string;
     phoneNumber?: string;
+    dateOfBirth?: string;
+    gender?: "MALE" | "FEMALE" | "OTHER";
     isActive?: boolean;
     roles?: string[];
   }

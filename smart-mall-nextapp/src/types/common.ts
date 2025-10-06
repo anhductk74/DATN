@@ -17,9 +17,8 @@ export interface PaginatedResponse<T> {
 export interface UserProfile {
   id: string;
   username: string;
-  email: string;
   fullName: string;
-  phone?: string;
+  phoneNumber?: string;
   avatar?: string;
   dateOfBirth?: string;
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
@@ -33,7 +32,7 @@ export interface Address {
   id: string;
   userId: string;
   fullName: string;
-  phone: string;
+  phoneNumber: string;
   address: string;
   ward: string;
   district: string;
