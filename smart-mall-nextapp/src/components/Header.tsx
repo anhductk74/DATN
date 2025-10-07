@@ -36,6 +36,19 @@ export default function Header() {
   // Use enhanced user profile with priority to API data, fallback to session
   const currentUser = userProfile || user;
   
+  // helper: if avatar is already a full URL return it, otherwise prepend CLOUDINARY_API_URL
+  const resolveAvatar = (avatar?: string) => {
+    if (!avatar) return undefined;
+    const trimmed = avatar.trim();
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("//")) {
+      return trimmed;
+    }
+    // ensure CLOUDINARY_API_URL ends with a slash or avatar does not start with one to avoid double-slash issues
+    const base = CLOUDINARY_API_URL.endsWith('/') ? CLOUDINARY_API_URL.slice(0, -1) : CLOUDINARY_API_URL;
+    const rest = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${base}${rest}`;
+  };
+
   // Debug: Log when userProfile changes
   console.log('🎯 Header render - userProfile:', userProfile, 'user:', user);
 
@@ -151,7 +164,7 @@ export default function Header() {
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
                     {currentUser?.avatar ? (
                       <Image 
-                        src={`${CLOUDINARY_API_URL}${currentUser.avatar}`} 
+                        src={resolveAvatar(currentUser.avatar) as string} 
                         alt="Avatar" 
                         width={40}
                         height={40}
@@ -183,7 +196,7 @@ export default function Header() {
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
                           {currentUser?.avatar ? (
                             <Image 
-                              src={`${CLOUDINARY_API_URL}${currentUser.avatar}`} 
+                              src={resolveAvatar(currentUser.avatar) as string} 
                               alt="Avatar" 
                               width={48}
                               height={48}
@@ -324,7 +337,7 @@ export default function Header() {
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
                     {currentUser?.avatar ? (
                       <Image 
-                        src={`${CLOUDINARY_API_URL}${currentUser.avatar}`} 
+                        src={resolveAvatar(currentUser.avatar) as string} 
                         alt="Avatar" 
                         width={40}
                         height={40}
