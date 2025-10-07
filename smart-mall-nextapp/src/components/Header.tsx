@@ -35,11 +35,6 @@ export default function Header() {
 
   // Use enhanced user profile with priority to API data, fallback to session
   const currentUser = userProfile || user;
-  
-  // Debug: Log when userProfile changes
-  console.log('🎯 Header render - userProfile:', userProfile, 'user:', user);
-
-  
 
   const handleLogoutClick = async () => {
     setShowUserMenu(false);

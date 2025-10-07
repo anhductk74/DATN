@@ -24,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -194,7 +195,11 @@ public class ProductService {
     @Transactional
     public ProductResponseDto updateProductWithImages(UUID id, String productDataJson, List<MultipartFile> imageFiles) {
         try {
-            UpdateProductDto updateProductDto = objectMapper.readValue(productDataJson, UpdateProductDto.class);
+            // Parse product data if provided
+            UpdateProductDto updateProductDto = null;
+            if (productDataJson != null && !productDataJson.trim().isEmpty()) {
+                updateProductDto = objectMapper.readValue(productDataJson, UpdateProductDto.class);
+            }
             
             // Upload new images if provided
             List<String> newImageUrls = null;
@@ -220,32 +225,36 @@ public class ProductService {
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
 
         // Update basic fields if provided
-        if (updateProductDto.getName() != null) {
-            product.setName(updateProductDto.getName());
+        if (updateProductDto != null) {
+            if (updateProductDto.getName() != null) {
+                product.setName(updateProductDto.getName());
+            }
+            if (updateProductDto.getDescription() != null) {
+                product.setDescription(updateProductDto.getDescription());
+            }
+            if (updateProductDto.getBrand() != null) {
+                product.setBrand(updateProductDto.getBrand());
+            }
+            if (updateProductDto.getStatus() != null) {
+                product.setStatus(updateProductDto.getStatus());
+            }
+
+            // Update category if provided
+            if (updateProductDto.getCategoryId() != null) {
+                Category category = categoryRepository.findById(updateProductDto.getCategoryId())
+                        .orElseThrow(() -> new RuntimeException("Category not found"));
+                product.setCategory(category);
+            }
+
+            // Update variants if provided
+            if (updateProductDto.getVariants() != null) {
+                updateProductVariants(product, updateProductDto.getVariants());
+            }
         }
-        if (updateProductDto.getDescription() != null) {
-            product.setDescription(updateProductDto.getDescription());
-        }
-        if (updateProductDto.getBrand() != null) {
-            product.setBrand(updateProductDto.getBrand());
-        }
+
+        // Update images if provided
         if (newImageUrls != null) {
             product.setImages(newImageUrls);
-        }
-        if (updateProductDto.getStatus() != null) {
-            product.setStatus(updateProductDto.getStatus());
-        }
-
-        // Update category if provided
-        if (updateProductDto.getCategoryId() != null) {
-            Category category = categoryRepository.findById(updateProductDto.getCategoryId())
-                    .orElseThrow(() -> new RuntimeException("Category not found"));
-            product.setCategory(category);
-        }
-
-        // Update variants if provided
-        if (updateProductDto.getVariants() != null) {
-            updateProductVariants(product, updateProductDto.getVariants());
         }
 
         product = productRepository.save(product);
@@ -408,38 +417,60 @@ public class ProductService {
 
     // Update product variants
     private void updateProductVariants(Product product, List<UpdateProductVariantDto> variantDtos) {
+        // Get current variants of the product
+        List<ProductVariant> currentVariants = productVariantRepository.findByProductId(product.getId());
+        
+        // Collect IDs of variants that should be kept/updated
+        List<UUID> variantIdsToKeep = variantDtos.stream()
+                .map(UpdateProductVariantDto::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        
+        // Delete variants that are no longer in the update list
+        for (ProductVariant currentVariant : currentVariants) {
+            if (!variantIdsToKeep.contains(currentVariant.getId())) {
+                // Delete variant attributes first
+                variantAttributeRepository.deleteByVariantId(currentVariant.getId());
+                // Delete the variant
+                productVariantRepository.delete(currentVariant);
+            }
+        }
+        
+        // Process variants in the update list
         for (UpdateProductVariantDto variantDto : variantDtos) {
             if (variantDto.getId() != null) {
                 // Update existing variant
-                ProductVariant existingVariant = productVariantRepository.findById(variantDto.getId())
-                        .orElseThrow(() -> new RuntimeException("Variant not found with id: " + variantDto.getId()));
-                
-                // Check if variant belongs to this product
-                if (!existingVariant.getProduct().getId().equals(product.getId())) {
-                    throw new RuntimeException("Variant does not belong to this product");
-                }
+                Optional<ProductVariant> existingVariantOpt = productVariantRepository.findById(variantDto.getId());
+                if (existingVariantOpt.isPresent()) {
+                    ProductVariant existingVariant = existingVariantOpt.get();
+                    
+                    // Check if variant belongs to this product
+                    if (!existingVariant.getProduct().getId().equals(product.getId())) {
+                        throw new RuntimeException("Variant does not belong to this product");
+                    }
 
-                // Check SKU uniqueness (excluding current variant)
-                if (variantDto.getSku() != null && 
-                    productVariantRepository.existsBySkuAndIdNot(variantDto.getSku(), variantDto.getId())) {
-                    throw new RuntimeException("SKU already exists: " + variantDto.getSku());
-                }
+                    // Check SKU uniqueness (excluding current variant)
+                    if (variantDto.getSku() != null && 
+                        productVariantRepository.existsBySkuAndIdNot(variantDto.getSku(), variantDto.getId())) {
+                        throw new RuntimeException("SKU already exists: " + variantDto.getSku());
+                    }
 
-                // Update variant fields
-                if (variantDto.getSku() != null) existingVariant.setSku(variantDto.getSku());
-                if (variantDto.getPrice() != null) existingVariant.setPrice(variantDto.getPrice());
-                if (variantDto.getStock() != null) existingVariant.setStock(variantDto.getStock());
-                if (variantDto.getWeight() != null) existingVariant.setWeight(variantDto.getWeight());
-                if (variantDto.getDimensions() != null) existingVariant.setDimensions(variantDto.getDimensions());
+                    // Update variant fields
+                    if (variantDto.getSku() != null) existingVariant.setSku(variantDto.getSku());
+                    if (variantDto.getPrice() != null) existingVariant.setPrice(variantDto.getPrice());
+                    if (variantDto.getStock() != null) existingVariant.setStock(variantDto.getStock());
+                    if (variantDto.getWeight() != null) existingVariant.setWeight(variantDto.getWeight());
+                    if (variantDto.getDimensions() != null) existingVariant.setDimensions(variantDto.getDimensions());
 
-                productVariantRepository.save(existingVariant);
+                    productVariantRepository.save(existingVariant);
 
-                // Update attributes if provided
-                if (variantDto.getAttributes() != null) {
-                    // Delete existing attributes
-                    variantAttributeRepository.deleteByVariantId(existingVariant.getId());
-                    // Create new attributes
-                    createVariantAttributes(existingVariant, variantDto.getAttributes());
+                    // Update attributes if provided
+                    if (variantDto.getAttributes() != null) {
+                        // Delete existing attributes
+                        variantAttributeRepository.deleteByVariantId(existingVariant.getId());
+                        // Create new attributes
+                        createVariantAttributes(existingVariant, variantDto.getAttributes());
+                    }
                 }
             } else {
                 // Create new variant
@@ -454,6 +485,12 @@ public class ProductService {
                         
                 createProductVariants(product, List.of(createDto));
             }
+        }
+        
+        // Validate that product still has at least one variant
+        long remainingVariants = productVariantRepository.countByProductId(product.getId());
+        if (remainingVariants == 0) {
+            throw new RuntimeException("Product must have at least one variant");
         }
     }
 }

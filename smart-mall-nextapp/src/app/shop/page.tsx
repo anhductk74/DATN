@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { EditOutlined } from "@ant-design/icons";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import { shopService, type Shop, type CreateShopData, type UpdateShopData } from "@/services";
@@ -123,10 +123,7 @@ export default function MyShop() {
     setEditingShop(null);
   };
 
-  const handleViewProducts = (shop: Shop) => {
-    // Navigate to products page for this shop
-    router.push(`/shop/${shop.id}/products`);
-  };
+
 
   if (status === "loading") {
     return (
@@ -177,7 +174,6 @@ export default function MyShop() {
             shop={shop}
             onEdit={handleEditShop}
             onDelete={handleDeleteShop}
-            onViewProducts={handleViewProducts}
           />
         )}
       </div>

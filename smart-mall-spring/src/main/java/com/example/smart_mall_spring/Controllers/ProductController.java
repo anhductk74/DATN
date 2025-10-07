@@ -113,14 +113,20 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success("Advanced Search Success!", result));
     }
 
-    // Update product with images
+    // Update product (flexible: images only, data only, or both)
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
-    public ResponseEntity<ApiResponse<ProductResponseDto>> updateProductWithImages(
+    public ResponseEntity<ApiResponse<ProductResponseDto>> updateProduct(
             @PathVariable UUID id,
-            @RequestParam("productData") String productDataJson,
+            @RequestParam(value = "productData", required = false) String productDataJson,
             @RequestParam(value = "images", required = false) List<MultipartFile> imageFiles) {
         
         try {
+            // Validate that at least one parameter is provided
+            if (productDataJson == null && (imageFiles == null || imageFiles.isEmpty())) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("At least one of productData or images must be provided"));
+            }
+            
             ProductResponseDto result = productService.updateProductWithImages(id, productDataJson, imageFiles);
             return ResponseEntity.ok(ApiResponse.success("Update Product Success!", result));
         } catch (Exception e) {
@@ -129,9 +135,9 @@ public class ProductController {
         }
     }
 
-    // Update product without images
-    @PutMapping("/update-simple/{id}")
-    public ResponseEntity<ApiResponse<ProductResponseDto>> updateSimpleProduct(
+    // Update product without images (JSON body)
+    @PutMapping("/simple/{id}")
+    public ResponseEntity<ApiResponse<ProductResponseDto>> updateProductSimple(
             @PathVariable UUID id,
             @RequestBody UpdateProductDto updateProductDto) {
         try {
@@ -140,6 +146,26 @@ public class ProductController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("Failed to update product: " + e.getMessage()));
+        }
+    }
+
+    // Update only product images
+    @PutMapping(value = "/{id}/images", consumes = {"multipart/form-data"})
+    public ResponseEntity<ApiResponse<ProductResponseDto>> updateProductImages(
+            @PathVariable UUID id,
+            @RequestParam("images") List<MultipartFile> imageFiles) {
+        
+        try {
+            if (imageFiles == null || imageFiles.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Images are required for this endpoint"));
+            }
+            
+            ProductResponseDto result = productService.updateProductWithImages(id, null, imageFiles);
+            return ResponseEntity.ok(ApiResponse.success("Update Product Images Success!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to update product images: " + e.getMessage()));
         }
     }
 

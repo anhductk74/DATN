@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { 
   ShopOutlined,
   EditOutlined,
@@ -22,7 +23,14 @@ interface ShopCardProps {
   onViewProducts?: (shop: Shop) => void;
 }
 
-export default function ShopCard({ shop, onEdit, onDelete, onViewProducts }: ShopCardProps) {
+export default function ShopCard({ shop, onEdit, onDelete }: ShopCardProps) {
+  const router = useRouter();
+
+  const handleViewProducts = () => {
+    // Điều hướng đến trang quản lý sản phẩm với shopId và shopName
+    router.push(`/shop/products?shopId=${shop.id}&shopName=${encodeURIComponent(shop.name)}`);
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-3xl shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-500 relative">
@@ -187,7 +195,7 @@ export default function ShopCard({ shop, onEdit, onDelete, onViewProducts }: Sho
                 <h4 className="font-bold text-gray-900 mb-4">Quick Actions</h4>
                 <div className="grid grid-cols-1 gap-3">
                   <button
-                    onClick={() => onViewProducts?.(shop)}
+                    onClick={handleViewProducts}
                     className="flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
                   >
                     <EyeOutlined className="text-xl" />

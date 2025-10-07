@@ -37,12 +37,10 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setLoading(true);
     try {
-      console.log('🔄 Loading user profile from API...');
       const response = await userService.getUserProfile();
       
       if (response.status === 200 && response.data) {
         const userData = response.data;
-        console.log('✅ User profile loaded from API:', userData);
         const newProfile = {
           id: userData.id,
           fullName: userData.fullName,
@@ -54,7 +52,6 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
           gender: userData.gender,
           isActive: userData.isActive,
         };
-        console.log('🔄 Setting new profile in context:', newProfile);
         setUserProfile(newProfile);
       } else {
         // Fallback to session data
@@ -93,7 +90,6 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [loadUserProfile]);
 
   const refreshProfile = useCallback(async () => {
-    console.log('🔄 Refreshing user profile via context...');
     await loadUserProfile();
   }, [loadUserProfile]);
 
