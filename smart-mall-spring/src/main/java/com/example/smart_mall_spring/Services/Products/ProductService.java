@@ -273,6 +273,16 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
         
+        // Check if any variant has been ordered or is in cart
+        for (ProductVariant variant : product.getVariants()) {
+            if (variant.getOrderItems() != null && !variant.getOrderItems().isEmpty()) {
+                throw new RuntimeException("Cannot delete product: Product variant " + variant.getSku() + " has been ordered");
+            }
+            if (variant.getCartItems() != null && !variant.getCartItems().isEmpty()) {
+                throw new RuntimeException("Cannot delete product: Product variant " + variant.getSku() + " is in someone's cart");
+            }
+        }
+        
         productRepository.delete(product);
     }
 
@@ -429,9 +439,15 @@ public class ProductService {
         // Delete variants that are no longer in the update list
         for (ProductVariant currentVariant : currentVariants) {
             if (!variantIdsToKeep.contains(currentVariant.getId())) {
-                // Delete variant attributes first
-                variantAttributeRepository.deleteByVariantId(currentVariant.getId());
-                // Delete the variant
+                // Check if variant can be deleted (not in orders or carts)
+                if (currentVariant.getOrderItems() != null && !currentVariant.getOrderItems().isEmpty()) {
+                    throw new RuntimeException("Cannot delete variant " + currentVariant.getSku() + ": it has been ordered");
+                }
+                if (currentVariant.getCartItems() != null && !currentVariant.getCartItems().isEmpty()) {
+                    throw new RuntimeException("Cannot delete variant " + currentVariant.getSku() + ": it is in someone's cart");
+                }
+                
+                // Delete the variant (attributes will be deleted automatically due to cascade)
                 productVariantRepository.delete(currentVariant);
             }
         }
@@ -466,8 +482,8 @@ public class ProductService {
 
                     // Update attributes if provided
                     if (variantDto.getAttributes() != null) {
-                        // Delete existing attributes
-                        variantAttributeRepository.deleteByVariantId(existingVariant.getId());
+                        // Clear existing attributes (will be deleted due to cascade)
+                        existingVariant.getAttributes().clear();
                         // Create new attributes
                         createVariantAttributes(existingVariant, variantDto.getAttributes());
                     }

@@ -31,7 +31,7 @@ public class ProductVariant extends BaseEntity {
     private String dimensions;
 
 
-    @OneToMany(mappedBy = "variant")
+    @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<VariantAttribute> attributes;
 
     @OneToMany(mappedBy = "variant")
