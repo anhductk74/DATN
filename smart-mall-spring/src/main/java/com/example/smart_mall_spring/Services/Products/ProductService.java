@@ -19,6 +19,7 @@ import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -68,6 +69,7 @@ public class ProductService {
     }
 
     // Create product with images
+    @Transactional
     public ProductResponseDto createProduct(String productDataJson, List<MultipartFile> imageFiles) {
         try {
             CreateProductDto createProductDto = objectMapper.readValue(productDataJson, CreateProductDto.class);
@@ -90,6 +92,7 @@ public class ProductService {
     }
 
     // Create product
+    @Transactional
     public ProductResponseDto createProduct(CreateProductDto createProductDto, List<String> imageUrls) {
         // Validate required fields
         if (createProductDto.getVariants() == null || createProductDto.getVariants().isEmpty()) {
@@ -127,6 +130,7 @@ public class ProductService {
     }
 
     // Create product without images (for simple API)
+    @Transactional
     public ProductResponseDto createProduct(CreateProductDto createProductDto) {
         return createProduct(createProductDto, null);
     }
@@ -187,6 +191,7 @@ public class ProductService {
     }
 
     // Update product with images
+    @Transactional
     public ProductResponseDto updateProductWithImages(UUID id, String productDataJson, List<MultipartFile> imageFiles) {
         try {
             UpdateProductDto updateProductDto = objectMapper.readValue(productDataJson, UpdateProductDto.class);
@@ -209,6 +214,7 @@ public class ProductService {
     }
 
     // Update product
+    @Transactional
     public ProductResponseDto updateProduct(UUID id, UpdateProductDto updateProductDto, List<String> newImageUrls) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
@@ -247,11 +253,13 @@ public class ProductService {
     }
 
     // Update product without images (for simple API)
+    @Transactional
     public ProductResponseDto updateProduct(UUID id, UpdateProductDto updateProductDto) {
         return updateProduct(id, updateProductDto, null);
     }
 
     // Delete product
+    @Transactional
     public void deleteProduct(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
