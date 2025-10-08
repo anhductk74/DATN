@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
+import { CartProvider } from "@/contexts/CartContext";
 import AntdProvider from "@/components/AntdProvider";
 import SessionProvider from "@/components/SessionProvider";
 import ClearLegacyStorage from "@/components/ClearLegacyStorage";
@@ -20,6 +21,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SmartMall - Smart Shopping Experience",
   description: "Leading e-commerce platform with modern design and exceptional user experience",
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -36,8 +42,10 @@ export default function RootLayout({
           <AntdProvider>
             <AuthProvider>
               <UserProfileProvider>
-                <ClearLegacyStorage />
-                {children}
+                <CartProvider>
+                  <ClearLegacyStorage />
+                  {children}
+                </CartProvider>
               </UserProfileProvider>
             </AuthProvider>
           </AntdProvider>

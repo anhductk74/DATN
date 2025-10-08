@@ -18,20 +18,25 @@ import {
   LogoutOutlined,
   LoadingOutlined
 } from "@ant-design/icons";
+import { Drawer, List, Button, Divider, Badge, InputNumber } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import { useUserProfile } from "@/contexts/UserProfileContext";
+import { useCart } from "@/contexts/CartContext";
 import { CLOUDINARY_API_URL } from "@/config/config";
 import Image from "next/image";
 
 export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showCartPopup, setShowCartPopup] = useState(false);
+  const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const { signOut, user } = useAuth();
   const { message } = useAntdApp();
   const { userProfile } = useUserProfile();
+  const cart = useCart();
 
   // Use enhanced user profile with priority to API data, fallback to session
   const currentUser = userProfile || user;
@@ -76,6 +81,16 @@ export default function Header() {
     }
   };
 
+  // unified navigation helper: if route requires auth and user not logged in -> go to login
+  const handleNavigate = (path: string, requiresAuth = true) => {
+    if (requiresAuth && !currentUser) {
+      message.info("Please login to continue");
+      router.push("/login");
+      return;
+    }
+    router.push(path);
+  };
+
   // Click outside to close menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -85,6 +100,9 @@ export default function Header() {
       }
       if (!target.closest('.mobile-menu-container')) {
         setShowMobileMenu(false);
+      }
+      if (!target.closest('.cart-popup-container')) {
+        setShowCartPopup(false);
       }
     };
 
@@ -100,7 +118,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-2 cursor-pointer" onClick={() => router.push("/home")}>
+          <div className="flex items-center space-x-2 cursor-pointer" role="button" tabIndex={0} onClick={() => handleNavigate('/home', false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/home', false); }}>
             <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-xl">S</span>
             </div>
@@ -128,22 +146,89 @@ export default function Header() {
             {currentUser && (
               <>
                 {/* Notifications */}
-                <button className="relative p-3 text-gray-600 hover:text-blue-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-md group">
+                <button
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleNavigate('/notifications')}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/notifications'); }}
+                  className="relative p-3 text-gray-600 hover:text-blue-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-md group"
+                >
                   <BellOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
                   <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg animate-pulse">2</span>
                 </button>
 
                 {/* Wishlist */}
-                <button className="relative p-3 text-gray-600 hover:text-pink-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 hover:shadow-md group">
+                <button
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleNavigate('/wishlist')}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/wishlist'); }}
+                  className="relative p-3 text-gray-600 hover:text-pink-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 hover:shadow-md group"
+                >
                   <HeartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
                   <span className="absolute -top-1 -right-1 bg-gradient-to-r from-pink-500 to-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg">3</span>
                 </button>
                 
-                {/* Cart */}
-                <button className="relative p-3 text-gray-600 hover:text-green-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 hover:shadow-md group">
-                  <ShoppingCartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg">5</span>
-                </button>
+                {/* Cart (hover to preview, click to open /cart) */}
+                <div className="relative cart-popup-container">
+                  <button
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleNavigate('/cart')}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/cart'); }}
+                    onMouseEnter={() => setShowCartPopup(true)}
+                    onMouseLeave={() => setShowCartPopup(false)}
+                    className="relative p-3 text-gray-600 hover:text-green-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 hover:shadow-md group"
+                  >
+                    <ShoppingCartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg">{cart.totalCount}</span>
+                  </button>
+
+                  {showCartPopup && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50" onMouseEnter={() => setShowCartPopup(true)} onMouseLeave={() => setShowCartPopup(false)}>
+                      <div className="text-sm font-semibold mb-2">Cart ({cart.totalCount})</div>
+                      <div className="max-h-60 overflow-auto">
+                        {cart.items.length === 0 ? (
+                          <div className="text-sm text-gray-500 py-6 text-center">Your cart is empty</div>
+                        ) : (
+                          <List dataSource={cart.items} renderItem={(item: any) => (
+                            <List.Item className="p-2">
+                              <div className="flex items-center w-full">
+                                <div className="w-12 h-12 bg-gray-100 mr-3 flex-shrink-0">
+                                  {item.image ? (
+                                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-200" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium truncate">{item.title}</div>
+                                  <div className="text-xs text-gray-500">{item.shopName || ''}</div>
+                                </div>
+                                <div className="ml-3 text-sm font-semibold text-red-600">{item.price.toLocaleString()}đ</div>
+                              </div>
+                            </List.Item>
+                          )} />
+                        )}
+                      </div>
+                      <Divider />
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm text-gray-500">Total</div>
+                          <div className="text-lg font-bold">{cart.totalPrice.toLocaleString()}đ</div>
+                        </div>
+                        <div className="space-x-2">
+                          <Button size="small" onClick={() => handleNavigate('/cart')}>
+                            View Cart
+                          </Button>
+                          <Button size="small" type="primary" onClick={() => handleNavigate('/checkout')}>
+                            Checkout
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
@@ -215,7 +300,7 @@ export default function Header() {
                     </div>
                     <div className="px-2 py-2">
                       <button 
-                        onClick={() => router.push("/profile")}
+                        onClick={() => handleNavigate('/profile')}
                         className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-2xl transition-all duration-200 group"
                       >
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
@@ -223,14 +308,14 @@ export default function Header() {
                         </div>
                         <span className="font-medium group-hover:text-blue-700">My Profile</span>
                       </button>
-                      <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 rounded-2xl transition-all duration-200 group">
+                      <button onClick={() => handleNavigate('/orders')} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <TagOutlined className="text-white text-sm" />
                         </div>
                         <span className="font-medium group-hover:text-green-700">My Orders</span>
-                      </a>
+                      </button>
                       <button 
-                        onClick={() => router.push("/shop")}
+                        onClick={() => handleNavigate('/shop')}
                         className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group"
                       >
                         <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
@@ -238,12 +323,12 @@ export default function Header() {
                         </div>
                         <span className="font-medium group-hover:text-pink-700">My Shop</span>
                       </button>
-                      <a href="#" className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 rounded-2xl transition-all duration-200 group">
+                      <button onClick={() => handleNavigate('/support', false)} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <CustomerServiceOutlined className="text-white text-sm" />
                         </div>
                         <span className="font-medium group-hover:text-purple-700">Support</span>
-                      </a>
+                      </button>
                     </div>
                     <div className="border-t border-gray-200 my-3 mx-4"></div>
                     <div className="px-2 pb-2">
@@ -289,7 +374,7 @@ export default function Header() {
               </div>
             ) : (
               <button 
-                onClick={handleAuthAction}
+                onClick={() => handleNavigate('/login', false)}
                 className="px-8 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold"
               >
                 Sign In
@@ -350,32 +435,32 @@ export default function Header() {
                   </div>
                 </div>
                 
-                <a href="#" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                <button onClick={() => handleNavigate('/home', false)} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <HomeOutlined className="mr-3 text-gray-400" />
                   Home
-                </a>
-                <a href="#" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                </button>
+                <button onClick={() => handleNavigate('/profile')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <UserOutlined className="mr-3 text-gray-400" />
                   Account
-                </a>
-                <a href="#" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                </button>
+                <button onClick={() => handleNavigate('/orders')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <TagOutlined className="mr-3 text-gray-400" />
                   Orders
-                </a>
-                <a href="#" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                </button>
+                <button onClick={() => handleNavigate('/wishlist')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <HeartOutlined className="mr-3 text-gray-400" />
                   Wishlist
                   <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-                </a>
-                <a href="#" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                </button>
+                <button onClick={() => handleNavigate('/cart')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <ShoppingCartOutlined className="mr-3 text-gray-400" />
                   Cart
                   <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">5</span>
-                </a>
-                <a href="#" className="flex items-center px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                </button>
+                <button onClick={() => handleNavigate('/support', false)} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <CustomerServiceOutlined className="mr-3 text-gray-400" />
                   Support
-                </a>
+                </button>
                 
                 <div className="border-t border-gray-200 my-2"></div>
                 <button 
