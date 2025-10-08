@@ -202,6 +202,18 @@ export default function Profile() {
     }
   };
 
+  const resolveAvatar = (avatar?: string) => {
+    if (!avatar) return undefined;
+    const trimmed = avatar.trim();
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("//")) {
+      return trimmed;
+    }
+    // ensure CLOUDINARY_API_URL ends with a slash or avatar does not start with one to avoid double-slash issues
+    const base = CLOUDINARY_API_URL.endsWith('/') ? CLOUDINARY_API_URL.slice(0, -1) : CLOUDINARY_API_URL;
+    const rest = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return `${base}${rest}`;
+  };
+
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -297,7 +309,7 @@ export default function Profile() {
                   <div className="w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                     {profileData.avatar ? (
                       <Image 
-                        src={`${CLOUDINARY_API_URL}${profileData.avatar}`} 
+                        src={resolveAvatar(profileData.avatar) as string} 
                         alt="Avatar" 
                         width={128}
                         height={128}
