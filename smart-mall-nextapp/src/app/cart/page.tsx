@@ -14,6 +14,7 @@ import {
   EmptyCart,
   LoadingState
 } from "./components";
+import Header from "@/components/Header";
 
 // Mock data for testing
 const mockCartItems = [
@@ -133,7 +134,7 @@ export default function CartPage() {
 
   return (
     <>
-      <CartHeader onLogoClick={() => router.push('/home')} />
+        <Header />
 
       <div className="bg-gray-50 min-h-screen pb-24">
         <div className="max-w-7xl mx-auto px-4 py-6">

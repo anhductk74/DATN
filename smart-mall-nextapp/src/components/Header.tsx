@@ -20,6 +20,7 @@ import {
 } from "@ant-design/icons";
 import { Drawer, List, Button, Divider, Badge, InputNumber } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
+import type { CartItem } from "@/contexts/CartContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useCart } from "@/contexts/CartContext";
@@ -30,7 +31,6 @@ export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
-  const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const { signOut, user } = useAuth();
@@ -191,12 +191,12 @@ export default function Header() {
                         {cart.items.length === 0 ? (
                           <div className="text-sm text-gray-500 py-6 text-center">Your cart is empty</div>
                         ) : (
-                          <List dataSource={cart.items} renderItem={(item: any) => (
+                          <List dataSource={cart.items} renderItem={(item: CartItem) => (
                             <List.Item className="p-2">
                               <div className="flex items-center w-full">
                                 <div className="w-12 h-12 bg-gray-100 mr-3 flex-shrink-0">
                                   {item.image ? (
-                                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                                    <Image src={item.image} alt={item.title} width={48} height={48} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full bg-gray-200" />
                                   )}
