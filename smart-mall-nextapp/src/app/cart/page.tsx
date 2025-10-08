@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { App } from "antd";
 import { useCart } from "@/contexts/CartContext";
 import {
-  CartHeader,
   CartTable,
   CartFooter,
   VoucherSection,

@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
+import type { CartItem } from "@/contexts/CartContext";
 import { Button, Checkbox } from "antd";
 import { useRouter } from "next/navigation";
 
 interface CartFooterProps {
-  items: any[];
+  items: CartItem[];
   selectedItems: string[];
   totalCount: number;
   selectAll: boolean;

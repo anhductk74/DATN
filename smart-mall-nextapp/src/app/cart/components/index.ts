@@ -1,5 +1,4 @@
 // Export all cart components
-export { default as CartHeader } from './CartHeader';
 export { default as CartItem } from './CartItem';
 export { default as CartTable } from './CartTable';
 export { default as CartFooter } from './CartFooter';
