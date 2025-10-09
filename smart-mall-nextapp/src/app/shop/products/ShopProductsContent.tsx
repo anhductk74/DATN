@@ -63,6 +63,29 @@ export default function ShopProductsContent() {
   const [form] = Form.useForm();
   const [categoryForm] = Form.useForm();
 
+  // Function to generate simple SKU from attributes
+  const generateSKU = (attributes: { attributeName: string; attributeValue: string }[] = []) => {
+    // Extract attribute values and clean them
+    const values = attributes
+      .filter(attr => attr.attributeName && attr.attributeValue)
+      .map(attr => {
+        // Clean and format attribute value
+        return attr.attributeValue
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, '') // Remove special characters
+          .trim();
+      })
+      .filter(value => value) // Remove empty values
+      .slice(0, 3); // Max 3 attributes
+
+    // Join with hyphen, if no attributes return default
+    if (values.length === 0) {
+      return `SKU-${Date.now().toString().slice(-6)}`;
+    }
+
+    return values.join('-');
+  };
+
   const fetchCategories = useCallback(async () => {
     setCategoriesLoading(true);
     try {
@@ -1097,7 +1120,7 @@ export default function ShopProductsContent() {
                             label="SKU (Stock Keeping Unit)"
                             rules={[{ required: true, message: 'Please enter SKU' }]}
                           >
-                            <Input placeholder="e.g. IPHONE15PM-256GB-TN" />
+                            <Input placeholder="e.g. BLACK-256GB (Auto-generated from attributes)" />
                           </Form.Item>
                         </Col>
                         <Col span={12}>
@@ -1152,7 +1175,10 @@ export default function ShopProductsContent() {
 
                       {/* Attributes */}
                       <div className="mt-4">
-                        <h6 className="text-sm font-medium text-gray-700 mb-3">Product Attributes</h6>
+                        <div className="flex items-center justify-between mb-3">
+                          <h6 className="text-sm font-medium text-gray-700">Product Attributes</h6>
+                          
+                        </div>
                         <Form.List name={[name, 'attributes']}>
                           {(attrFields, { add: addAttr, remove: removeAttr }) => (
                             <>
@@ -1164,13 +1190,47 @@ export default function ShopProductsContent() {
                                       name={[attrName, 'attributeName']}
                                       rules={[{ required: true, message: 'Attribute name required' }]}
                                     >
-                                      <Select placeholder="Attribute Name">
+                                      <Select 
+                                        placeholder="Select or type attribute name"
+                                        showSearch
+                                        allowClear
+                                        dropdownMatchSelectWidth={false}
+                                        filterOption={(input, option) =>
+                                          String(option?.children || '').toLowerCase().includes(input.toLowerCase())
+                                        }
+                                        onChange={() => {
+                                          // Auto-generate SKU when attribute selection changes
+                                          setTimeout(() => {
+                                            const attributes = form.getFieldValue(['variants', name, 'attributes']) || [];
+                                            const validAttributes = attributes.filter((attr: { attributeName: string; attributeValue: string }) => 
+                                              attr.attributeName && attr.attributeValue
+                                            );
+                                            
+                                            if (validAttributes.length > 0) {
+                                              const autoSKU = generateSKU(validAttributes);
+                                              form.setFieldValue(['variants', name, 'sku'], autoSKU);
+                                            }
+                                          }, 100);
+                                        }}
+                                        notFoundContent={
+                                          <div className="p-2 text-center text-gray-500">
+                                            <div className="text-sm">Type to add custom attribute</div>
+                                            <div className="text-xs mt-1">Custom values will be saved</div>
+                                          </div>
+                                        }
+                                      >
                                         <Option value="Color">Color</Option>
                                         <Option value="Size">Size</Option>
                                         <Option value="Storage">Storage</Option>
                                         <Option value="Material">Material</Option>
                                         <Option value="Memory">Memory</Option>
                                         <Option value="Screen Size">Screen Size</Option>
+                                        <Option value="Brand">Brand</Option>
+                                        <Option value="Model">Model</Option>
+                                        <Option value="Weight">Weight</Option>
+                                        <Option value="Capacity">Capacity</Option>
+                                        <Option value="Type">Type</Option>
+                                        <Option value="Style">Style</Option>
                                       </Select>
                                     </Form.Item>
                                   </Col>
@@ -1180,7 +1240,27 @@ export default function ShopProductsContent() {
                                       name={[attrName, 'attributeValue']}
                                       rules={[{ required: true, message: 'Attribute value required' }]}
                                     >
-                                      <Input placeholder="Attribute Value" />
+                                      <Input 
+                                        placeholder="Attribute Value"
+                                        onChange={() => {
+                                          // Auto-generate SKU when attribute value changes
+                                          setTimeout(() => {
+                                            const attributes = form.getFieldValue(['variants', name, 'attributes']) || [];
+                                            const validAttributes = attributes.filter((attr: { attributeName: string | string[]; attributeValue: string }) => {
+                                              const attrName = Array.isArray(attr.attributeName) ? attr.attributeName[0] : attr.attributeName;
+                                              return attrName && attr.attributeValue;
+                                            }).map((attr: { attributeName: string | string[]; attributeValue: string }) => ({
+                                              attributeName: Array.isArray(attr.attributeName) ? attr.attributeName[0] : attr.attributeName,
+                                              attributeValue: attr.attributeValue
+                                            }));
+                                            
+                                            if (validAttributes.length > 0) {
+                                              const autoSKU = generateSKU(validAttributes);
+                                              form.setFieldValue(['variants', name, 'sku'], autoSKU);
+                                            }
+                                          }, 100);
+                                        }}
+                                      />
                                     </Form.Item>
                                   </Col>
                                   <Col span={4}>

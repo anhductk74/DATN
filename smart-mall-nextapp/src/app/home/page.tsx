@@ -2,10 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
+import productService, { Product } from "@/services/productService";
+import { message } from "antd";
+import { CLOUDINARY_API_URL } from "@/config/config";
 import { 
   HeartOutlined, 
   MobileOutlined,
@@ -16,12 +21,19 @@ import {
   StarFilled,
   FireOutlined,
   GiftOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  LoadingOutlined,
+  ShoppingCartOutlined
 } from "@ant-design/icons";
 
 export default function Home() {
   const router = useRouter();
-  const { session, status } = useAuth();
+  const { status } = useAuth();
+  const { addItem } = useCart();
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Auto logout after 30 minutes of inactivity
   useAutoLogout({
@@ -31,6 +43,42 @@ export default function Home() {
     }
   });
 
+  // Fetch products when component mounts
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const allProducts = await productService.getAllProducts();
+        
+        if (allProducts.length > 0) {
+          // Ensure both sections have products
+          const shuffled = [...allProducts].sort(() => Math.random() - 0.5); // Shuffle for variety
+          
+          if (shuffled.length >= 12) {
+            // If we have enough products, split normally
+            setFlashSaleProducts(shuffled.slice(0, 6));
+            setProducts(shuffled.slice(6, 18));
+          } else if (shuffled.length >= 6) {
+            // If we have 6-11 products, duplicate some for recommended
+            setFlashSaleProducts(shuffled.slice(0, 6));
+            setProducts([...shuffled.slice(6), ...shuffled.slice(0, Math.min(6, 12 - (shuffled.length - 6)))]);
+          } else {
+            // If we have less than 6 products, use all for both sections
+            setFlashSaleProducts(shuffled);
+            setProducts(shuffled);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        message.error("Không thể tải danh sách sản phẩm");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   useEffect(() => {
     if (status === "loading") return; // Wait for auth state to load
     
@@ -39,6 +87,25 @@ export default function Home() {
       return;
     }
   }, [status, router]);
+
+  // Handle add to cart
+  const handleAddToCart = (product: Product) => {
+    if (product.variants && product.variants.length > 0) {
+      const variant = product.variants[0]; // Use first variant
+      addItem({
+        id: product.id || Math.random().toString(),
+        title: product.name,
+        price: variant.price,
+        image: product.images?.[0],
+        shopName: `Shop ${product.shopId}`,
+        variant: variant.sku,
+        quantity: 1
+      });
+      message.success("Đã thêm vào giỏ hàng!");
+    } else {
+      message.error("Sản phẩm không có phiên bản để bán");
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -225,25 +292,79 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((item) => (
-              <div 
-                key={item} 
-                className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                onClick={() => router.push(`/product/${item}`)}
-              >
-                <div className="w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl mb-4 flex items-center justify-center">
-                  <span className="text-gray-400 text-sm font-medium">Flash Product {item}</span>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl font-bold text-red-500 mb-1">$299</div>
-                  <div className="text-sm text-gray-500 line-through mb-3">$599</div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                    <div className="bg-gradient-to-r from-red-500 to-pink-500 h-2 rounded-full" style={{ width: "75%" }}></div>
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="bg-white rounded-3xl p-6 shadow-lg animate-pulse">
+                  <div className="w-full h-32 bg-gray-200 rounded-2xl mb-4"></div>
+                  <div className="text-center space-y-2">
+                    <div className="h-6 bg-gray-200 rounded w-20 mx-auto"></div>
+                    <div className="h-4 bg-gray-200 rounded w-16 mx-auto"></div>
+                    <div className="h-2 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-12 mx-auto"></div>
                   </div>
-                  <div className="text-xs text-gray-600">Sold 75</div>
                 </div>
+              ))
+            ) : flashSaleProducts.length > 0 ? (
+              flashSaleProducts.map((product) => {
+                const variant = product.variants?.[0];
+                const price = variant?.price || 0;
+                const originalPrice = Math.round(price * 1.5); // Mock original price (50% off)
+                
+                return (
+                  <div 
+                    key={product.id} 
+                    className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                    onClick={() => router.push(`/product/${product.id}`)}
+                  >
+                    <div className="w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl mb-4 flex items-center justify-center overflow-hidden relative">
+                      {product.images?.[0] ? (
+                        <Image 
+                          src={`${CLOUDINARY_API_URL}${product.images[0]}`} 
+                          alt={product.name}
+                          fill
+                          className="object-cover rounded-2xl"
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-sm font-medium text-center px-2">
+                          {product.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-bold text-red-500 mb-1">
+                        ${price.toLocaleString()}
+                      </div>
+                      <div className="text-sm text-gray-500 line-through mb-3">
+                        ${originalPrice.toLocaleString()}
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                        <div 
+                          className="bg-gradient-to-r from-red-500 to-pink-500 h-2 rounded-full" 
+                          style={{ width: `${Math.floor(Math.random() * 30 + 70)}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {variant?.stock ? `${variant.stock} left` : 'In stock'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              // No products state
+              <div className="col-span-full text-center py-12">
+                <div className="text-4xl mb-4">⚡</div>
+                <div className="text-white text-lg mb-2">Không có sản phẩm flash sale</div>
+                <div className="text-white/80 text-sm mb-4">Flash sale sẽ trở lại sớm thôi!</div>
+                <button 
+                  className="bg-white/20 backdrop-blur-sm text-white px-6 py-2 rounded-xl font-medium hover:bg-white/30 transition-all duration-200 border border-white/30"
+                  onClick={() => router.push('/products')}
+                >
+                  Xem tất cả sản phẩm
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>
@@ -251,55 +372,109 @@ export default function Home() {
       {/* Recommended Products */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Recommended for You</h2>
-            <p className="text-xl text-gray-600">Handpicked just for you based on your preferences</p>
+          <div className="flex flex-col lg:flex-row items-center justify-between mb-12">
+            <div className="text-center lg:text-left mb-6 lg:mb-0">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">Recommended for You</h2>
+              <p className="text-xl text-gray-600">Handpicked just for you based on your preferences</p>
+            </div>
+            <button 
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-2xl font-semibold hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+              onClick={() => router.push('/products')}
+            >
+              View All Products
+            </button>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((item) => (
-              <div key={item} className="group bg-white rounded-3xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-gray-100">
-                <div 
-                  className="w-full h-40 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl mb-4 flex items-center justify-center relative overflow-hidden cursor-pointer"
-                  onClick={() => router.push(`/product/${item + 10}`)} // Offset để tránh trùng với flash sale
-                >
-                  <span className="text-gray-400 text-sm">Product {item}</span>
-                  <button 
-                    className="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent navigation when clicking heart
-                      // Add to wishlist logic here
-                    }}
-                  >
-                    <HeartOutlined className="text-gray-400 hover:text-red-500 text-sm" />
-                  </button>
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: 12 }).map((_, index) => (
+                <div key={index} className="bg-white rounded-3xl p-4 shadow-sm animate-pulse border border-gray-100">
+                  <div className="w-full h-40 bg-gray-200 rounded-2xl mb-4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-20"></div>
+                    <div className="h-6 bg-gray-200 rounded w-16"></div>
+                    <div className="h-8 bg-gray-200 rounded w-full"></div>
+                  </div>
                 </div>
-                <h3 
-                  className="font-semibold text-gray-900 mb-2 text-sm cursor-pointer hover:text-blue-600 transition-colors"
-                  onClick={() => router.push(`/product/${item + 10}`)}
-                >
-                  High Quality Product {item}
-                </h3>
-                <div className="flex items-center space-x-1 mb-2">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <StarFilled key={star} className="w-3 h-3 text-yellow-400" />
-                  ))}
-                  <span className="text-xs text-gray-500">(4.8)</span>
-                </div>
-                <div className="text-red-500 font-bold text-lg mb-3">
-                  ${(item * 150 + 100)}
-                </div>
+              ))
+            ) : products.length > 0 ? (
+              products.map((product) => {
+                const variant = product.variants?.[0];
+                const price = variant?.price || 0;
+                
+                return (
+                  <div key={product.id} className="group bg-white rounded-3xl p-4 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-gray-100">
+                    <div 
+                      className="w-full h-40 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl mb-4 flex items-center justify-center relative overflow-hidden cursor-pointer"
+                      onClick={() => router.push(`/product/${product.id}`)}
+                    >
+                      {product.images?.[0] ? (
+                        <Image 
+                          src={`${CLOUDINARY_API_URL}${product.images[0]}`} 
+                          alt={product.name}
+                          fill
+                          className="object-cover rounded-2xl"
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-sm text-center px-2">
+                          {product.name}
+                        </span>
+                      )}
+                      <button 
+                        className="absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          message.info("Wishlist feature coming soon!");
+                        }}
+                      >
+                        <HeartOutlined className="text-gray-400 hover:text-red-500 text-sm" />
+                      </button>
+                    </div>
+                    <h3 
+                      className="font-semibold text-gray-900 mb-2 text-sm cursor-pointer hover:text-blue-600 transition-colors line-clamp-2"
+                      onClick={() => router.push(`/product/${product.id}`)}
+                      title={product.name}
+                    >
+                      {product.name}
+                    </h3>
+                    <div className="flex items-center space-x-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <StarFilled key={star} className="w-3 h-3 text-yellow-400" />
+                      ))}
+                      <span className="text-xs text-gray-500">(4.8)</span>
+                    </div>
+                    <div className="text-red-500 font-bold text-lg mb-3">
+                      ${price.toLocaleString()}
+                    </div>
+                    <button 
+                      className="w-full py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToCart(product);
+                      }}
+                    >
+                      <ShoppingCartOutlined className="text-sm" />
+                      <span>Add to Cart</span>
+                    </button>
+                  </div>
+                );
+              })
+            ) : (
+              // No products state
+              <div className="col-span-full text-center py-16">
+                <div className="text-6xl mb-4">🛍️</div>
+                <div className="text-gray-400 text-xl mb-2">Chưa có sản phẩm được đề xuất</div>
+                <div className="text-gray-500 text-sm mb-6">Các sản phẩm phù hợp với bạn sẽ xuất hiện ở đây</div>
                 <button 
-                  className="w-full py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent navigation when clicking add to cart
-                    // Add to cart logic here
-                  }}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
+                  onClick={() => router.push('/products')}
                 >
-                  Add to Cart
+                  Khám phá sản phẩm
                 </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>

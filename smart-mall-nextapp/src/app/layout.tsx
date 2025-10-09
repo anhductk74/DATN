@@ -6,6 +6,7 @@ import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import { CartProvider } from "@/contexts/CartContext";
 import AntdProvider from "@/components/AntdProvider";
 import SessionProvider from "@/components/SessionProvider";
+import QueryProvider from "@/components/QueryProvider";
 import ClearLegacyStorage from "@/components/ClearLegacyStorage";
 
 const geistSans = Geist({
@@ -39,16 +40,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionProvider>
-          <AntdProvider>
-            <AuthProvider>
-              <UserProfileProvider>
-                <CartProvider>
-                  <ClearLegacyStorage />
-                  {children}
-                </CartProvider>
-              </UserProfileProvider>
-            </AuthProvider>
-          </AntdProvider>
+          <QueryProvider>
+            <AntdProvider>
+              <AuthProvider>
+                <UserProfileProvider>
+                  <CartProvider>
+                    <ClearLegacyStorage />
+                    {children}
+                  </CartProvider>
+                </UserProfileProvider>
+              </AuthProvider>
+            </AntdProvider>
+          </QueryProvider>
         </SessionProvider>
       </body>
     </html>
