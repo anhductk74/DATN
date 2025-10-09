@@ -308,7 +308,7 @@ export default function Header() {
                         </div>
                         <span className="font-medium group-hover:text-blue-700">My Profile</span>
                       </button>
-                      <button onClick={() => handleNavigate('/orders')} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 rounded-2xl transition-all duration-200 group">
+                      <button onClick={() => handleNavigate('/my-orders')} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <TagOutlined className="text-white text-sm" />
                         </div>

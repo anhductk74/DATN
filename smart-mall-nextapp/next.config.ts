@@ -23,6 +23,18 @@ const nextConfig: NextConfig = {
         hostname: 'localhost',
         port: '8080',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'd3vfig6e0r0snz.cloudfront.net',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
