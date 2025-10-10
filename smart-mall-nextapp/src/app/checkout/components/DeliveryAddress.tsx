@@ -10,11 +10,13 @@ import {
   ShopOutlined
 } from "@ant-design/icons";
 import { locationService, type Province, type District, type Ward } from "@/services/locationService";
+import addressService, { type Address, type CreateAddressRequest, type UpdateAddressRequest, type AddressType } from "@/services/addressService";
+import { useAuth } from "@/contexts/AuthContext";
 
 const { TextArea } = Input;
 const { Option } = Select;
 
-// Types for delivery address
+// Types for delivery address (UI format)
 export interface DeliveryAddress {
   id: string;
   name: string;
@@ -27,10 +29,26 @@ export interface DeliveryAddress {
   city: string;
   cityCode: string;
   isDefault: boolean;
-  type: 'home' | 'office' | 'other';
+  type: AddressType;
 }
 
-
+// Transform API Address to UI DeliveryAddress
+const transformApiAddressToLocal = (apiAddress: Address): DeliveryAddress => {
+  return {
+    id: apiAddress.id,
+    name: apiAddress.recipient,
+    phone: apiAddress.phoneNumber,
+    address: apiAddress.street,
+    ward: apiAddress.commune,
+    wardCode: "", // API doesn't provide codes
+    district: apiAddress.district,
+    districtCode: "",
+    city: apiAddress.city,
+    cityCode: "",
+    isDefault: apiAddress.isDefault,
+    type: apiAddress.addressType
+  };
+};
 
 interface DeliveryAddressProps {
   addresses: DeliveryAddress[];
@@ -45,6 +63,7 @@ export default function DeliveryAddress({
   onAddressesChange, 
   onSelectedAddressChange 
 }: DeliveryAddressProps) {
+  const { status } = useAuth();
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [addAddressModalVisible, setAddAddressModalVisible] = useState(false);
   const [editingAddress, setEditingAddress] = useState<DeliveryAddress | null>(null);
@@ -59,11 +78,20 @@ export default function DeliveryAddress({
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
 
   // Handle mounting for hydration safety
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Load addresses from API
+  useEffect(() => {
+    if (mounted && status === 'authenticated') {
+      loadAddressesFromAPI();
+    }
+  }, [mounted, status]);
 
   // Load provinces only after component is mounted
   useEffect(() => {
@@ -71,6 +99,26 @@ export default function DeliveryAddress({
       loadProvinces();
     }
   }, [mounted]);
+
+  const loadAddressesFromAPI = async () => {
+    setLoadingAddresses(true);
+    try {
+      const apiAddresses = await addressService.getAddresses();
+      const transformedAddresses = apiAddresses.map(transformApiAddressToLocal);
+      onAddressesChange(transformedAddresses);
+      
+      // Set default address or first address as selected
+      if (transformedAddresses.length > 0 && !selectedAddressId) {
+        const defaultAddress = transformedAddresses.find((addr: DeliveryAddress) => addr.isDefault);
+        onSelectedAddressChange(defaultAddress?.id || transformedAddresses[0].id);
+      }
+    } catch (error: any) {
+      console.error('Failed to load addresses:', error);
+      message.error(error?.response?.data?.message || 'Failed to load address list');
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
 
   const loadProvinces = async () => {
     setLoadingProvinces(true);
@@ -166,24 +214,37 @@ export default function DeliveryAddress({
       title: 'Delete Address',
       content: 'Are you sure you want to delete this address?',
       okText: 'Delete',
+      cancelText: 'Cancel',
       okType: 'danger',
-      onOk: () => {
-        const newAddresses = addresses.filter(addr => addr.id !== addressId);
-        onAddressesChange(newAddresses);
-        
-        if (selectedAddressId === addressId && newAddresses.length > 0) {
-          onSelectedAddressChange(newAddresses[0].id);
+      onOk: async () => {
+        try {
+          await addressService.deleteAddress(addressId);
+          
+          // Reload addresses after deletion
+          await loadAddressesFromAPI();
+          
+          message.success('Address deleted successfully');
+        } catch (error: any) {
+          console.error('Failed to delete address:', error);
+          message.error(error?.response?.data?.message || 'Failed to delete address');
         }
       }
     });
   };
 
-  const handleSetDefaultAddress = (addressId: string) => {
-    const newAddresses = addresses.map(addr => ({
-      ...addr,
-      isDefault: addr.id === addressId
-    }));
-    onAddressesChange(newAddresses);
+  const handleSetDefaultAddress = async (addressId: string) => {
+    try {
+      // Update the address to set it as default
+      await addressService.updateAddress(addressId, { isDefault: true });
+      
+      // Reload addresses to reflect the change
+      await loadAddressesFromAPI();
+      
+      message.success('Set as default address successfully');
+    } catch (error: any) {
+      console.error('Failed to set default address:', error);
+      message.error(error?.response?.data?.message || 'Failed to set default address');
+    }
   };
 
   const handleSaveAddress = async (values: {
@@ -193,54 +254,54 @@ export default function DeliveryAddress({
     city: string;
     district: string;
     ward: string;
-    type: 'home' | 'office' | 'other';
+    type: AddressType;
   }) => {
+    setSavingAddress(true);
     try {
       // Get the full names from the API data
-      const province = provinces.find(p => p.code === values.city);
-      const district = districts.find(d => d.code === values.district);
-      const ward = wards.find(w => w.code === values.ward);
+      const province = provinces.find((p: Province) => p.code === values.city);
+      const district = districts.find((d: District) => d.code === values.district);
+      const ward = wards.find((w: Ward) => w.code === values.ward);
 
       if (!province || !district || !ward) {
-        message.error('Please select valid location');
+        message.error('Please select a valid address');
         return;
       }
 
       if (editingAddress) {
-        // Update existing address
-        const newAddresses = addresses.map(addr => 
-          addr.id === editingAddress.id 
-            ? {
-                ...addr,
-                ...values,
-                city: province.name,
-                cityCode: province.code,
-                district: district.name,
-                districtCode: district.code,
-                ward: ward.name,
-                wardCode: ward.code
-              }
-            : addr
-        );
-        onAddressesChange(newAddresses);
+        // Update existing address via API
+        const updateData: UpdateAddressRequest = {
+          recipient: values.name,
+          phoneNumber: values.phone,
+          addressType: values.type,
+          street: values.address,
+          commune: ward.name,
+          district: district.name,
+          city: province.name
+        };
+        
+        await addressService.updateAddress(editingAddress.id, updateData);
         message.success('Address updated successfully!');
       } else {
-        // Add new address
-        const newAddress: DeliveryAddress = {
-          id: Date.now().toString(),
-          ...values,
-          city: province.name,
-          cityCode: province.code,
+        // Create new address via API
+        const createData: CreateAddressRequest = {
+          recipient: values.name,
+          phoneNumber: values.phone,
+          addressType: values.type,
+          street: values.address,
+          commune: ward.name,
           district: district.name,
-          districtCode: district.code,
-          ward: ward.name,
-          wardCode: ward.code,
-          isDefault: addresses.length === 0
+          city: province.name,
+          isDefault: addresses.length === 0 // First address is default
         };
-        onAddressesChange([...addresses, newAddress]);
+        
+        const newAddress = await addressService.createAddress(createData);
         onSelectedAddressChange(newAddress.id);
-        message.success('Address added successfully!');
+        message.success('New address added successfully!');
       }
+      
+      // Reload addresses from API
+      await loadAddressesFromAPI();
       
       setAddAddressModalVisible(false);
       addressForm.resetFields();
@@ -248,11 +309,26 @@ export default function DeliveryAddress({
       setSelectedDistrict("");
       setDistricts([]);
       setWards([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save address:', error);
-      message.error('Failed to save address. Please try again.');
+      message.error(error?.response?.data?.message || 'Failed to save address. Please try again.');
+    } finally {
+      setSavingAddress(false);
     }
   };
+
+  if (!selectedAddress && loadingAddresses) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+            <p className="mt-2 text-gray-500">Loading addresses...</p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   if (!selectedAddress) {
     return null;
@@ -272,6 +348,7 @@ export default function DeliveryAddress({
             icon={<EditOutlined />}
             onClick={() => setAddressModalVisible(true)}
             className="text-blue-500"
+            loading={loadingAddresses}
           >
             Change
           </Button>
@@ -281,8 +358,8 @@ export default function DeliveryAddress({
             <div className="flex-1">
               <div className="flex items-center mb-2">
                 <div className="text-orange-500 mr-2">
-                  {selectedAddress.type === 'home' ? <HomeOutlined /> : 
-                   selectedAddress.type === 'office' ? <ShopOutlined /> : 
+                  {selectedAddress.type === 'HOME' ? <HomeOutlined /> : 
+                   selectedAddress.type === 'WORK' ? <ShopOutlined /> : 
                    <EnvironmentOutlined />}
                 </div>
                 <span className="font-medium text-gray-800">{selectedAddress.name}</span>
@@ -315,7 +392,21 @@ export default function DeliveryAddress({
             Add New Address
           </Button>
           
-          {addresses.map(address => (
+          {loadingAddresses ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+                <p className="mt-2 text-gray-500">Loading...</p>
+              </div>
+            </div>
+          ) : addresses.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <EnvironmentOutlined className="text-4xl mb-2" />
+              <p>No addresses yet</p>
+              <p className="text-sm">Please add a delivery address</p>
+            </div>
+          ) : (
+            addresses.map(address => (
             <div 
               key={address.id}
               className={`border rounded-lg p-4 cursor-pointer transition-all ${
@@ -329,8 +420,8 @@ export default function DeliveryAddress({
                 <div className="flex-1">
                   <div className="flex items-center mb-2">
                     <div className="text-orange-500 mr-2">
-                      {address.type === 'home' ? <HomeOutlined /> : 
-                       address.type === 'office' ? <ShopOutlined /> : 
+                      {address.type === 'HOME' ? <HomeOutlined /> : 
+                       address.type === 'WORK' ? <ShopOutlined /> : 
                        <EnvironmentOutlined />}
                     </div>
                     <span className="font-medium text-gray-800">{address.name}</span>
@@ -380,7 +471,8 @@ export default function DeliveryAddress({
                 </div>
               </div>
             </div>
-          ))}
+          ))
+          )}
         </div>
       </Modal>
 
@@ -416,7 +508,7 @@ export default function DeliveryAddress({
               label="Phone Number"
               rules={[
                 { required: true, message: 'Please enter phone number' },
-                { pattern: /^[0-9]{10,11}$/, message: 'Please enter valid phone number' }
+                { pattern: /^[0-9]{10,11}$/, message: 'Invalid phone number' }
               ]}
             >
               <Input placeholder="Enter phone number" />
@@ -427,17 +519,18 @@ export default function DeliveryAddress({
             name="type"
             label="Address Type"
             rules={[{ required: true, message: 'Please select address type' }]}
+            initialValue="HOME"
           >
             <Radio.Group>
-              <Radio value="home">
+              <Radio value="HOME">
                 <HomeOutlined className="mr-1" />
                 Home
               </Radio>
-              <Radio value="office">
+              <Radio value="WORK">
                 <ShopOutlined className="mr-1" />
-                Office
+                Work
               </Radio>
-              <Radio value="other">
+              <Radio value="OTHER">
                 <EnvironmentOutlined className="mr-1" />
                 Other
               </Radio>
@@ -447,11 +540,11 @@ export default function DeliveryAddress({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Form.Item
               name="city"
-              label="City/Province"
-              rules={[{ required: true, message: 'Please select city' }]}
+              label="Province/City"
+              rules={[{ required: true, message: 'Please select province/city' }]}
             >
               <Select
-                placeholder={loadingProvinces ? "Loading provinces..." : "Select city"}
+                placeholder={loadingProvinces ? "Loading..." : "Select province/city"}
                 loading={loadingProvinces}
                 disabled={!mounted || loadingProvinces}
                 onChange={(value) => {
@@ -495,11 +588,11 @@ export default function DeliveryAddress({
 
             <Form.Item
               name="ward"
-              label="Ward"
-              rules={[{ required: true, message: 'Please select ward' }]}
+              label="Ward/Commune"
+              rules={[{ required: true, message: 'Please select ward/commune' }]}
             >
               <Select
-                placeholder="Select ward"
+                placeholder="Select ward/commune"
                 loading={loadingWards}
                 disabled={!selectedDistrict}
               >
@@ -530,6 +623,7 @@ export default function DeliveryAddress({
             <Button 
               type="primary"
               htmlType="submit"
+              loading={savingAddress}
               className="bg-orange-500 hover:bg-orange-600 border-orange-500"
             >
               {editingAddress ? 'Update Address' : 'Add Address'}

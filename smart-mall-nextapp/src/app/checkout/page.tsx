@@ -41,7 +41,7 @@ const mockAddresses: DeliveryAddressType[] = [
     city: "Thành phố Hồ Chí Minh",
     cityCode: "79",
     isDefault: true,
-    type: 'home'
+    type: 'HOME'
   },
   {
     id: "2",
@@ -55,7 +55,7 @@ const mockAddresses: DeliveryAddressType[] = [
     city: "Thành phố Hồ Chí Minh",
     cityCode: "79",
     isDefault: false,
-    type: 'office'
+    type: 'WORK'
   }
 ];
 
