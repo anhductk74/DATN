@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Suppress Ant Design React version warning for Next.js 15
+  reactStrictMode: true,
+  webpack: (config) => {
+    config.ignoreWarnings = [
+      { module: /node_modules\/antd/ },
+    ];
+    return config;
+  },
   images: {
     remotePatterns: [
       {

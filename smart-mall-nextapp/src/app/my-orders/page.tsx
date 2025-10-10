@@ -9,87 +9,40 @@ import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderTabs from "./components/OrderTabs";
 import OrderList from "./components/OrderList";
+import orderService, { type Order as ApiOrder } from "@/services/orderService";
 import type { Order } from "@/types/order";
 
 const { Title } = Typography;
 
-// Mock data - replace with actual API calls
-const mockOrders: Order[] = [
-  {
-    id: "ORD001",
-    shopName: "Tech Store Premium",
-    shopAvatar: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=40&h=40&fit=crop&crop=center",
-    items: [
-      {
-        id: "ITEM001",
-        name: "iPhone 15 Pro Max",
-        image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=80&h=80&fit=crop&crop=center",
-        variant: "256GB, Deep Purple",
-        quantity: 1,
-        price: 1299.99
-      },
-      {
-        id: "ITEM002", 
-        name: "AirPods Pro (2nd gen)",
-        image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=80&h=80&fit=crop&crop=center",
-        variant: "White",
-        quantity: 1,
-        price: 249.99
-      }
-    ],
-    status: "pending",
-    totalAmount: 1549.98,
-    shippingFee: 0,
-    createdAt: "2024-01-15T10:30:00Z",
-    estimatedDelivery: "2024-01-20T15:00:00Z"
-  },
-  {
-    id: "ORD002",
-    shopName: "Fashion Hub",
-    shopAvatar: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=40&h=40&fit=crop&crop=center",
-    items: [
-      {
-        id: "ITEM003",
-        name: "Nike Air Max 270",
-        image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=80&h=80&fit=crop&crop=center",
-        variant: "Size 42, Black/White",
-        quantity: 1,
-        price: 150.00
-      }
-    ],
-    status: "shipping",
-    totalAmount: 150.00,
-    shippingFee: 5.99,
-    createdAt: "2024-01-10T14:20:00Z",
-    estimatedDelivery: "2024-01-18T16:00:00Z",
-    trackingNumber: "TN123456789"
-  },
-  {
-    id: "ORD003",
-    shopName: "Home & Garden",
-    shopAvatar: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=40&h=40&fit=crop&crop=center", 
-    items: [
-      {
-        id: "ITEM004",
-        name: "Smart LED Bulb Set",
-        image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=80&h=80&fit=crop&crop=center",
-        variant: "4-Pack, RGB",
-        quantity: 2,
-        price: 39.99
-      }
-    ],
-    status: "delivered",
-    totalAmount: 79.98,
-    shippingFee: 7.50,
-    createdAt: "2024-01-05T09:15:00Z",
-    deliveredAt: "2024-01-08T11:30:00Z"
-  }
-];
+// Transform API order to local format
+function transformApiOrderToLocal(apiOrder: ApiOrder): Order {
+  return {
+    id: apiOrder.id,
+    shopName: "Smart Mall", // Default shop name
+    shopAvatar: "",
+    items: apiOrder.items.map(item => ({
+      id: item.id,
+      name: item.productName,
+      image: item.productImage,
+      variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
+      quantity: item.quantity,
+      price: item.price
+    })),
+    status: apiOrder.status.toLowerCase() as Order['status'],
+    totalAmount: apiOrder.totalAmount,
+    shippingFee: 0, // Not in API response
+    createdAt: apiOrder.createdAt,
+    estimatedDelivery: apiOrder.updatedAt,
+    trackingNumber: apiOrder.orderNumber
+  };
+}
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const router = useRouter();
   const { session, status } = useAuth();
 
@@ -109,29 +62,41 @@ export default function MyOrdersPage() {
   }, [status, router]);
 
   useEffect(() => {
-    // Simulate API call
     const loadOrders = async () => {
+      if (status !== "authenticated") return;
+      
       setLoading(true);
       try {
-        // Replace with actual API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setOrders(mockOrders);
-      } catch (error) {
-        message.error("Failed to load orders");
+        const response = await orderService.getUserOrders(currentPage, 10);
+        const transformedOrders = response.content.map(transformApiOrderToLocal);
+        setOrders(transformedOrders);
+        setTotalPages(response.totalPages);
+      } catch (error: any) {
+        console.error("Failed to load orders:", error);
+        message.error(error?.response?.data?.message || "Không thể tải danh sách đơn hàng");
       } finally {
         setLoading(false);
       }
     };
 
-    if (status === "authenticated") {
-      loadOrders();
-    }
-  }, [status]);
+    loadOrders();
+  }, [status, currentPage]);
 
   // Filter orders based on active tab
   const filteredOrders = orders.filter(order => {
     if (activeTab === "all") return true;
-    return order.status === activeTab;
+    
+    // Map UI tabs to API status values
+    const statusMap: Record<string, string[]> = {
+      pending: ["pending"],
+      confirmed: ["confirmed", "paid"],
+      shipping: ["shipping", "shipped"],
+      delivered: ["delivered", "completed"],
+      cancelled: ["cancelled"]
+    };
+    
+    const matchingStatuses = statusMap[activeTab] || [];
+    return matchingStatuses.includes(order.status.toLowerCase());
   });
 
   // Get order counts for each status
@@ -146,7 +111,13 @@ export default function MyOrdersPage() {
     };
 
     orders.forEach(order => {
-      counts[order.status as keyof typeof counts]++;
+      const status = order.status.toLowerCase();
+      
+      if (status === "pending") counts.pending++;
+      else if (status === "confirmed" || status === "paid") counts.confirmed++;
+      else if (status === "shipping" || status === "shipped") counts.shipping++;
+      else if (status === "delivered" || status === "completed") counts.delivered++;
+      else if (status === "cancelled") counts.cancelled++;
     });
 
     return counts;
@@ -154,25 +125,17 @@ export default function MyOrdersPage() {
 
   const handleCancelOrder = async (orderId: string) => {
     try {
-      // Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await orderService.cancelOrder(orderId);
       
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { 
-                ...order, 
-                status: "cancelled" as const,
-                cancelledDate: new Date().toISOString(),
-                cancelReason: "Cancelled by customer"
-              }
-            : order
-        )
-      );
+      // Reload orders after cancellation
+      const response = await orderService.getUserOrders(currentPage, 10);
+      const transformedOrders = response.content.map(transformApiOrderToLocal);
+      setOrders(transformedOrders);
       
-      message.success("Order cancelled successfully");
-    } catch (error) {
-      message.error("Failed to cancel order");
+      message.success("Đã hủy đơn hàng thành công");
+    } catch (error: any) {
+      console.error("Failed to cancel order:", error);
+      message.error(error?.response?.data?.message || "Không thể hủy đơn hàng");
     }
   };
 
@@ -182,18 +145,24 @@ export default function MyOrdersPage() {
 
   const handleReorder = async (orderId: string) => {
     try {
-      // Replace with actual API call to add items to cart
-      await new Promise(resolve => setTimeout(resolve, 500));
-      message.success("Items added to cart");
-      router.push("/cart");
+      // Get order details
+      const order = orders.find(o => o.id === orderId);
+      if (!order) {
+        message.error("Không tìm thấy đơn hàng");
+        return;
+      }
+      
+      message.info("Tính năng đặt lại đơn hàng đang được phát triển");
+      // TODO: Add items to cart from order
+      // router.push("/cart");
     } catch (error) {
-      message.error("Failed to reorder items");
+      message.error("Không thể đặt lại đơn hàng");
     }
   };
 
   const handleReview = (orderId: string, itemId: string) => {
     // Navigate to review page or open review modal
-    message.info("Review feature coming soon");
+    message.info("Tính năng đánh giá đang được phát triển");
   };
 
   if (status === "loading") {
@@ -235,6 +204,31 @@ export default function MyOrdersPage() {
               onReview={handleReview}
             />
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Trang trước
+                </button>
+                <span className="px-4 py-2 bg-white border border-gray-300 rounded-md">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Trang sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 

@@ -37,6 +37,11 @@ export interface Order {
   cancelReason?: string;
   canReview?: boolean;
   reviewData?: ReviewData;
+  shippingAddress?: string;
+  customerName?: string;
+  phoneNumber?: string;
+  paymentMethod?: string;
+  note?: string;
 }
 
 export interface ReviewData {

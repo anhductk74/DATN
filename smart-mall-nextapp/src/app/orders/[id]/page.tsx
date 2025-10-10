@@ -39,63 +39,45 @@ import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
 import type { Order } from "@/types/order";
+import { orderService } from "@/services";
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
 
-// Mock order detail - replace with actual API call
-const mockOrderDetail: Order = {
-  id: "ORD001",
-  shopName: "Tech Store Premium",
-  shopAvatar: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=60&h=60&fit=crop&crop=center",
-  items: [
-    {
-      id: "ITEM001",
-      name: "iPhone 15 Pro Max",
-      image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=120&h=120&fit=crop&crop=center",
-      variant: "256GB, Deep Purple",
-      quantity: 1,
-      price: 1299.99
-    },
-    {
-      id: "ITEM002", 
-      name: "AirPods Pro (2nd gen)",
-      image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=120&h=120&fit=crop&crop=center",
-      variant: "White",
-      quantity: 1,
-      price: 249.99
-    }
-  ],
-  status: "shipping",
-  totalAmount: 1549.98,
-  shippingFee: 0,
-  createdAt: "2024-01-15T10:30:00Z",
-  estimatedDelivery: "2024-01-20T15:00:00Z",
-  trackingNumber: "TN123456789"
-};
+// Transform API order to local format
+const transformApiOrderToLocal = (apiOrder: any): Order => {
+  // Format address from shippingAddress object
+  const address = apiOrder.shippingAddress 
+    ? `${apiOrder.shippingAddress.addressLine}, ${apiOrder.shippingAddress.ward}, ${apiOrder.shippingAddress.district}, ${apiOrder.shippingAddress.city}`
+    : "";
 
-const trackingEvents = [
-  {
-    time: "2024-01-15T10:30:00Z",
-    status: "Order placed",
-    description: "Your order has been placed successfully"
-  },
-  {
-    time: "2024-01-15T14:20:00Z", 
-    status: "Order confirmed",
-    description: "Seller confirmed your order"
-  },
-  {
-    time: "2024-01-16T09:15:00Z",
-    status: "Package prepared",
-    description: "Your package is being prepared for shipping"
-  },
-  {
-    time: "2024-01-16T16:45:00Z",
-    status: "In transit",
-    description: "Package picked up by courier and on the way"
-  }
-];
+  return {
+    id: apiOrder.id.toString(),
+    shopName: "Shop", // TODO: Get shop info from API
+    shopAvatar: "",
+    items: apiOrder.items?.map((item: any) => ({
+      id: item.id.toString(),
+      name: item.productName || item.variant?.product?.name || "Unknown Product",
+      image: item.productImage || item.variant?.product?.imageUrl || "",
+      variant: item.variant?.name || "",
+      quantity: item.quantity,
+      price: item.price
+    })) || [],
+    status: apiOrder.status?.toLowerCase() || "pending",
+    totalAmount: apiOrder.totalAmount || 0,
+    shippingFee: 0, // TODO: Get shipping fee from API if available
+    createdAt: apiOrder.createdAt || new Date().toISOString(),
+    estimatedDelivery: apiOrder.estimatedDelivery,
+    trackingNumber: apiOrder.trackingNumber || apiOrder.orderNumber,
+    shippingAddress: address,
+    customerName: apiOrder.shippingAddress?.fullName,
+    phoneNumber: apiOrder.shippingAddress?.phoneNumber,
+    paymentMethod: apiOrder.paymentMethod,
+    cancelledDate: apiOrder.cancelledAt,
+    cancelReason: apiOrder.cancelReason,
+    note: apiOrder.note
+  };
+};
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -128,16 +110,12 @@ export default function OrderDetailPage() {
     const loadOrderDetail = async () => {
       setLoading(true);
       try {
-        // Replace with actual API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        if (orderId === "ORD001") {
-          setOrder(mockOrderDetail);
-        } else {
-          setNotFound(true);
-        }
-      } catch (error) {
-        message.error("Failed to load order details");
+        const apiOrder = await orderService.getOrder(orderId);
+        const transformedOrder = transformApiOrderToLocal(apiOrder);
+        setOrder(transformedOrder);
+      } catch (error: any) {
+        console.error("Failed to load order:", error);
+        message.error(error?.response?.data?.message || "Không thể tải chi tiết đơn hàng");
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -170,21 +148,28 @@ export default function OrderDetailPage() {
   const handleCancelOrder = async () => {
     if (!order) return;
     
-    try {
-      // Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setOrder(prev => prev ? {
-        ...prev,
-        status: "cancelled",
-        cancelledDate: new Date().toISOString(),
-        cancelReason: "Cancelled by customer"
-      } : null);
-      
-      message.success("Order cancelled successfully");
-    } catch (error) {
-      message.error("Failed to cancel order");
-    }
+    Modal.confirm({
+      title: "Hủy đơn hàng",
+      content: "Bạn có chắc chắn muốn hủy đơn hàng này?",
+      okText: "Hủy đơn hàng",
+      cancelText: "Không",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await orderService.cancelOrder(order.id);
+          
+          // Reload order details
+          const apiOrder = await orderService.getOrder(order.id);
+          const transformedOrder = transformApiOrderToLocal(apiOrder);
+          setOrder(transformedOrder);
+          
+          message.success("Đã hủy đơn hàng thành công");
+        } catch (error: any) {
+          console.error("Failed to cancel order:", error);
+          message.error(error?.response?.data?.message || "Không thể hủy đơn hàng");
+        }
+      }
+    });
   };
 
   const handleSubmitFeedback = async (values: any) => {
@@ -441,31 +426,20 @@ export default function OrderDetailPage() {
               </div>
             </Card>
 
-            {/* Order Timeline */}
-            {order.status === "shipping" && (
-              <Card title="Package Tracking" className="shadow-sm">
-                <Timeline>
-                  {trackingEvents.map((event, index) => (
-                    <Timeline.Item
-                      key={index}
-                      dot={
-                        index === trackingEvents.length - 1 ? 
-                        <TruckOutlined className="text-blue-600" /> : 
-                        <CheckCircleOutlined className="text-green-600" />
-                      }
-                    >
-                      <div className="pb-2">
-                        <Text strong>{event.status}</Text>
-                        <div className="text-sm text-gray-500 mt-1">
-                          {new Date(event.time).toLocaleString()}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {event.description}
-                        </div>
-                      </div>
-                    </Timeline.Item>
-                  ))}
-                </Timeline>
+            {/* Order Timeline - TODO: Add tracking events from API */}
+            {order.trackingNumber && (
+              <Card title="Mã vận đơn" className="shadow-sm">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <TruckOutlined className="text-blue-600" />
+                    <Text strong>{order.trackingNumber}</Text>
+                  </div>
+                  {order.estimatedDelivery && (
+                    <div className="text-sm text-gray-600">
+                      Dự kiến giao: {new Date(order.estimatedDelivery).toLocaleString('vi-VN')}
+                    </div>
+                  )}
+                </div>
               </Card>
             )}
           </div>

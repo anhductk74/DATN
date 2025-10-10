@@ -9,7 +9,7 @@ import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import productService, { Product } from "@/services/productService";
-import { message } from "antd";
+import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined, 
@@ -30,10 +30,12 @@ export default function Home() {
   const router = useRouter();
   const { status } = useAuth();
   const { addItem } = useCart();
+  const { message } = App.useApp();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
 
   // Auto logout after 30 minutes of inactivity
   useAutoLogout({
@@ -93,7 +95,15 @@ export default function Home() {
     if (product.variants && product.variants.length > 0) {
       const variant = product.variants[0]; // Use first variant
       if (variant.id) {
-        await addItem(variant.id, 1);
+        try {
+          setAddingToCart(product.id || null);
+          await addItem(variant.id, 1);
+          message.success(`Added "${product.name}" to cart successfully!`);
+        } catch (error) {
+          message.error("Failed to add product to cart");
+        } finally {
+          setAddingToCart(null);
+        }
       } else {
         message.error("Biến thể sản phẩm không hợp lệ");
       }
@@ -317,8 +327,10 @@ export default function Home() {
                         <Image 
                           src={getCloudinaryUrl(product.images[0])} 
                           alt={product.name}
-                          fill
-                          className="object-cover rounded-2xl"
+                          width={128}
+                          height={128}
+                          className="object-cover rounded-2xl w-full h-full"
+                          style={{ width: 'auto', height: 'auto' }}
                         />
                       ) : (
                         <span className="text-gray-400 text-sm font-medium text-center px-2">
@@ -409,8 +421,10 @@ export default function Home() {
                         <Image 
                           src={getCloudinaryUrl(product.images[0])} 
                           alt={product.name}
-                          fill
-                          className="object-cover rounded-2xl"
+                          width={160}
+                          height={160}
+                          className="object-cover rounded-2xl w-full h-full"
+                          style={{ width: 'auto', height: 'auto' }}
                         />
                       ) : (
                         <span className="text-gray-400 text-sm text-center px-2">
@@ -444,14 +458,24 @@ export default function Home() {
                       ${price.toLocaleString()}
                     </div>
                     <button 
-                      className="w-full py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2"
+                      className="w-full py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAddToCart(product);
                       }}
+                      disabled={addingToCart === product.id}
                     >
-                      <ShoppingCartOutlined className="text-sm" />
-                      <span>Add to Cart</span>
+                      {addingToCart === product.id ? (
+                        <>
+                          <LoadingOutlined className="text-sm animate-spin" />
+                          <span>Adding...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCartOutlined className="text-sm" />
+                          <span>Add to Cart</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 );

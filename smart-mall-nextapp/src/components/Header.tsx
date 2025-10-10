@@ -189,7 +189,7 @@ export default function Header() {
                               <div className="flex items-center w-full">
                                 <div className="w-12 h-12 bg-gray-100 mr-3 flex-shrink-0">
                                   {item.image ? (
-                                    <Image src={item.image} alt={item.title} width={48} height={48} className="w-full h-full object-cover" />
+                                    <Image src={getCloudinaryUrl(item.image)} alt={item.title} width={48} height={48} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full bg-gray-200" />
                                   )}

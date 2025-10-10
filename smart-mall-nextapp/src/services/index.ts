@@ -5,6 +5,10 @@ export { default as userService } from './userService';
 export { default as shopService } from './shopService';
 export { default as productService } from './productService';
 export { default as categoryService } from './categoryService';
+export { default as cartService } from './cartService';
+export { default as orderService } from './orderService';
+export { default as reviewService } from './reviewService';
+export { default as addressService } from './addressService';
 
 // Export types from common types
 export type * from '@/types/common';
@@ -18,6 +22,10 @@ import userService from './userService';
 import shopService from './shopService';
 import productService from './productService';
 import categoryService from './categoryService';
+import cartService from './cartService';
+import orderService from './orderService';
+import reviewService from './reviewService';
+import addressService from './addressService';
 
 // Create a services object for easier importing
 export const services = {
@@ -26,6 +34,10 @@ export const services = {
   shop: shopService,
   product: productService,
   category: categoryService,
+  cart: cartService,
+  order: orderService,
+  review: reviewService,
+  address: addressService,
 };
 
 export default services;

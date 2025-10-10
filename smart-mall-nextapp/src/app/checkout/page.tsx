@@ -14,6 +14,7 @@ import {
 } from "@ant-design/icons";
 import { useCart } from "@/contexts/CartContext";
 import { DeliveryAddress, type DeliveryAddressType } from "./components";
+import { getCloudinaryUrl } from "@/config/config";
 
 const { TextArea } = Input;
 
@@ -26,40 +27,6 @@ const formatCurrency = (amount: number): string => {
   // Client-side: use toLocaleString
   return amount.toLocaleString();
 };
-
-// Mock delivery addresses data
-const mockAddresses: DeliveryAddressType[] = [
-  {
-    id: "1",
-    name: "Nguyen Van A",
-    phone: "0123456789",
-    address: "123 Nguyen Trai Street",
-    ward: "Phường Bến Nghé",
-    wardCode: "00001",
-    district: "Quận 1", 
-    districtCode: "001",
-    city: "Thành phố Hồ Chí Minh",
-    cityCode: "79",
-    isDefault: true,
-    type: 'HOME'
-  },
-  {
-    id: "2",
-    name: "Nguyen Van A",
-    phone: "0987654321",
-    address: "456 Le Loi Street",
-    ward: "Phường Võ Thị Sáu",
-    wardCode: "00003",
-    district: "Quận 3",
-    districtCode: "003", 
-    city: "Thành phố Hồ Chí Minh",
-    cityCode: "79",
-    isDefault: false,
-    type: 'WORK'
-  }
-];
-
-
 
 // Mock shipping options
 const shippingOptions = [
@@ -147,9 +114,9 @@ export default function CheckoutPage() {
   const [voucherModalVisible, setVoucherModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Delivery address states
-  const [addresses, setAddresses] = useState<DeliveryAddressType[]>(mockAddresses);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>("1");
+  // Delivery address states - let DeliveryAddress component manage its own state
+  const [addresses, setAddresses] = useState<DeliveryAddressType[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
 
   useEffect(() => {
     setMounted(true);
@@ -289,11 +256,11 @@ export default function CheckoutPage() {
                     <div className="flex items-start space-x-4">
                       <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                         <img 
-                          src={item.image} 
+                          src={getCloudinaryUrl(item.image)} 
                           alt={item.title}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = 'https://via.placeholder.com/64x64/f0f0f0/666?text=No+Image';
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23666"%3ENo Image%3C/text%3E%3C/svg%3E';
                           }}
                         />
                       </div>

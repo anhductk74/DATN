@@ -8,7 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import productService from "@/services/productService";
-import { message } from "antd";
+import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined,
@@ -33,10 +33,13 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [buyingNow, setBuyingNow] = useState(false);
   const router = useRouter();
   const params = useParams();
   const { status } = useAuth();
   const { addItem } = useCart();
+  const { message } = App.useApp();
   const productId = params.id as string;
 
   // Auth check
@@ -105,10 +108,14 @@ export default function ProductDetail() {
     }
 
     try {
+      setAddingToCart(true);
       await addItem(currentVariant.id, quantity);
-      // Success message is shown by CartContext
+      message.success(`Added ${quantity} x "${product.name}" to cart successfully!`);
     } catch (error) {
       console.error('Failed to add to cart:', error);
+      message.error("Failed to add product to cart");
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -129,12 +136,17 @@ export default function ProductDetail() {
     }
 
     try {
+      setBuyingNow(true);
       // Add to cart first
       await addItem(currentVariant.id, quantity);
+      message.success(`Added ${quantity} x "${product.name}" to cart successfully!`);
       // Navigate to checkout
       router.push("/checkout");
     } catch (error) {
       console.error('Failed to add to cart:', error);
+      message.error("Failed to add product to cart");
+    } finally {
+      setBuyingNow(false);
     }
   };
 
@@ -209,8 +221,11 @@ export default function ProductDetail() {
                   <Image 
                     src={getCloudinaryUrl(product.images[selectedImage])} 
                     alt={product.name}
-                    fill
-                    className="object-cover rounded-2xl"
+                    width={500}
+                    height={500}
+                    priority
+                    className="object-cover rounded-2xl w-full h-full"
+                    style={{ width: 'auto', height: 'auto' }}
                   />
                 ) : (
                   <span className="text-gray-400 text-lg font-medium text-center px-4">
@@ -262,8 +277,10 @@ export default function ProductDetail() {
                     <Image 
                       src={getCloudinaryUrl(image)}
                       alt={`${product.name} ${index + 1}`}
-                      fill
-                      className="object-cover rounded-2xl"
+                      width={120}
+                      height={120}
+                      className="object-cover rounded-2xl w-full h-full"
+                      style={{ width: 'auto', height: 'auto' }}
                     />
                   </button>
                 ))}
@@ -368,17 +385,37 @@ export default function ProductDetail() {
               <div className="flex space-x-4">
                 <button
                   onClick={handleBuyNow}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-2xl font-bold hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+                  disabled={buyingNow || addingToCart}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-2xl font-bold hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
                 >
-                  <ThunderboltOutlined className="mr-2" />
-                  Buy Now
+                  {buyingNow ? (
+                    <>
+                      <LoadingOutlined className="mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <ThunderboltOutlined className="mr-2" />
+                      Buy Now
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 px-8 rounded-2xl font-bold hover:shadow-lg transition-all duration-300 transform hover:scale-105"
+                  disabled={addingToCart || buyingNow}
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 px-8 rounded-2xl font-bold hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
                 >
-                  <ShoppingCartOutlined className="mr-2" />
-                  Add to Cart
+                  {addingToCart ? (
+                    <>
+                      <LoadingOutlined className="mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCartOutlined className="mr-2" />
+                      Add to Cart
+                    </>
+                  )}
                 </button>
               </div>
               

@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import productService, { Product } from "@/services/productService";
 import categoryService from "@/services/categoryService";
-import { message } from "antd";
+import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined,
@@ -24,10 +24,12 @@ import {
 function ProductsContent() {
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [sortBy, setSortBy] = useState("featured");
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const category = searchParams.get('category') || 'all';
   const { addItem } = useCart();
+  const { message } = App.useApp();
 
   // Fetch categories
   const {
@@ -92,7 +94,15 @@ function ProductsContent() {
     if (product.variants && product.variants.length > 0) {
       const variant = product.variants[0]; // Use first variant
       if (variant.id) {
-        await addItem(variant.id, 1);
+        try {
+          setAddingToCart(product.id || null);
+          await addItem(variant.id, 1);
+          message.success(`Added "${product.name}" to cart successfully!`);
+        } catch (error) {
+          message.error("Failed to add product to cart");
+        } finally {
+          setAddingToCart(null);
+        }
       } else {
         message.error("Biến thể sản phẩm không hợp lệ");
       }
@@ -276,8 +286,11 @@ function ProductsContent() {
                     <Image 
                       src={getCloudinaryUrl(product.images[0])} 
                       alt={product.name}
-                      fill
-                      className="object-cover rounded-2xl"
+                      width={160}
+                      height={160}
+                      priority
+                      className="object-cover rounded-2xl w-full h-full"
+                      style={{ width: 'auto', height: 'auto' }}
                     />
                   ) : (
                     <span className="text-gray-400 text-sm text-center px-2">
@@ -330,7 +343,7 @@ function ProductsContent() {
                   </div>
 
                   <button 
-                    className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2 ${
+                    className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none ${
                       viewMode === "list" 
                         ? "px-6 py-2" 
                         : "w-full py-2 text-sm"
@@ -339,9 +352,19 @@ function ProductsContent() {
                       e.stopPropagation();
                       handleAddToCart(product);
                     }}
+                    disabled={addingToCart === product.id}
                   >
-                    <ShoppingCartOutlined className="text-sm" />
-                    <span>Add to Cart</span>
+                    {addingToCart === product.id ? (
+                      <>
+                        <LoadingOutlined className="text-sm animate-spin" />
+                        <span>Adding...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCartOutlined className="text-sm" />
+                        <span>Add to Cart</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
