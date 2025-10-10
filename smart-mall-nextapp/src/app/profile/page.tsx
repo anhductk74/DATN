@@ -8,7 +8,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import {CLOUDINARY_API_URL} from "@/config/config";
+import {getCloudinaryUrl} from "@/config/config";
 import { 
   UserOutlined,
   EditOutlined,
@@ -204,14 +204,7 @@ export default function Profile() {
 
   const resolveAvatar = (avatar?: string) => {
     if (!avatar) return undefined;
-    const trimmed = avatar.trim();
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("//")) {
-      return trimmed;
-    }
-    // ensure CLOUDINARY_API_URL ends with a slash or avatar does not start with one to avoid double-slash issues
-    const base = CLOUDINARY_API_URL.endsWith('/') ? CLOUDINARY_API_URL.slice(0, -1) : CLOUDINARY_API_URL;
-    const rest = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${base}${rest}`;
+    return getCloudinaryUrl(avatar);
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

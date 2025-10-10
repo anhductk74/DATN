@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import productService from "@/services/productService";
 import { message } from "antd";
-import { CLOUDINARY_API_URL } from "@/config/config";
+import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined,
   HeartFilled,
@@ -88,33 +88,54 @@ export default function ProductDetail() {
     return [...new Set(values)];
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product || !currentVariant) {
       message.error("Please select a product variant");
       return;
     }
 
-    addItem({
-      id: `${product.id}-${currentVariant.id}`,
-      title: product.name,
-      price: currentVariant.price,
-      image: product.images?.[0],
-      shopName: product.shop?.name || `Shop ${product.shopId}`,
-      variant: currentVariant.sku,
-      quantity: quantity
-    });
-    message.success("Added to cart successfully!");
+    if (!currentVariant.id) {
+      message.error("Invalid product variant");
+      return;
+    }
+
+    if (quantity > (currentVariant.stock || 0)) {
+      message.error(`Only ${currentVariant.stock} items available in stock`);
+      return;
+    }
+
+    try {
+      await addItem(currentVariant.id, quantity);
+      // Success message is shown by CartContext
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+    }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!product || !currentVariant) {
       message.error("Please select a product variant");
       return;
     }
 
-    // Add to cart first, then navigate to checkout
-    handleAddToCart();
-    router.push("/checkout");
+    if (!currentVariant.id) {
+      message.error("Invalid product variant");
+      return;
+    }
+
+    if (quantity > (currentVariant.stock || 0)) {
+      message.error(`Only ${currentVariant.stock} items available in stock`);
+      return;
+    }
+
+    try {
+      // Add to cart first
+      await addItem(currentVariant.id, quantity);
+      // Navigate to checkout
+      router.push("/checkout");
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+    }
   };
 
   // Loading state
@@ -186,7 +207,7 @@ export default function ProductDetail() {
               <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center relative overflow-hidden">
                 {product.images && product.images.length > 0 ? (
                   <Image 
-                    src={`${CLOUDINARY_API_URL}${product.images[selectedImage]}`} 
+                    src={getCloudinaryUrl(product.images[selectedImage])} 
                     alt={product.name}
                     fill
                     className="object-cover rounded-2xl"
@@ -239,7 +260,7 @@ export default function ProductDetail() {
                     }`}
                   >
                     <Image 
-                      src={`${CLOUDINARY_API_URL}${image}`}
+                      src={getCloudinaryUrl(image)}
                       alt={`${product.name} ${index + 1}`}
                       fill
                       className="object-cover rounded-2xl"

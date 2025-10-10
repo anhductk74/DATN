@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import productService, { Product } from "@/services/productService";
 import { message } from "antd";
-import { CLOUDINARY_API_URL } from "@/config/config";
+import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined, 
   MobileOutlined,
@@ -89,19 +89,14 @@ export default function Home() {
   }, [status, router]);
 
   // Handle add to cart
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = async (product: Product) => {
     if (product.variants && product.variants.length > 0) {
       const variant = product.variants[0]; // Use first variant
-      addItem({
-        id: product.id || Math.random().toString(),
-        title: product.name,
-        price: variant.price,
-        image: product.images?.[0],
-        shopName: `Shop ${product.shopId}`,
-        variant: variant.sku,
-        quantity: 1
-      });
-      message.success("Đã thêm vào giỏ hàng!");
+      if (variant.id) {
+        await addItem(variant.id, 1);
+      } else {
+        message.error("Biến thể sản phẩm không hợp lệ");
+      }
     } else {
       message.error("Sản phẩm không có phiên bản để bán");
     }
@@ -320,7 +315,7 @@ export default function Home() {
                     <div className="w-full h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl mb-4 flex items-center justify-center overflow-hidden relative">
                       {product.images?.[0] ? (
                         <Image 
-                          src={`${CLOUDINARY_API_URL}${product.images[0]}`} 
+                          src={getCloudinaryUrl(product.images[0])} 
                           alt={product.name}
                           fill
                           className="object-cover rounded-2xl"
@@ -412,7 +407,7 @@ export default function Home() {
                     >
                       {product.images?.[0] ? (
                         <Image 
-                          src={`${CLOUDINARY_API_URL}${product.images[0]}`} 
+                          src={getCloudinaryUrl(product.images[0])} 
                           alt={product.name}
                           fill
                           className="object-cover rounded-2xl"

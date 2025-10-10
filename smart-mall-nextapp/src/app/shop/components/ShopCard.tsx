@@ -14,7 +14,7 @@ import {
   StarOutlined
 } from "@ant-design/icons";
 import { Shop } from "@/services";
-import { CLOUDINARY_API_URL } from "@/config/config";
+import { getCloudinaryUrl } from "@/config/config";
 
 interface ShopCardProps {
   shop: Shop;
@@ -92,7 +92,7 @@ export default function ShopCard({ shop, onEdit, onDelete }: ShopCardProps) {
               <div className="w-full h-full rounded-xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                 {shop.avatar ? (
                   <Image 
-                    src={shop.avatar.startsWith('http') ? shop.avatar : `${CLOUDINARY_API_URL}${shop.avatar}`} 
+                    src={getCloudinaryUrl(shop.avatar)} 
                     alt={shop.name}
                     width={128}
                     height={128}

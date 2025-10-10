@@ -37,7 +37,7 @@ import {
   FolderOutlined
 } from "@ant-design/icons";
 import { productService, categoryService, Product, ProductVariant, Category } from "@/services";
-import { CLOUDINARY_API_URL } from "@/config/config";
+import { getCloudinaryUrl } from "@/config/config";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -234,7 +234,7 @@ export default function ShopProductsContent() {
     // Convert existing images to fileList format for display
     const existingImages = product.images?.map((url, index) => {
       // Ensure proper URL format for display
-      const fullUrl = url.startsWith('http') ? url : `${CLOUDINARY_API_URL}${url}`;
+      const fullUrl = getCloudinaryUrl(url);
       return {
         uid: `existing-${index}`,
         name: `image-${index}`,
@@ -461,7 +461,7 @@ export default function ShopProductsContent() {
           <Image
             width={60}
             height={60}
-            src={`${CLOUDINARY_API_URL}${images[0]}`}
+            src={getCloudinaryUrl(images[0])}
             alt="Product"
             className="rounded-lg object-cover"
           />

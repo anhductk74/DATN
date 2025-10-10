@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import Image from "next/image";
-import {CLOUDINARY_API_URL} from "@/config/config";
+import {getCloudinaryUrl} from "@/config/config";
 import { 
   ShopOutlined,
   CameraOutlined,
@@ -102,10 +102,7 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
       
       // Update image preview
       if (shop.avatar) {
-        const imageUrl = shop.avatar.startsWith('http') 
-          ? shop.avatar 
-          : `${CLOUDINARY_API_URL}${shop.avatar}`;
-        setImagePreview(imageUrl);
+        setImagePreview(getCloudinaryUrl(shop.avatar));
       } else {
         setImagePreview("");
       }
@@ -173,10 +170,7 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
   const handleCancel = () => {
     reset();
     setImageFile(null);
-    setImagePreview(shop?.avatar ? 
-      (shop.avatar.startsWith('http') ? shop.avatar : `${CLOUDINARY_API_URL}${shop.avatar}`) 
-      : ""
-    );
+    setImagePreview(shop?.avatar ? getCloudinaryUrl(shop.avatar) : "");
     onCancel();
   };
 

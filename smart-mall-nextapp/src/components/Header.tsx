@@ -24,7 +24,7 @@ import type { CartItem } from "@/contexts/CartContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useCart } from "@/contexts/CartContext";
-import { CLOUDINARY_API_URL } from "@/config/config";
+import { getCloudinaryUrl } from "@/config/config";
 import Image from "next/image";
 
 export default function Header() {
@@ -42,17 +42,10 @@ export default function Header() {
   const currentUser = userProfile || user;
 
   
-  // helper: if avatar is already a full URL return it, otherwise prepend CLOUDINARY_API_URL
+  // helper: if avatar is already a full URL return it, otherwise use getCloudinaryUrl
   const resolveAvatar = (avatar?: string) => {
     if (!avatar) return undefined;
-    const trimmed = avatar.trim();
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("//")) {
-      return trimmed;
-    }
-    // ensure CLOUDINARY_API_URL ends with a slash or avatar does not start with one to avoid double-slash issues
-    const base = CLOUDINARY_API_URL.endsWith('/') ? CLOUDINARY_API_URL.slice(0, -1) : CLOUDINARY_API_URL;
-    const rest = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-    return `${base}${rest}`;
+    return getCloudinaryUrl(avatar);
   };
   // Debug: Log when userProfile changes
 
