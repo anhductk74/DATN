@@ -8,7 +8,7 @@ import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Repositories.AddressRespository;
-import com.example.smart_mall_spring.Repositories.ShopRespository;
+import com.example.smart_mall_spring.Repositories.ShopRepository;
 import com.example.smart_mall_spring.Repositories.UserRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,7 +24,7 @@ import java.util.UUID;
 @Service
 public class ShopService {
     @Autowired
-    private final ShopRespository shopRes;
+    private final ShopRepository shopRes;
     @Autowired
     private final AddressRespository addressRes;
     @Autowired
@@ -34,8 +34,8 @@ public class ShopService {
     @Autowired
     private final ObjectMapper objectMapper;
 
-    public ShopService(ShopRespository shopRes, AddressRespository addressRes, 
-                       UserRepository userRepository, CloudinaryService cloudinaryService, 
+    public ShopService(ShopRepository shopRes, AddressRespository addressRes,
+                       UserRepository userRepository, CloudinaryService cloudinaryService,
                        ObjectMapper objectMapper) {
         this.shopRes = shopRes;
         this.addressRes = addressRes;

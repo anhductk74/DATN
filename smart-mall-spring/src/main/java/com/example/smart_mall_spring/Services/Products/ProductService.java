@@ -13,7 +13,7 @@ import com.example.smart_mall_spring.Enum.Status;
 import com.example.smart_mall_spring.Repositories.CategoryRepository;
 import com.example.smart_mall_spring.Repositories.ProductRepository;
 import com.example.smart_mall_spring.Repositories.ProductVariantRepository;
-import com.example.smart_mall_spring.Repositories.ShopRespository;
+import com.example.smart_mall_spring.Repositories.ShopRepository;
 import com.example.smart_mall_spring.Repositories.VariantAttributeRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,7 +45,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     
     @Autowired
-    private final ShopRespository shopRepository;
+    private final ShopRepository shopRepository;
     
     @Autowired
     private final CloudinaryService cloudinaryService;
@@ -57,7 +57,7 @@ public class ProductService {
                          ProductVariantRepository productVariantRepository,
                          VariantAttributeRepository variantAttributeRepository,
                          CategoryRepository categoryRepository,
-                         ShopRespository shopRepository,
+                         ShopRepository shopRepository,
                          CloudinaryService cloudinaryService,
                          ObjectMapper objectMapper) {
         this.productRepository = productRepository;
