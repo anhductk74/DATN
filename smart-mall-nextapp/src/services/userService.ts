@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient from '../lib/apiClient';
 import { ApiResponse, UserProfile } from '@/types/common';
 
 class UserService {

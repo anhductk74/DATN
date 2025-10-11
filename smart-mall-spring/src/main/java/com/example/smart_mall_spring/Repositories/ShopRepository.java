@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface ShopRespository extends JpaRepository<Shop, UUID> {
+public interface ShopRepository extends JpaRepository<Shop, UUID> {
     
     // Tìm tất cả shop của một user
     List<Shop> findByOwnerId(UUID ownerId);

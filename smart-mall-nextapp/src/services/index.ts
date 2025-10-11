@@ -1,5 +1,5 @@
 // Export all services
-export { default as apiClient } from './apiClient';
+export { default as apiClient } from '../lib/apiClient';
 export { default as authService } from './authService';
 export { default as userService } from './userService';
 export { default as shopService } from './shopService';

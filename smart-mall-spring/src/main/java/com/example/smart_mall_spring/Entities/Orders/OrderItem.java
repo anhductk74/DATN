@@ -11,6 +11,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "order_items")
 @Data
@@ -27,5 +29,6 @@ public class OrderItem extends BaseEntity {
     private ProductVariant variant;
 
     private Integer quantity;
+
     private Double price;
 }

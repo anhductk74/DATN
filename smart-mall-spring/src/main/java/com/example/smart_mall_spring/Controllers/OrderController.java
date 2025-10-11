@@ -1,107 +1,56 @@
 package com.example.smart_mall_spring.Controllers;
 
-import com.example.smart_mall_spring.Config.CustomUserDetails;
-import com.example.smart_mall_spring.Dtos.Orders.CreateOrderDto;
-import com.example.smart_mall_spring.Dtos.Orders.OrderResponseDto;
-import com.example.smart_mall_spring.Dtos.Orders.UpdateOrderStatusDto;
-import com.example.smart_mall_spring.Exception.ApiResponse;
-import com.example.smart_mall_spring.Services.Orders.OrderService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+
+import com.example.smart_mall_spring.Dtos.Orders.OrderRequest;
+import com.example.smart_mall_spring.Entities.Orders.*;
+import com.example.smart_mall_spring.Services.Order.OrderService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/orders")
-@Tag(name = "Order", description = "Order management APIs")
+@RequiredArgsConstructor
 public class OrderController {
 
-    @Autowired
-    private OrderService orderService;
+    private final OrderService orderService;
 
     @PostMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Create order", description = "Create a new order for the current user")
-    public ResponseEntity<ApiResponse<OrderResponseDto>> createOrder(@Valid @RequestBody CreateOrderDto createOrderDto) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
+    public ResponseEntity<Order> createOrder(
+            @RequestBody OrderRequest request) {
 
-        OrderResponseDto order = orderService.createOrder(userId, createOrderDto);
-        return ResponseEntity.ok(ApiResponse.success("Order created successfully", order));
+        Order order = request.getOrder();
+        List<OrderItem> items = request.getItems();
+        Payment payment = request.getPayment();
+        ShippingFee shippingFee = request.getShippingFee();
+        OrderVoucher voucher = request.getVoucher();
+
+        Order createdOrder = orderService.createOrder(order, items, payment, shippingFee, voucher);
+        return ResponseEntity.ok(createdOrder);
     }
 
-    @GetMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Get user orders", description = "Get all orders for the current user with pagination")
-    public ResponseEntity<ApiResponse<Page<OrderResponseDto>>> getUserOrders(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<OrderResponseDto> orders = orderService.getOrdersByUserId(userId, pageable);
-        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully", orders));
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrderById(@PathVariable UUID id) {
+        return orderService.getOrderById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/{orderId}")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Get order by ID", description = "Get a specific order by its ID")
-    public ResponseEntity<ApiResponse<OrderResponseDto>> getOrderById(@PathVariable UUID orderId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
-
-        OrderResponseDto order = orderService.getOrderById(userId, orderId);
-        return ResponseEntity.ok(ApiResponse.success("Order retrieved successfully", order));
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Order>> getOrdersByUser(@PathVariable UUID userId) {
+        return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
     }
 
-    @PutMapping("/{orderId}/cancel")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Cancel order", description = "Cancel a specific order")
-    public ResponseEntity<ApiResponse<String>> cancelOrder(@PathVariable UUID orderId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
-
-        orderService.cancelOrder(userId, orderId);
-        return ResponseEntity.ok(ApiResponse.success("Order cancelled successfully", null));
-    }
-
-    // Admin endpoints
-    @GetMapping("/admin/all")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Get all orders (Admin)", description = "Get all orders in the system with pagination")
-    public ResponseEntity<ApiResponse<Page<OrderResponseDto>>> getAllOrders(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        
-        Pageable pageable = PageRequest.of(page, size);
-        Page<OrderResponseDto> orders = orderService.getAllOrders(pageable);
-        return ResponseEntity.ok(ApiResponse.success("All orders retrieved successfully", orders));
-    }
-
-    @PutMapping("/admin/{orderId}/status")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Update order status (Admin)", description = "Update the status of a specific order")
-    public ResponseEntity<ApiResponse<OrderResponseDto>> updateOrderStatus(
-            @PathVariable UUID orderId,
-            @Valid @RequestBody UpdateOrderStatusDto updateOrderStatusDto) {
-        
-        updateOrderStatusDto.setOrderId(orderId);
-        OrderResponseDto order = orderService.updateOrderStatus(orderId, updateOrderStatusDto);
-        return ResponseEntity.ok(ApiResponse.success("Order status updated successfully", order));
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<String> cancelOrder(@PathVariable UUID id) {
+        boolean success = orderService.cancelOrder(id);
+        if (success) {
+            return ResponseEntity.ok("The order has been canceled successfully.");
+        } else {
+            return ResponseEntity.badRequest().body("Cannot cancel order (order is confirmed or does not exist)");
+        }
     }
 }

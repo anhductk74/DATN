@@ -1,7 +1,6 @@
 package com.example.smart_mall_spring.Dtos.Orders;
 
-import com.example.smart_mall_spring.Dtos.Address.AddressResponseDto;
-import com.example.smart_mall_spring.Dtos.Auth.UserInfoDto;
+
 import com.example.smart_mall_spring.Enum.PaymentMethod;
 import com.example.smart_mall_spring.Enum.StatusOrder;
 import lombok.AllArgsConstructor;
@@ -14,17 +13,23 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class OrderResponseDto {
     private UUID id;
-    private UserInfoDto user;
+    private UUID userId;
+    private UUID shopId;
+    private String shopName;
     private StatusOrder status;
+
     private Double totalAmount;
-    private AddressResponseDto shippingAddress;
+    private Double shippingFee;
+    private Double discountAmount;
+    private Double finalAmount;
+
     private PaymentMethod paymentMethod;
-    private List<OrderItemResponseDto> items;
     private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+
+    private List<OrderItemDto> items;
 }
