@@ -5,7 +5,9 @@ import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import Image from "next/image";
+import { Select } from "antd";
 import {getCloudinaryUrl} from "@/config/config";
+import { locationService } from "@/services/locationService";
 import { 
   ShopOutlined,
   CameraOutlined,
@@ -13,6 +15,24 @@ import {
   LoadingOutlined 
 } from "@ant-design/icons";
 import { Shop, CreateShopData, UpdateShopData, ShopAddress } from "@/services";
+
+const { Option } = Select;
+
+// Location interfaces
+interface Province {
+  code: string;
+  name: string;
+}
+
+interface District {
+  code: string;
+  name: string;
+}
+
+interface Ward {
+  code: string;
+  name: string;
+}
 
 interface ShopFormProps {
   shop?: Shop | null;
@@ -64,7 +84,9 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
     control,
     handleSubmit,
     formState: { errors, isValid, isDirty },
-    reset
+    reset,
+    setValue,
+    getValues
   } = useForm<FormData>({
     resolver: yupResolver(validationSchema),
     defaultValues: {
@@ -83,6 +105,23 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [imageLoading, setImageLoading] = useState<boolean>(false);
+  
+  // Location state
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState<string>("");
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState<string>("");
+  const [mounted, setMounted] = useState(false);
+
+  // Handle mounting
+  useEffect(() => {
+    setMounted(true);
+    loadProvinces();
+  }, []);
 
   // Update form and image when shop prop changes
   useEffect(() => {
@@ -106,6 +145,11 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
       } else {
         setImagePreview("");
       }
+
+      // Load location data for existing shop
+      if (shop.address) {
+        loadLocationDataForShop(shop.address);
+      }
     } else {
       // Reset form for new shop creation
       reset({
@@ -120,11 +164,114 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
         }
       });
       setImagePreview("");
+      resetLocationData();
     }
     
     // Reset image file when shop changes
     setImageFile(null);
   }, [shop, reset]);
+
+  // Location functions
+  const loadProvinces = async () => {
+    setLoadingProvinces(true);
+    try {
+      const data = await locationService.getProvinces();
+      setProvinces(data);
+    } catch (error) {
+      console.error('Failed to load provinces:', error);
+    } finally {
+      setLoadingProvinces(false);
+    }
+  };
+
+  const loadDistricts = async (provinceCode: string) => {
+    setLoadingDistricts(true);
+    setDistricts([]);
+    setWards([]);
+    try {
+      const data = await locationService.getDistricts(provinceCode);
+      setDistricts(data);
+    } catch (error) {
+      console.error('Failed to load districts:', error);
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  const loadWards = async (districtCode: string) => {
+    setLoadingWards(true);
+    setWards([]);
+    try {
+      const data = await locationService.getWards(districtCode);
+      setWards(data);
+    } catch (error) {
+      console.error('Failed to load wards:', error);
+    } finally {
+      setLoadingWards(false);
+    }
+  };
+
+  const resetLocationData = () => {
+    setSelectedProvinceCode("");
+    setSelectedDistrictCode("");
+    setDistricts([]);
+    setWards([]);
+  };
+
+  const loadLocationDataForShop = async (address: ShopAddress) => {
+    try {
+      // Find province by name
+      const foundProvince = provinces.find(p => p.name === address.city);
+      if (foundProvince) {
+        setSelectedProvinceCode(foundProvince.code);
+        await loadDistricts(foundProvince.code);
+        
+        // Find district by name after districts are loaded
+        setTimeout(async () => {
+          const foundDistrict = districts.find(d => d.name === address.district);
+          if (foundDistrict) {
+            setSelectedDistrictCode(foundDistrict.code);
+            await loadWards(foundDistrict.code);
+          }
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Error loading location data for shop:', error);
+    }
+  };
+
+  const handleProvinceChange = (provinceCode: string) => {
+    setSelectedProvinceCode(provinceCode);
+    setSelectedDistrictCode("");
+    
+    const province = provinces.find(p => p.code === provinceCode);
+    if (province) {
+      setValue('address.city', province.name);
+      setValue('address.district', '');
+      setValue('address.commune', '');
+      loadDistricts(provinceCode);
+    }
+    
+    setWards([]);
+  };
+
+  const handleDistrictChange = (districtCode: string) => {
+    setSelectedDistrictCode(districtCode);
+    
+    const district = districts.find(d => d.code === districtCode);
+    if (district) {
+      setValue('address.district', district.name);
+      setValue('address.commune', '');
+      loadWards(districtCode);
+    }
+  };
+
+  const handleWardChange = (wardCode: string) => {
+    const ward = wards.find(w => w.code === wardCode);
+    if (ward) {
+      setValue('address.commune', ward.name);
+    }
+  };
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -356,6 +503,7 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
                 Address Information
               </label>
               <div className="space-y-3">
+                {/* Street Address */}
                 <Controller
                   name="address.street"
                   control={control}
@@ -378,74 +526,86 @@ export default function ShopForm({ shop, onSubmit, onCancel, submitting = false 
                     </div>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <Controller
-                    name="address.commune"
-                    control={control}
-                    render={({ field }) => (
-                      <div>
-                        <input
-                          {...field}
-                          type="text"
-                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 text-gray-900 ${
-                            errors.address?.commune 
-                              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
-                          }`}
-                          placeholder="Commune/Ward"
-                          maxLength={100}
-                        />
-                        {errors.address?.commune && (
-                          <p className="mt-1 text-sm text-red-600">{errors.address.commune.message}</p>
-                        )}
-                      </div>
-                    )}
-                  />
-                  <Controller
-                    name="address.district"
-                    control={control}
-                    render={({ field }) => (
-                      <div>
-                        <input
-                          {...field}
-                          type="text"
-                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 text-gray-900 ${
-                            errors.address?.district 
-                              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
-                          }`}
-                          placeholder="District"
-                          maxLength={100}
-                        />
-                        {errors.address?.district && (
-                          <p className="mt-1 text-sm text-red-600">{errors.address.district.message}</p>
-                        )}
-                      </div>
-                    )}
-                  />
-                </div>
-                <Controller
-                  name="address.city"
-                  control={control}
-                  render={({ field }) => (
-                    <div>
-                      <input
-                        {...field}
-                        type="text"
-                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 text-gray-900 ${
-                          errors.address?.city 
-                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                            : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
-                        }`}
-                        placeholder="City"
-                        maxLength={100}
-                      />
-                      {errors.address?.city && (
-                        <p className="mt-1 text-sm text-red-600">{errors.address.city.message}</p>
-                      )}
-                    </div>
+
+                {/* Province/City */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Province/City <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    placeholder={loadingProvinces ? "Loading..." : "Select province/city"}
+                    loading={loadingProvinces}
+                    disabled={!mounted || loadingProvinces}
+                    value={selectedProvinceCode || undefined}
+                    onChange={handleProvinceChange}
+                    className="w-full"
+                    size="large"
+                    style={{ height: '48px' }}
+                    notFoundContent={loadingProvinces ? "Loading..." : "No data"}
+                  >
+                    {provinces.map(province => (
+                      <Option key={province.code} value={province.code}>
+                        {province.name}
+                      </Option>
+                    ))}
+                  </Select>
+                  {errors.address?.city && (
+                    <p className="mt-1 text-sm text-red-600">{errors.address.city.message}</p>
                   )}
-                />
+                </div>
+
+                {/* District */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      District <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      placeholder="Select district"
+                      loading={loadingDistricts}
+                      disabled={!selectedProvinceCode}
+                      value={selectedDistrictCode || undefined}
+                      onChange={handleDistrictChange}
+                      className="w-full"
+                      size="large"
+                      style={{ height: '48px' }}
+                    >
+                      {districts.map(district => (
+                        <Option key={district.code} value={district.code}>
+                          {district.name}
+                        </Option>
+                      ))}
+                    </Select>
+                    {errors.address?.district && (
+                      <p className="mt-1 text-sm text-red-600">{errors.address.district.message}</p>
+                    )}
+                  </div>
+
+                  {/* Ward/Commune */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Ward/Commune <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      placeholder="Select ward/commune"
+                      loading={loadingWards}
+                      disabled={!selectedDistrictCode}
+                      onChange={handleWardChange}
+                      className="w-full"
+                      size="large"
+                      style={{ height: '48px' }}
+                    >
+                      {wards.map(ward => (
+                        <Option key={ward.code} value={ward.code}>
+                          {ward.name}
+                        </Option>
+                      ))}
+                    </Select>
+                    {errors.address?.commune && (
+                      <p className="mt-1 text-sm text-red-600">{errors.address.commune.message}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
