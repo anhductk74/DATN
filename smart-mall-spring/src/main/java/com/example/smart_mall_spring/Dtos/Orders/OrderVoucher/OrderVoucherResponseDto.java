@@ -13,4 +13,5 @@ public class OrderVoucherResponseDto {
     private UUID voucherId;
     private String voucherCode;
     private Double discountAmount;
+    private String description;
 }

@@ -31,4 +31,5 @@ public class OrderItem extends BaseEntity {
     private Integer quantity;
 
     private Double price;
+    private Double subtotal;
 }

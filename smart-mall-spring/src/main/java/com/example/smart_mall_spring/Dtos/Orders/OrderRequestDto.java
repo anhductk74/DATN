@@ -1,5 +1,6 @@
 package com.example.smart_mall_spring.Dtos.Orders;
 
+import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemRequestDto;
 import com.example.smart_mall_spring.Enum.PaymentMethod;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,9 +18,8 @@ public class OrderRequestDto {
     private UUID userId;
     private UUID shopId;
     private UUID shippingAddressId;
-
-    private List<OrderItemDto> items;
-    private List<UUID> voucherIds; // Voucher áp dụng
-    private Double shippingFee;
     private PaymentMethod paymentMethod;
+    private Double shippingFee;
+    private List<OrderItemRequestDto> items; // đã có sẵn
+    private List<UUID> voucherIds; // áp dụng voucher
 }

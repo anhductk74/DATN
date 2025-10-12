@@ -1,5 +1,6 @@
 package com.example.smart_mall_spring.Entities.Products;
 
+import com.example.smart_mall_spring.Dtos.Products.ProductVariantDto;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Carts.CartItem;
 import com.example.smart_mall_spring.Entities.Orders.OrderItem;
@@ -39,4 +40,15 @@ public class ProductVariant extends BaseEntity {
 
     @OneToMany(mappedBy = "variant")
     private List<CartItem> cartItems;
+
+    public ProductVariantDto toDto() {
+        return ProductVariantDto.builder()
+                .id(this.getId())
+                .sku(this.getSku())
+                .price(this.getPrice())
+                .stock(this.getStock())
+                .weight(this.getWeight())
+                .dimensions(this.getDimensions())
+                .build();
+    }
 }

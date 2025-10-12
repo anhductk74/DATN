@@ -7,22 +7,21 @@ import com.example.smart_mall_spring.Entities.Orders.OrderItem;
 import com.example.smart_mall_spring.Entities.Products.ProductVariant;
 import com.example.smart_mall_spring.Repositories.OrderItemRepository;
 import com.example.smart_mall_spring.Repositories.ProductVariantRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class OrderItemService {
 
-    @Autowired
-    private OrderItemRepository orderItemRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final ProductVariantRepository productVariantRepository;
 
-    @Autowired
-    private ProductVariantRepository productVariantRepository;
-
-    public List<OrderItem> createOrderItems(Order order, List<OrderItemRequestDto> itemDtos) {
+    // Tạo order items từ request DTO
+    public List<OrderItemResponseDto> createOrderItems(Order order, List<OrderItemRequestDto> itemDtos) {
         return itemDtos.stream().map(dto -> {
             ProductVariant variant = productVariantRepository.findById(dto.getVariantId())
                     .orElseThrow(() -> new RuntimeException("Variant not found"));
@@ -32,21 +31,50 @@ public class OrderItemService {
             item.setVariant(variant);
             item.setQuantity(dto.getQuantity());
             item.setPrice(variant.getPrice()); // giá lấy từ variant
-            return orderItemRepository.save(item);
+
+            OrderItem savedItem = orderItemRepository.save(item);
+
+            // Map entity -> DTO
+            return OrderItemResponseDto.builder()
+                    .id(savedItem.getId())
+                    .orderId(order.getId())
+                    .variant(savedItem.getVariant().toDto()) // giả sử ProductVariant có method toDto()
+                    .productName(savedItem.getVariant().getProduct().getName())
+                    .productImage(
+                            savedItem.getVariant().getProduct().getImages() != null &&
+                                    !savedItem.getVariant().getProduct().getImages().isEmpty()
+                                    ? savedItem.getVariant().getProduct().getImages().get(0)
+                                    : null
+                    )
+                    .quantity(savedItem.getQuantity())
+                    .price(savedItem.getPrice())
+                    .subtotal(savedItem.getPrice() * savedItem.getQuantity())
+                    .createdAt(savedItem.getCreatedAt())
+                    .updatedAt(savedItem.getUpdatedAt())
+                    .build();
         }).collect(Collectors.toList());
     }
 
+    // Lấy order items theo orderId
     public List<OrderItemResponseDto> getOrderItemsByOrder(Long orderId) {
         return orderItemRepository.findByOrderId(orderId).stream().map(item ->
-                new OrderItemResponseDto(
-                        item.getId(),
-                        item.getOrder().getId(),
-                        item.getVariant().getId(),
-                        item.getVariant().getProduct().getName(),
-                        item.getQuantity(),
-                        item.getPrice(),
-                        item.getQuantity() * item.getPrice()
-                )
+                OrderItemResponseDto.builder()
+                        .id(item.getId())
+                        .orderId(item.getOrder().getId())
+                        .variant(item.getVariant().toDto())
+                        .productName(item.getVariant().getProduct().getName())
+                        .productImage(
+                                item.getVariant().getProduct().getImages() != null &&
+                                        !item.getVariant().getProduct().getImages().isEmpty()
+                                        ? item.getVariant().getProduct().getImages().get(0)
+                                        : null
+                        )
+                        .quantity(item.getQuantity())
+                        .price(item.getPrice())
+                        .subtotal(item.getPrice() * item.getQuantity())
+                        .createdAt(item.getCreatedAt())
+                        .updatedAt(item.getUpdatedAt())
+                        .build()
         ).collect(Collectors.toList());
     }
 }

@@ -1,7 +1,10 @@
 package com.example.smart_mall_spring.Controllers;
 
 
-import com.example.smart_mall_spring.Dtos.Orders.OrderRequest;
+import com.example.smart_mall_spring.Dtos.Orders.OrderRequestDto;
+import com.example.smart_mall_spring.Dtos.Orders.OrderResponseDto;
+import com.example.smart_mall_spring.Dtos.Orders.OrderSummaryDto;
+import com.example.smart_mall_spring.Dtos.Orders.UpdateOrderStatusDto;
 import com.example.smart_mall_spring.Entities.Orders.*;
 import com.example.smart_mall_spring.Services.Order.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -18,39 +21,33 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    //  Tạo đơn hàng mới
     @PostMapping
-    public ResponseEntity<Order> createOrder(
-            @RequestBody OrderRequest request) {
-
-        Order order = request.getOrder();
-        List<OrderItem> items = request.getItems();
-        Payment payment = request.getPayment();
-        ShippingFee shippingFee = request.getShippingFee();
-        OrderVoucher voucher = request.getVoucher();
-
-        Order createdOrder = orderService.createOrder(order, items, payment, shippingFee, voucher);
-        return ResponseEntity.ok(createdOrder);
+    public ResponseEntity<OrderResponseDto> createOrder(@RequestBody OrderRequestDto dto) {
+        OrderResponseDto response = orderService.createOrder(dto);
+        return ResponseEntity.ok(response);
     }
 
+    //  Lấy chi tiết đơn hàng
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrderById(@PathVariable UUID id) {
-        return orderService.getOrderById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<OrderResponseDto> getOrderById(@PathVariable UUID id) {
+        OrderResponseDto response = orderService.getOrderById(id);
+        return ResponseEntity.ok(response);
     }
 
+    //  Lấy danh sách đơn hàng theo user
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Order>> getOrdersByUser(@PathVariable UUID userId) {
-        return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
+    public ResponseEntity<List<OrderSummaryDto>> getOrdersByUser(@PathVariable UUID userId) {
+        List<OrderSummaryDto> orders = orderService.getOrdersByUserId(userId);
+        return ResponseEntity.ok(orders);
     }
 
-    @PutMapping("/{id}/cancel")
-    public ResponseEntity<String> cancelOrder(@PathVariable UUID id) {
-        boolean success = orderService.cancelOrder(id);
-        if (success) {
-            return ResponseEntity.ok("The order has been canceled successfully.");
-        } else {
-            return ResponseEntity.badRequest().body("Cannot cancel order (order is confirmed or does not exist)");
-        }
+    //  Cập nhật trạng thái đơn hàng
+    @PutMapping("/status")
+    public ResponseEntity<String> updateStatus(@RequestBody UpdateOrderStatusDto dto) {
+        boolean updated = orderService.updateOrderStatus(dto);
+        return updated
+                ? ResponseEntity.ok("Order status updated successfully")
+                : ResponseEntity.badRequest().body("Failed to update order status");
     }
 }

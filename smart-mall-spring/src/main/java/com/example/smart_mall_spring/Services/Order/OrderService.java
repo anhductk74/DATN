@@ -1,17 +1,25 @@
 package com.example.smart_mall_spring.Services.Order;
 
-
+import com.example.smart_mall_spring.Dtos.Orders.*;
+import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemRequestDto;
+import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemResponseDto;
+import com.example.smart_mall_spring.Dtos.Orders.OrderVoucher.OrderVoucherResponseDto;
+import com.example.smart_mall_spring.Dtos.Orders.Payment.PaymentResponseDto;
+import com.example.smart_mall_spring.Dtos.Orders.ShippingFee.ShippingFeeResponseDto;
 import com.example.smart_mall_spring.Entities.Orders.*;
-import com.example.smart_mall_spring.Enum.StatusOrder;
+import com.example.smart_mall_spring.Entities.Products.ProductVariant;
+import com.example.smart_mall_spring.Entities.Shop;
+import com.example.smart_mall_spring.Entities.Users.User;
+import com.example.smart_mall_spring.Entities.Users.UserAddress;
+import com.example.smart_mall_spring.Enum.*;
 import com.example.smart_mall_spring.Repositories.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,104 +30,246 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final ShippingFeeRepository shippingFeeRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
-    private final OrderTrackingLogRepository orderTrackingLogRepository;
     private final OrderVoucherRepository orderVoucherRepository;
+    private final VoucherRepository voucherRepository;
+    private final ShopRepository shopRepository;
+    private final UserRepository userRepository;
+    private final UserAddressRepository userAddressRepository;
+    private final ProductVariantRepository productVariantRepository;
 
     /**
-     * 🛒 Đặt hàng
+     * 🛒 Tạo đơn hàng mới
      */
     @Transactional
-    public Order createOrder(Order order, List<OrderItem> items,
-                             Payment payment, ShippingFee shippingFee,
-                             OrderVoucher voucher) {
+    public OrderResponseDto createOrder(OrderRequestDto dto) {
+        // 1️ Kiểm tra dữ liệu đầu vào
+        User user = userRepository.findById(dto.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        Shop shop = shopRepository.findById(dto.getShopId())
+                .orElseThrow(() -> new RuntimeException("Shop not found"));
+        UserAddress address = userAddressRepository.findById(dto.getShippingAddressId())
+                .orElseThrow(() -> new RuntimeException("Shipping address not found"));
 
-        // 1️ Lưu đơn hàng chính
+        // 2️ Khởi tạo Order
+        Order order = new Order();
+        order.setUser(user);
+        order.setShop(shop);
+        order.setShippingAddress(address);
+        order.setPaymentMethod(dto.getPaymentMethod());
         order.setStatus(StatusOrder.PENDING);
         order.setCreatedAt(LocalDateTime.now());
-        order = orderRepository.save(order);
+        order.setUpdatedAt(LocalDateTime.now());
+        order.setItems(new ArrayList<>()); // ✅ tránh null khi map lại
+        orderRepository.save(order);
 
-        // 2️ Lưu sản phẩm trong đơn
-        for (OrderItem item : items) {
+        double subtotal = 0.0;
+
+        // 3️ Lưu danh sách sản phẩm (OrderItems)
+        for (OrderItemRequestDto itemDto : dto.getItems()) {
+            ProductVariant variant = productVariantRepository.findById(itemDto.getVariantId())
+                    .orElseThrow(() -> new RuntimeException("Product variant not found"));
+
+            double price = variant.getPrice();
+            double itemSubtotal = price * itemDto.getQuantity();
+
+            OrderItem item = new OrderItem();
             item.setOrder(order);
+            item.setVariant(variant);
+            item.setQuantity(itemDto.getQuantity());
+            item.setPrice(price);
+            item.setSubtotal(itemSubtotal);
+
             orderItemRepository.save(item);
+            order.getItems().add(item); // ✅ đảm bảo order có items trong bộ nhớ
+
+            subtotal += itemSubtotal;
         }
 
-        // 3️ Lưu thanh toán
-        if (payment != null) {
-            payment.setOrder(order);
-            payment.setPaidAt(LocalDateTime.now());
-            paymentRepository.save(payment);
+        // 4️ Tạo ShippingFee
+        double shippingFeeAmount = dto.getShippingFee() != null ? dto.getShippingFee() : 30000.0;
+        ShippingFee shippingFee = new ShippingFee();
+        shippingFee.setOrder(order);
+        shippingFee.setFeeAmount(shippingFeeAmount);
+        shippingFee.setShippingMethod("STANDARD");
+        shippingFee.setEstimatedDeliveryDate(LocalDateTime.now().plusDays(3));
+        shippingFeeRepository.save(shippingFee);
+
+        // 5️ Áp dụng voucher
+        double totalDiscount = 0.0;
+        List<OrderVoucherResponseDto> appliedVouchers = new ArrayList<>();
+
+        if (dto.getVoucherIds() != null && !dto.getVoucherIds().isEmpty()) {
+            for (UUID voucherId : dto.getVoucherIds()) {
+                Voucher voucher = voucherRepository.findById(voucherId)
+                        .orElseThrow(() -> new RuntimeException("Voucher not found"));
+
+                double discountAmount = 0.0;
+                if (voucher.getDiscountType() == DiscountType.PERCENTAGE) {
+                    discountAmount = subtotal * (voucher.getDiscountValue() / 100);
+                    if (voucher.getMaxDiscountAmount() != null) {
+                        discountAmount = Math.min(discountAmount, voucher.getMaxDiscountAmount());
+                    }
+                } else if (voucher.getDiscountType() == DiscountType.FIXED_AMOUNT) {
+                    discountAmount = voucher.getDiscountValue();
+                }
+
+                if (voucher.getMinOrderValue() != null && subtotal < voucher.getMinOrderValue()) {
+                    discountAmount = 0.0; // Không đủ điều kiện áp dụng
+                }
+
+                totalDiscount += discountAmount;
+
+                // Lưu vào bảng OrderVoucher
+                OrderVoucher orderVoucher = new OrderVoucher();
+                orderVoucher.setOrder(order);
+                orderVoucher.setVoucher(voucher);
+                orderVoucher.setDiscountAmount(discountAmount);
+                orderVoucherRepository.save(orderVoucher);
+
+                // Map DTO trả về
+                appliedVouchers.add(OrderVoucherResponseDto.builder()
+                        .voucherId(voucher.getId())
+                        .voucherCode(voucher.getCode())
+                        .description(voucher.getDescription())
+                        .discountAmount(discountAmount)
+                        .build());
+            }
         }
 
-        // 4️ Lưu phí vận chuyển
-        if (shippingFee != null) {
-            shippingFee.setOrder(order);
-            shippingFeeRepository.save(shippingFee);
-        }
+        // 6️ Thanh toán
+        double finalAmount = subtotal + shippingFeeAmount - totalDiscount;
+        Payment payment = new Payment();
+        payment.setOrder(order);
+        payment.setMethod(dto.getPaymentMethod());
+        payment.setAmount(finalAmount);
+        payment.setPaidAt(LocalDateTime.now());
+        paymentRepository.save(payment);
 
-        // 5️ Lưu voucher nếu có
-        if (voucher != null) {
-            voucher.setOrder(order);
-            orderVoucherRepository.save(voucher);
-        }
-
-        // 6️ Lưu lịch sử trạng thái
+        // 7️ Lưu lịch sử trạng thái đơn hàng
         OrderStatusHistory history = new OrderStatusHistory();
         history.setOrder(order);
         history.setFromStatus(null);
+        history.setToStatus(StatusOrder.PENDING);
+        history.setChangedAt(LocalDateTime.now());
+        history.setNote("Order created successfully");
+        orderStatusHistoryRepository.save(history);
+
+        // 8️ Map dữ liệu trả về
+        return mapToOrderResponseDto(order, subtotal, shippingFeeAmount, totalDiscount, appliedVouchers);
+    }
+
+    /**
+     *  Lấy chi tiết đơn hàng
+     */
+    public OrderResponseDto getOrderById(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        double subtotal = order.getItems().stream().mapToDouble(OrderItem::getSubtotal).sum();
+        double shippingFee = order.getShippingFees().stream()
+                .mapToDouble(ShippingFee::getFeeAmount).sum();
+        double discount = order.getVouchers().stream()
+                .mapToDouble(OrderVoucher::getDiscountAmount).sum();
+        return mapToOrderResponseDto(order, subtotal, shippingFee, discount, null);
+    }
+
+    /**
+     *  Lấy danh sách đơn hàng theo user
+     */
+    public List<OrderSummaryDto> getOrdersByUserId(UUID userId) {
+        return orderRepository.findByUserId(userId).stream()
+                .map(order -> OrderSummaryDto.builder()
+                        .id(order.getId())
+                        .shopName(order.getShop().getName())
+                        .status(order.getStatus())
+                        .finalAmount(order.getFinalAmount())
+                        .createdAt(order.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     *  Cập nhật trạng thái đơn hàng
+     */
+    @Transactional
+    public boolean updateOrderStatus(UpdateOrderStatusDto dto) {
+        Order order = orderRepository.findById(dto.getOrderId())
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        StatusOrder oldStatus = order.getStatus();
+        order.setStatus(dto.getStatus());
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrder(order);
+        history.setFromStatus(oldStatus);
+        history.setToStatus(dto.getStatus());
+        history.setNote("Status updated to " + dto.getStatus());
         history.setChangedAt(LocalDateTime.now());
         orderStatusHistoryRepository.save(history);
 
-        // 7️ Ghi log tracking
-        OrderTrackingLog log = new OrderTrackingLog();
-        log.setOrder(order);
-        log.setStatusDescription("Order created successfully");
-        log.setUpdatedAt(LocalDateTime.now());
-        orderTrackingLogRepository.save(log);
-
-        return order;
+        return true;
     }
 
-    public Optional<Order> getOrderById(UUID orderId) {
-        return orderRepository.findById(orderId);
-    }
-
-
-    public List<Order> getOrdersByUserId(UUID userId) {
-        return orderRepository.findByUserId(userId);
-    }
-
-
-    @Transactional
-    public boolean cancelOrder(UUID orderId) {
-        Optional<Order> optionalOrder = orderRepository.findById(orderId);
-        if (optionalOrder.isEmpty()) return false;
-
-        Order order = optionalOrder.get();
-
-        if (order.getStatus() == StatusOrder.PENDING) {
-            order.setStatus(StatusOrder.CANCELLED);
-            order.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(order);
-
-            // Lưu lịch sử trạng thái
-            OrderStatusHistory history = new OrderStatusHistory();
-            history.setOrder(order);
-            history.setFromStatus(order.getStatus());
-            history.setToStatus(StatusOrder.CANCELLED);
-            history.setChangedAt(LocalDateTime.now());
-            orderStatusHistoryRepository.save(history);
-
-            // Ghi log
-            OrderTrackingLog log = new OrderTrackingLog();
-            log.setOrder(order);
-            log.setStatusDescription("The order was canceled by the user.");
-            log.setUpdatedAt(LocalDateTime.now());
-            orderTrackingLogRepository.save(log);
-
-            return true;
-        }
-
-        return false;
+    /**
+     *  Chuyển Entity → DTO phản hồi
+     */
+    private OrderResponseDto mapToOrderResponseDto(Order order, double subtotal,
+                                                   double shippingFee, double discount,
+                                                   List<OrderVoucherResponseDto> vouchers) {
+        return OrderResponseDto.builder()
+                .id(order.getId())
+                .userId(order.getUser().getId())
+                .userName(order.getUser().getProfile().getFullName())
+                .shopId(order.getShop().getId())
+                .shopName(order.getShop().getName())
+                .status(order.getStatus())
+                .totalAmount(subtotal)
+                .shippingFee(shippingFee)
+                .discountAmount(discount)
+                .finalAmount(subtotal + shippingFee - discount)
+                .paymentMethod(order.getPaymentMethod())
+                .createdAt(order.getCreatedAt())
+                .items(order.getItems().stream()
+                        .map(item -> OrderItemResponseDto.builder()
+                                .id(item.getId())
+                                .orderId(order.getId())
+                                .variant(item.getVariant().toDto()) // cần có toDto() trong ProductVariant
+                                .productName(item.getVariant().getProduct().getName())
+                                .productImage(
+                                        item.getVariant().getProduct().getImages() != null &&
+                                                !item.getVariant().getProduct().getImages().isEmpty()
+                                                ? item.getVariant().getProduct().getImages().get(0)
+                                                : null
+                                )
+                                .quantity(item.getQuantity())
+                                .price(item.getPrice())
+                                .subtotal(item.getSubtotal())
+                                .createdAt(item.getCreatedAt())
+                                .updatedAt(item.getUpdatedAt())
+                                .build())
+                        .collect(Collectors.toList()))
+                .vouchers(vouchers)
+                .shippingFees(order.getShippingFees().stream()
+                        .map(f -> ShippingFeeResponseDto.builder()
+                                .shippingMethod(f.getShippingMethod())
+                                .feeAmount(f.getFeeAmount())
+                                .estimatedDeliveryDate(f.getEstimatedDeliveryDate())
+                                .build())
+                        .collect(Collectors.toList()))
+                .payment(PaymentResponseDto.builder()
+                        .method(order.getPaymentMethod())
+                        .amount(subtotal + shippingFee - discount)
+                        .paidAt(order.getCreatedAt())
+                        .build())
+                .statusHistories(order.getStatusHistories().stream()
+                        .map(h -> OrderStatusHistoryDto.builder()
+                                .fromStatus(h.getFromStatus())
+                                .toStatus(h.getToStatus())
+                                .note(h.getNote())
+                                .changedAt(h.getChangedAt())
+                                .build())
+                        .collect(Collectors.toList()))
+                .build();
     }
 }
