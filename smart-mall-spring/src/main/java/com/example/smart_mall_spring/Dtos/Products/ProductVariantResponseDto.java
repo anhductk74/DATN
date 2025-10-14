@@ -19,6 +19,8 @@ public class ProductVariantResponseDto {
     private Double price;
     private Integer stock;
     private Double weight;
+    private String productName;
+    private String productBrand;
     private String dimensions;
     private List<VariantAttributeResponseDto> attributes;
     private LocalDateTime createdAt;

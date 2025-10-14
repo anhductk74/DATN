@@ -59,7 +59,7 @@ public class OrderService {
         order.setStatus(StatusOrder.PENDING);
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
-        order.setItems(new ArrayList<>()); // ✅ tránh null khi map lại
+        order.setItems(new ArrayList<>()); //  tránh null khi map lại
         orderRepository.save(order);
 
         double subtotal = 0.0;
@@ -80,8 +80,7 @@ public class OrderService {
             item.setSubtotal(itemSubtotal);
 
             orderItemRepository.save(item);
-            order.getItems().add(item); // ✅ đảm bảo order có items trong bộ nhớ
-
+            order.getItems().add(item); //  đảm bảo order có items trong bộ nhớ
             subtotal += itemSubtotal;
         }
 
@@ -94,9 +93,13 @@ public class OrderService {
         shippingFee.setEstimatedDeliveryDate(LocalDateTime.now().plusDays(3));
         shippingFeeRepository.save(shippingFee);
 
+        order.setShippingFees(new ArrayList<>());
+        order.getShippingFees().add(shippingFee);
+
         // 5️ Áp dụng voucher
         double totalDiscount = 0.0;
         List<OrderVoucherResponseDto> appliedVouchers = new ArrayList<>();
+        List<OrderVoucher> orderVouchers = new ArrayList<>();
 
         if (dto.getVoucherIds() != null && !dto.getVoucherIds().isEmpty()) {
             for (UUID voucherId : dto.getVoucherIds()) {
@@ -114,19 +117,18 @@ public class OrderService {
                 }
 
                 if (voucher.getMinOrderValue() != null && subtotal < voucher.getMinOrderValue()) {
-                    discountAmount = 0.0; // Không đủ điều kiện áp dụng
+                    discountAmount = 0.0;
                 }
 
                 totalDiscount += discountAmount;
 
-                // Lưu vào bảng OrderVoucher
                 OrderVoucher orderVoucher = new OrderVoucher();
                 orderVoucher.setOrder(order);
                 orderVoucher.setVoucher(voucher);
                 orderVoucher.setDiscountAmount(discountAmount);
                 orderVoucherRepository.save(orderVoucher);
+                orderVouchers.add(orderVoucher);
 
-                // Map DTO trả về
                 appliedVouchers.add(OrderVoucherResponseDto.builder()
                         .voucherId(voucher.getId())
                         .voucherCode(voucher.getCode())
@@ -135,6 +137,7 @@ public class OrderService {
                         .build());
             }
         }
+        order.setVouchers(orderVouchers);
 
         // 6️ Thanh toán
         double finalAmount = subtotal + shippingFeeAmount - totalDiscount;
@@ -144,7 +147,13 @@ public class OrderService {
         payment.setAmount(finalAmount);
         payment.setPaidAt(LocalDateTime.now());
         paymentRepository.save(payment);
-
+        order.setPayment(payment);
+        // gán các giá trị tiền ệ
+        order.setTotalAmount(subtotal);
+        order.setDiscountAmount(totalDiscount);
+        order.setShippingFee(shippingFeeAmount);
+        order.setFinalAmount(finalAmount);
+        orderRepository.save(order);
         // 7️ Lưu lịch sử trạng thái đơn hàng
         OrderStatusHistory history = new OrderStatusHistory();
         history.setOrder(order);
@@ -153,6 +162,7 @@ public class OrderService {
         history.setChangedAt(LocalDateTime.now());
         history.setNote("Order created successfully");
         orderStatusHistoryRepository.save(history);
+        orderRepository.save(order);
 
         // 8️ Map dữ liệu trả về
         return mapToOrderResponseDto(order, subtotal, shippingFeeAmount, totalDiscount, appliedVouchers);
@@ -230,11 +240,13 @@ public class OrderService {
                 .finalAmount(subtotal + shippingFee - discount)
                 .paymentMethod(order.getPaymentMethod())
                 .createdAt(order.getCreatedAt())
+
+                // 🟩 Items
                 .items(order.getItems().stream()
                         .map(item -> OrderItemResponseDto.builder()
                                 .id(item.getId())
                                 .orderId(order.getId())
-                                .variant(item.getVariant().toDto()) // cần có toDto() trong ProductVariant
+                                .variant(item.getVariant().toDto())
                                 .productName(item.getVariant().getProduct().getName())
                                 .productImage(
                                         item.getVariant().getProduct().getImages() != null &&
@@ -249,27 +261,55 @@ public class OrderService {
                                 .updatedAt(item.getUpdatedAt())
                                 .build())
                         .collect(Collectors.toList()))
-                .vouchers(vouchers)
+
+                // 🟩 Vouchers (đảm bảo không null id, orderId)
+                .vouchers(order.getVouchers().stream()
+                        .map(v -> OrderVoucherResponseDto.builder()
+                                .id(v.getId())
+                                .orderId(order.getId())
+                                .voucherId(v.getVoucher().getId())
+                                .voucherCode(v.getVoucher().getCode())
+                                .discountAmount(v.getDiscountAmount())
+                                .description(v.getVoucher().getDescription())
+                                .build())
+                        .collect(Collectors.toList()))
+
+                // 🟩 Shipping Fees
                 .shippingFees(order.getShippingFees().stream()
                         .map(f -> ShippingFeeResponseDto.builder()
+                                .id(f.getId())
+                                .orderId(order.getId())
                                 .shippingMethod(f.getShippingMethod())
                                 .feeAmount(f.getFeeAmount())
                                 .estimatedDeliveryDate(f.getEstimatedDeliveryDate())
                                 .build())
                         .collect(Collectors.toList()))
-                .payment(PaymentResponseDto.builder()
-                        .method(order.getPaymentMethod())
-                        .amount(subtotal + shippingFee - discount)
-                        .paidAt(order.getCreatedAt())
-                        .build())
+
+                // 🟩 Payment (đảm bảo id, orderId, status, transactionId)
+                .payment(order.getPayment() != null
+                        ? PaymentResponseDto.builder()
+                        .id(order.getPayment().getId())
+                        .orderId(order.getId())
+                        .method(order.getPayment().getMethod())
+                        .status(order.getPayment().getStatus())
+                        .amount(order.getPayment().getAmount())
+                        .transactionId(order.getPayment().getTransactionId())
+                        .paidAt(order.getPayment().getPaidAt())
+                        .build()
+                        : null)
+
+                // 🟩 Status histories
                 .statusHistories(order.getStatusHistories().stream()
                         .map(h -> OrderStatusHistoryDto.builder()
+                                .id(h.getId())
+                                .orderId(order.getId())
                                 .fromStatus(h.getFromStatus())
                                 .toStatus(h.getToStatus())
                                 .note(h.getNote())
                                 .changedAt(h.getChangedAt())
                                 .build())
                         .collect(Collectors.toList()))
+
                 .build();
     }
 }

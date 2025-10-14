@@ -396,6 +396,7 @@ public class ProductService {
 
     // Convert variant to DTO
     private ProductVariantResponseDto convertVariantToDto(ProductVariant variant) {
+        // Convert attributes
         List<VariantAttributeResponseDto> attributeDtos = null;
         if (variant.getAttributes() != null && !variant.getAttributes().isEmpty()) {
             attributeDtos = variant.getAttributes().stream()
@@ -403,16 +404,31 @@ public class ProductService {
                     .collect(Collectors.toList());
         }
 
+        // Lấy thông tin productName và productBrand từ product liên kết
+        String productName = (variant.getProduct() != null && variant.getProduct().getName() != null)
+                ? variant.getProduct().getName()
+                : "Unnamed Product";
+
+        String productBrand = (variant.getProduct() != null && variant.getProduct().getBrand() != null)
+                ? variant.getProduct().getBrand()
+                : "Unknown Brand";
+
+        // Đảm bảo createdAt và updatedAt không null
+        var createdAt = variant.getCreatedAt() != null ? variant.getCreatedAt() : variant.getProduct().getCreatedAt();
+        var updatedAt = variant.getUpdatedAt() != null ? variant.getUpdatedAt() : variant.getProduct().getUpdatedAt();
+
         return ProductVariantResponseDto.builder()
                 .id(variant.getId())
-                .sku(variant.getSku())
-                .price(variant.getPrice())
-                .stock(variant.getStock())
-                .weight(variant.getWeight())
-                .dimensions(variant.getDimensions())
+                .sku(variant.getSku() != null ? variant.getSku() : "")
+                .price(variant.getPrice() != null ? variant.getPrice() : 0.0)
+                .stock(variant.getStock() != null ? variant.getStock() : 0)
+                .weight(variant.getWeight() != null ? variant.getWeight() : 0.0)
+                .dimensions(variant.getDimensions() != null ? variant.getDimensions() : "")
                 .attributes(attributeDtos)
-                .createdAt(variant.getCreatedAt())
-                .updatedAt(variant.getUpdatedAt())
+                .productName(productName)
+                .productBrand(productBrand)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
                 .build();
     }
 
