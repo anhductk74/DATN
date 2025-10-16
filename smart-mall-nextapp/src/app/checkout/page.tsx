@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Radio, Checkbox, Divider, Modal, message, Card } from "antd";
+import { Button, Input, Radio, Checkbox, Divider, Modal, message, Card, Spin } from "antd";
 import { 
   LeftOutlined, 
   GiftOutlined, 
@@ -10,11 +10,13 @@ import {
   CreditCardOutlined,
   WalletOutlined,
   BankOutlined,
-  SafetyOutlined
+  SafetyOutlined,
+  LoadingOutlined
 } from "@ant-design/icons";
 import { useCart } from "@/contexts/CartContext";
 import { DeliveryAddress, type DeliveryAddressType } from "./components";
 import { getCloudinaryUrl } from "@/config/config";
+import { voucherApiService, VoucherResponseDto, calculateVoucherDiscount, isVoucherApplicable, filterApplicableVouchers, VoucherType } from "@/services/voucherApiService";
 
 const { TextArea } = Input;
 
@@ -81,25 +83,7 @@ const paymentMethods = [
   }
 ];
 
-// Mock vouchers
-const availableVouchers = [
-  {
-    id: "v1",
-    title: "New User Discount",
-    discount: 50000,
-    code: "NEWUSER50",
-    minOrder: 200000,
-    type: "discount"
-  },
-  {
-    id: "v2",
-    title: "Free Shipping",
-    discount: 25000,
-    code: "FREESHIP",
-    minOrder: 100000,
-    type: "shipping"
-  }
-];
+// We'll fetch vouchers from the API instead of using mock data
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -113,6 +97,10 @@ export default function CheckoutPage() {
   const [notes, setNotes] = useState("");
   const [voucherModalVisible, setVoucherModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Voucher states
+  const [availableVouchers, setAvailableVouchers] = useState<VoucherResponseDto[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
   
   // Delivery address states - let DeliveryAddress component manage its own state
   const [addresses, setAddresses] = useState<DeliveryAddressType[]>([]);
@@ -133,6 +121,30 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // Fetch available vouchers
+  useEffect(() => {
+    const fetchVouchers = async () => {
+      setVouchersLoading(true);
+      try {
+        const vouchers = await voucherApiService.getAllVouchers();
+        // Calculate subtotal for filtering
+        const currentSubtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        // Filter vouchers applicable to the current checkout items
+        const applicableVouchers = filterApplicableVouchers(vouchers, currentSubtotal, items);
+        setAvailableVouchers(applicableVouchers);
+      } catch (error) {
+        console.error('Failed to fetch vouchers:', error);
+        message.error('Failed to load vouchers');
+      } finally {
+        setVouchersLoading(false);
+      }
+    };
+
+    if (mounted && items.length > 0) {
+      fetchVouchers();
+    }
+  }, [mounted, items]);
+
   // Redirect if no items selected for checkout
   useEffect(() => {
     if (mounted && !isLoading && items.length === 0) {
@@ -146,17 +158,77 @@ export default function CheckoutPage() {
   
   // Calculate totals - only calculate when items are loaded to prevent hydration mismatch
   const subtotal = mounted && items.length > 0 ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
-  const shippingFee = selectedShippingOption?.price || 0;
-  const voucherDiscount = selectedVoucherData.reduce((sum, voucher) => sum + voucher.discount, 0);
-  const total = subtotal + shippingFee - voucherDiscount;
+  let shippingFee = selectedShippingOption?.price || 0;
+  
+  // Calculate voucher discounts
+  let voucherDiscount = 0;
+  let shippingDiscount = 0;
+  
+  if (selectedVoucherData.length > 0 && subtotal > 0) {
+    selectedVoucherData.forEach(voucher => {
+      if (isVoucherApplicable(voucher, subtotal, items)) {
+        const discount = calculateVoucherDiscount(voucher, subtotal);
+        if (voucher.type === VoucherType.SHIPPING) {
+          // Shipping vouchers reduce shipping fee
+          shippingDiscount += Math.min(discount, shippingFee);
+        } else {
+          // Product/system vouchers reduce subtotal
+          voucherDiscount += discount;
+        }
+      }
+    });
+  }
+  
+  // Apply shipping discount to shipping fee
+  const finalShippingFee = Math.max(0, shippingFee - shippingDiscount);
+  const total = Math.max(0, subtotal + finalShippingFee - voucherDiscount);
 
   const handlePlaceOrder = async () => {
+    // Validate required fields
+    if (!selectedAddressId) {
+      message.error("Please select a delivery address");
+      return;
+    }
+
+    if (items.length === 0) {
+      message.error("No items in your order");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Simulate API call
+      // For now, simulate API call
+      // TODO: Implement actual order creation with orderApiService
+      // const orderData = {
+      //   userId: userProfile.id,
+      //   shopId: items[0].shopId, // Assuming all items from same shop
+      //   shippingAddressId: selectedAddressId,
+      //   paymentMethod: selectedPayment as PaymentMethod,
+      //   shippingFee: finalShippingFee,
+      //   items: items.map(item => ({
+      //     variantId: item.variantId,
+      //     quantity: item.quantity
+      //   })),
+      //   voucherIds: selectedVouchers
+      // };
+      // 
+      // const order = await orderApiService.createOrder(orderData);
+      
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       message.success("Order placed successfully!");
+      
+      // Apply vouchers to the order if any selected
+      if (selectedVouchers.length > 0) {
+        // TODO: Use orderVoucherApiService.applyVoucher for each selected voucher
+        // for (const voucherId of selectedVouchers) {
+        //   await orderVoucherApiService.applyVoucher({
+        //     orderId: order.id,
+        //     voucherId: voucherId
+        //   });
+        // }
+      }
+      
       // Clear checkout items from sessionStorage
       sessionStorage.removeItem('checkout_items');
       // Remove ordered items from cart
@@ -165,6 +237,7 @@ export default function CheckoutPage() {
       });
       router.push("/orders");
     } catch (error) {
+      console.error('Failed to place order:', error);
       message.error("Failed to place order. Please try again.");
     } finally {
       setLoading(false);
@@ -225,10 +298,18 @@ export default function CheckoutPage() {
               className="mr-4"
             />
             <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
+              <div 
+                className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center cursor-pointer hover:bg-orange-600 transition-colors"
+                onClick={() => router.push("/")}
+              >
                 <span className="text-white font-bold text-xs">S</span>
               </div>
-              <span className="text-xl font-bold text-gray-800">SmartMall</span>
+              <span 
+                className="text-xl font-bold text-gray-800 cursor-pointer hover:text-orange-500 transition-colors"
+                onClick={() => router.push("/")}
+              >
+                SmartMall
+              </span>
               <span className="text-gray-400 mx-2">|</span>
               <span className="text-lg text-gray-600">Checkout</span>
             </div>
@@ -310,22 +391,31 @@ export default function CheckoutPage() {
               </div>
               {selectedVoucherData.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedVoucherData.map(voucher => (
-                    <div key={voucher.id} className="flex items-center justify-between bg-green-50 p-3 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center mr-3">
-                          <GiftOutlined className="text-white text-sm" />
+                  {selectedVoucherData.map(voucher => {
+                    const discount = isVoucherApplicable(voucher, subtotal, items) 
+                      ? calculateVoucherDiscount(voucher, subtotal) 
+                      : 0;
+                    return (
+                      <div key={voucher.id} className="flex items-center justify-between bg-green-50 p-3 rounded-lg">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center mr-3">
+                            <GiftOutlined className="text-white text-sm" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-800">{voucher.description}</div>
+                            <div className="text-sm text-gray-600">Code: {voucher.code}</div>
+                            <div className="text-xs text-gray-500">
+                              {voucher.type === VoucherType.SHIPPING ? 'Shipping' : 
+                               voucher.type === VoucherType.SYSTEM ? 'System' : 'Shop'} voucher
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-medium text-gray-800">{voucher.title}</div>
-                          <div className="text-sm text-gray-600">Code: {voucher.code}</div>
+                        <div className="text-green-600 font-medium">
+                          -{formatCurrency(discount)} VND
                         </div>
                       </div>
-                      <div className="text-green-600 font-medium">
-                        -{formatCurrency(voucher.discount)} VND
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -413,8 +503,15 @@ export default function CheckoutPage() {
                 
                 <div className="flex justify-between">
                   <span className="text-gray-600">Shipping fee</span>
-                  <span className="font-medium">{formatCurrency(shippingFee)} VND</span>
+                  <span className="font-medium">{formatCurrency(finalShippingFee)} VND</span>
                 </div>
+
+                {shippingDiscount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Shipping discount</span>
+                    <span>-{formatCurrency(shippingDiscount)} VND</span>
+                  </div>
+                )}
 
                 {voucherDiscount > 0 && (
                   <div className="flex justify-between text-green-600">
@@ -465,40 +562,83 @@ export default function CheckoutPage() {
         }
         width={600}
       >
-        <div className="space-y-4">
-          {availableVouchers.map(voucher => (
-            <div 
-              key={voucher.id} 
-              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                selectedVouchers.includes(voucher.id) 
-                  ? 'border-orange-300 bg-orange-50' 
-                  : 'border-gray-200 hover:border-orange-200'
-              }`}
-              onClick={() => handleVoucherSelect(voucher.id)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start">
-                  <Checkbox 
-                    checked={selectedVouchers.includes(voucher.id)}
-                    className="mr-3 mt-1"
-                  />
-                  <div>
-                    <div className="font-medium text-gray-800">{voucher.title}</div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      Discount: {formatCurrency(voucher.discount)} VND
+        {vouchersLoading ? (
+          <div className="text-center py-8">
+            <Spin size="large" />
+            <p className="mt-4 text-gray-500">Loading vouchers...</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {availableVouchers.map(voucher => {
+              const isApplicable = isVoucherApplicable(voucher, subtotal, items);
+              const discount = isApplicable ? calculateVoucherDiscount(voucher, subtotal) : 0;
+              const discountText = voucher.discountType === 'PERCENTAGE' 
+                ? `${voucher.discountValue}% off${voucher.maxDiscountAmount ? ` (max ${formatCurrency(voucher.maxDiscountAmount)} VND)` : ''}`
+                : `${formatCurrency(voucher.discountValue)} VND off`;
+
+              return (
+                <div 
+                  key={voucher.id} 
+                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                    !isApplicable 
+                      ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                      : selectedVouchers.includes(voucher.id) 
+                        ? 'border-orange-300 bg-orange-50' 
+                        : 'border-gray-200 hover:border-orange-200'
+                  }`}
+                  onClick={() => isApplicable && handleVoucherSelect(voucher.id)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start">
+                      <Checkbox 
+                        checked={selectedVouchers.includes(voucher.id)}
+                        disabled={!isApplicable}
+                        className="mr-3 mt-1"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-800 mb-1">
+                          {voucher.description}
+                        </div>
+                        <div className="text-sm text-gray-600 mb-1">
+                          Code: {voucher.code}
+                        </div>
+                        <div className="text-sm text-gray-600 mb-1">
+                          {discountText}
+                        </div>
+                        {voucher.minOrderValue && (
+                          <div className="text-xs text-gray-500 mb-1">
+                            Min order: {formatCurrency(voucher.minOrderValue)} VND
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          Type: {voucher.type === VoucherType.SHIPPING ? 'Free Shipping' : 
+                                voucher.type === VoucherType.SYSTEM ? 'System Discount' : 'Shop Discount'}
+                        </div>
+                        {!isApplicable && (
+                          <div className="text-xs text-red-500 mt-1">
+                            {voucher.minOrderValue && subtotal < voucher.minOrderValue
+                              ? `Min order ${formatCurrency(voucher.minOrderValue)} VND required`
+                              : 'Not applicable to current order'
+                            }
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Min order: {formatCurrency(voucher.minOrder)} VND
+                    <div className="text-orange-600 font-bold">
+                      {isApplicable ? `-${formatCurrency(discount)} VND` : ''}
                     </div>
                   </div>
                 </div>
-                <div className="text-orange-600 font-bold">
-                  {formatCurrency(voucher.discount)} VND
-                </div>
+              );
+            })}
+            {availableVouchers.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <GiftOutlined className="text-4xl mb-2" />
+                <p>No vouchers available at the moment</p>
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

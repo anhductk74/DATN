@@ -40,7 +40,16 @@ export default function Header() {
   const cart = useCart();
 
   // Use enhanced user profile with priority to API data, fallback to session
+  // But preserve avatar/image from session if API doesn't have it
   const currentUser = userProfile || user;
+  const sessionUser = user as any; // NextAuth user may have 'image' field
+  const mergedUser = currentUser ? {
+    ...currentUser,
+    // Preserve avatar/image from session if API user doesn't have avatar
+    avatar: userProfile?.avatar || sessionUser?.image || sessionUser?.avatar,
+    // Also add image field for compatibility
+    image: userProfile?.avatar || sessionUser?.image || sessionUser?.avatar
+  } : null;
 
   // Mock notifications data
   const mockNotifications = [
@@ -84,12 +93,36 @@ export default function Header() {
 
   const unreadNotifications = mockNotifications.filter(n => !n.isRead);
   
-  // helper: if avatar is already a full URL return it, otherwise use getCloudinaryUrl
-  const resolveAvatar = (avatar?: string) => {
-    if (!avatar) return undefined;
-    return getCloudinaryUrl(avatar);
+  // helper: resolve avatar from both Google users (image field) and registered users (avatar field)
+  const resolveAvatar = (user: any) => {
+    console.log('Resolving avatar for user:', user);
+    
+    // For Google users, use the 'image' field
+    if (user?.image) {
+      console.log('Using Google image:', user.image);
+      return user.image; // Google avatars are already full URLs
+    }
+    
+    // For registered users, use the 'avatar' field
+    if (user?.avatar) {
+      console.log('Using user avatar:', user.avatar);
+      return getCloudinaryUrl(user.avatar);
+    }
+    
+    console.log('No avatar found for user');
+    return undefined;
   };
-  // Debug: Log when userProfile changes
+  
+  // Debug: Log current user data
+  useEffect(() => {
+    if (mergedUser) {
+      console.log('Merged user data:', mergedUser);
+      console.log('User avatar:', mergedUser.avatar);
+      console.log('User image:', mergedUser.image);
+      console.log('User from session:', user);
+      console.log('User from API:', userProfile);
+    }
+  }, [mergedUser, user, userProfile]);
 
   const handleLogoutClick = async () => {
     setShowUserMenu(false);
@@ -109,7 +142,7 @@ export default function Header() {
   };
 
   const handleAuthAction = () => {
-    if (currentUser) {
+    if (mergedUser) {
       router.push("/home");
     } else {
       router.push("/login");
@@ -118,7 +151,7 @@ export default function Header() {
 
   // unified navigation helper: if route requires auth and user not logged in -> go to login
   const handleNavigate = (path: string, requiresAuth = true) => {
-    if (requiresAuth && !currentUser) {
+    if (requiresAuth && !mergedUser) {
       message.info("Please login to continue");
       router.push("/login");
       return;
@@ -181,7 +214,7 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
-            {currentUser && (
+            {mergedUser && (
               <>
                 {/* Notifications */}
                 <div className="relative notification-popup-container">
@@ -355,7 +388,7 @@ export default function Header() {
             )}
 
             {/* User Menu or Login Button */}
-            {currentUser ? (
+            {mergedUser ? (
               <div className="relative user-menu-container">
                 <button 
                   className="flex items-center space-x-3 px-3 py-2 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300 border border-transparent hover:border-blue-200 hover:shadow-md group"
@@ -366,13 +399,17 @@ export default function Header() {
                   }}
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
-                    {currentUser?.avatar ? (
+                    {resolveAvatar(mergedUser) ? (
                       <Image 
-                        src={resolveAvatar(currentUser.avatar) as string} 
+                        src={resolveAvatar(mergedUser) as string} 
                         alt="Avatar" 
                         width={40}
                         height={40}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Avatar image failed to load:', resolveAvatar(mergedUser));
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
                     ) : (
                       <UserOutlined className="text-white text-lg" />
@@ -380,7 +417,7 @@ export default function Header() {
                   </div>
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-semibold text-gray-800 leading-tight">
-                      {currentUser.fullName || currentUser.email?.split('@')[0]}
+                      {mergedUser.fullName || mergedUser.email?.split('@')[0]}
                     </span>
                     <span className="text-xs text-gray-500">
                       My Account
@@ -398,21 +435,25 @@ export default function Header() {
                     <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-t-3xl">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
-                          {currentUser?.avatar ? (
+                          {resolveAvatar(mergedUser) ? (
                             <Image 
-                              src={resolveAvatar(currentUser.avatar) as string} 
+                              src={resolveAvatar(mergedUser) as string} 
                               alt="Avatar" 
                               width={48}
                               height={48}
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('Dropdown avatar image failed to load:', resolveAvatar(mergedUser));
+                                e.currentTarget.style.display = 'none';
+                              }}
                             />
                           ) : (
                             <UserOutlined className="text-white text-xl" />
                           )}
                         </div>
                         <div>
-                          <p className="text-lg font-bold text-gray-900">{currentUser.fullName || currentUser.email?.split('@')[0]}</p>
-                          <p className="text-sm text-gray-600 truncate">{currentUser.email}</p>
+                          <p className="text-lg font-bold text-gray-900">{mergedUser.fullName || mergedUser.email?.split('@')[0]}</p>
+                          <p className="text-sm text-gray-600 truncate">{mergedUser.email}</p>
                           <div className="flex items-center mt-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
                             <span className="text-xs text-green-600 font-medium">Online</span>
@@ -535,25 +576,29 @@ export default function Header() {
       {showMobileMenu && (
         <div className="md:hidden bg-white border-t border-gray-200 shadow-lg">
           <div className="px-4 py-2 space-y-1">
-            {currentUser ? (
+            {mergedUser ? (
               <>
                 <div className="flex items-center space-x-3 px-3 py-3 bg-gray-50 rounded-lg mb-2">
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
-                    {currentUser?.avatar ? (
+                    {resolveAvatar(mergedUser) ? (
                       <Image 
-                        src={resolveAvatar(currentUser.avatar) as string} 
+                        src={resolveAvatar(mergedUser) as string} 
                         alt="Avatar" 
                         width={40}
                         height={40}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Mobile avatar image failed to load:', resolveAvatar(mergedUser));
+                          e.currentTarget.style.display = 'none';
+                        }}
                       />
                     ) : (
                       <UserOutlined className="text-white" />
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{currentUser.fullName || currentUser.email?.split('@')[0]}</p>
-                    <p className="text-sm text-gray-500">{currentUser.email}</p>
+                    <p className="font-medium text-gray-900">{mergedUser.fullName || mergedUser.email?.split('@')[0]}</p>
+                    <p className="text-sm text-gray-500">{mergedUser.email}</p>
                   </div>
                 </div>
                 
