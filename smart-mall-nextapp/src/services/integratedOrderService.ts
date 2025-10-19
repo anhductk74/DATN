@@ -22,7 +22,8 @@ export interface SimpleOrderRequest {
   userId: string;
   shopId: string;
   shippingAddressId: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: string; // Changed to string to match backend format
+  shippingFee: number;
   items: Array<{
     variantId: string;
     quantity: number;
@@ -63,8 +64,8 @@ export class IntegratedOrderService {
         userId: request.userId,
         shopId: request.shopId,
         shippingAddressId: request.shippingAddressId,
-        paymentMethod: request.paymentMethod,
-        shippingFee: 25000, // Default shipping fee
+        paymentMethod: request.paymentMethod as PaymentMethod,
+        shippingFee: request.shippingFee,
         items: request.items,
         voucherIds: request.voucherIds
       };
@@ -102,7 +103,7 @@ export class IntegratedOrderService {
         try {
           await paymentApiService.createPayment({
             orderId: order.id,
-            method: request.paymentMethod
+            method: request.paymentMethod as PaymentMethod
           });
         } catch (error) {
           console.warn('Failed to create payment:', error);

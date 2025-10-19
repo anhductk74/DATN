@@ -22,7 +22,7 @@ export interface Shipping {
 
 export interface Order {
   id: string;
-  status: "pending" | "confirmed" | "shipping" | "delivered" | "reviewed" | "cancelled";
+  status: "PENDING" | "PAID" | "SHIPPING" | "DELIVERED" | "CONFIRMED" | "CANCELLED" | "RETURN_REQUESTED" | "RETURNED";
   shopName: string;
   shopAvatar: string;
   items: OrderItem[];

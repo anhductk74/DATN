@@ -17,7 +17,7 @@ public class UserVoucherController {
 
     private final UserVoucherService userVoucherService;
 
-    /** 🔹 User sưu tầm voucher */
+    /** User sưu tầm voucher */
     @PostMapping("/collect")
     public ResponseEntity<UserVoucherResponseDto> collectVoucher(
             @RequestParam UUID userId,
@@ -26,13 +26,13 @@ public class UserVoucherController {
         return ResponseEntity.ok(userVoucherService.collectVoucher(userId, voucherCode));
     }
 
-    /** 🔹 Lấy danh sách voucher user đã sưu tầm */
+    /**  Lấy danh sách voucher user đã sưu tầm */
     @GetMapping("/{userId}")
     public ResponseEntity<List<UserVoucherResponseDto>> getUserVouchers(@PathVariable UUID userId) {
         return ResponseEntity.ok(userVoucherService.getUserVouchers(userId));
     }
 
-    /** 🔹 Đánh dấu voucher đã sử dụng */
+    /**  Đánh dấu voucher đã sử dụng */
     @PostMapping("/use")
     public ResponseEntity<UserVoucherResponseDto> useVoucher(
             @RequestParam UUID userId,

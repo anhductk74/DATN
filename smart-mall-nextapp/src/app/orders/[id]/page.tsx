@@ -38,44 +38,172 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
-import type { Order } from "@/types/order";
-import { orderService } from "@/services";
+import { orderService, addressApiService } from "@/services";
+
+// Define Order interface for this page
+interface OrderItem {
+  id: string;
+  name: string;
+  image: string;
+  variant: string;
+  quantity: number;
+  price: number;
+}
+
+interface Order {
+  id: string;
+  orderNumber?: string;
+  shopName: string;
+  shopAvatar: string;
+  items: OrderItem[];
+  status: "PENDING" | "PAID" | "SHIPPING" | "DELIVERED" | "CONFIRMED" | "CANCELLED" | "RETURN_REQUESTED" | "RETURNED";
+  totalAmount: number;
+  shippingFee?: number;
+  discountAmount?: number;
+  finalAmount?: number;
+  createdAt: string;
+  estimatedDelivery?: string;
+  trackingNumber?: string;
+  shippingAddress?: any;
+  paymentMethod?: string;
+  deliveredAt?: string;
+  cancelledDate?: string;
+  cancelReason?: string;
+  addressId?: string;
+  vouchers?: any[];
+}
+import { useUserProfile } from "@/contexts/UserProfileContext";
+import { getCloudinaryUrl } from "@/config/config";
+import productService from "@/services/productService";
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
 
+// Helper function to enrich shop data from product API (same as in CartContext)
+const enrichShopDataFromProducts = async (apiOrder: any): Promise<any> => {
+  if (!apiOrder.items || !Array.isArray(apiOrder.items) || apiOrder.items.length === 0) {
+    console.log('No items to enrich shop data from');
+    return apiOrder;
+  }
+
+  try {
+    // Get the first item to fetch shop info
+    const firstItem = apiOrder.items[0];
+    
+    // Try different ways to get product ID
+    let productId = null;
+    if (firstItem.variant?.product?.id) {
+      productId = firstItem.variant.product.id;
+    } else if (firstItem.productId) {
+      productId = firstItem.productId;
+    }
+    
+    if (productId) {
+      console.log('Fetching shop data from product:', productId);
+      
+      const product = await productService.getProductById(productId);
+      
+      if (product?.shop) {
+        console.log('Found shop data from product API:', {
+          shopId: product.shop.id,
+          shopName: product.shop.name,
+          shopAvatar: product.shop.avatar
+        });
+        
+        // Enrich the order with real shop data
+        return {
+          ...apiOrder,
+          shopName: product.shop.name,
+          shopAvatar: product.shop.avatar
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch shop data from product API:', error);
+  }
+  
+  console.log('Using original shop data:', {
+    shopName: apiOrder.shopName,
+    shopAvatar: apiOrder.shopAvatar
+  });
+  return apiOrder;
+};
+
+// Helper function to format VND currency
+const formatVND = (amount: number): string => {
+  return amount.toLocaleString('vi-VN');
+};
+
 // Transform API order to local format
 const transformApiOrderToLocal = (apiOrder: any): Order => {
+  // Default images to prevent empty string src errors
+  const defaultShopAvatar = "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=40&h=40&fit=crop&crop=center";
+  const defaultProductImage = "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=64&h=64&fit=crop&crop=center";
+  
+  // Helper function to get proper image URL
+  const getImageUrl = (imagePath: string | null | undefined, fallback: string): string => {
+    if (!imagePath || imagePath.trim() === '') return fallback;
+    
+    // If it's already a full URL (starts with http), return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    // If it's a Cloudinary path, convert to full URL
+    if (imagePath.startsWith('/')) {
+      return getCloudinaryUrl(imagePath);
+    }
+    
+    // Otherwise use fallback
+    return fallback;
+  };
+
   // Format address from shippingAddress object
   const address = apiOrder.shippingAddress 
     ? `${apiOrder.shippingAddress.addressLine}, ${apiOrder.shippingAddress.ward}, ${apiOrder.shippingAddress.district}, ${apiOrder.shippingAddress.city}`
     : "";
 
+
+
+  // Calculate subtotal from items
+  const itemsSubtotal = apiOrder.items?.reduce((sum: number, item: any) => sum + (item.subtotal || item.price * item.quantity), 0) || 0;
+  
+  // Calculate discount (difference between items subtotal and total amount)
+  const discountAmount = Math.max(0, itemsSubtotal + (apiOrder.shippingFee || 0) - apiOrder.totalAmount);
+
+
+
   return {
     id: apiOrder.id.toString(),
-    shopName: "Shop", // TODO: Get shop info from API
-    shopAvatar: "",
-    items: apiOrder.items?.map((item: any) => ({
-      id: item.id.toString(),
-      name: item.productName || item.variant?.product?.name || "Unknown Product",
-      image: item.productImage || item.variant?.product?.imageUrl || "",
-      variant: item.variant?.name || "",
-      quantity: item.quantity,
-      price: item.price
-    })) || [],
-    status: apiOrder.status?.toLowerCase() || "pending",
+    orderNumber: apiOrder.orderNumber || apiOrder.id.toString(),
+    shopName: apiOrder.shopName || "Smart Mall",
+    shopAvatar: getImageUrl(apiOrder.shopAvatar, defaultShopAvatar),
+    items: apiOrder.items?.map((item: any) => {
+      const rawImageUrl = item.productImage || item.variant?.product?.imageUrl || "";
+      
+      
+      return {
+        id: item.id.toString(),
+        name: item.productName || item.variant?.product?.name || "Unknown Product",
+        image: getImageUrl(rawImageUrl, defaultProductImage),
+        variant: item.variant?.attributes?.map((attr: any) => `${attr.name}: ${attr.value}`).join(', ') || "",
+        quantity: item.quantity,
+        price: item.price
+      };
+    }) || [],
+    status: apiOrder.status || "PENDING",
     totalAmount: apiOrder.totalAmount || 0,
-    shippingFee: 0, // TODO: Get shipping fee from API if available
+    shippingFee: apiOrder.shippingFee || 0, // Use actual shipping fee from API
+    discountAmount: discountAmount > 0 ? discountAmount : undefined, // Only set if there's a discount
+    finalAmount: apiOrder.totalAmount, // Final amount is the totalAmount from API
     createdAt: apiOrder.createdAt || new Date().toISOString(),
     estimatedDelivery: apiOrder.estimatedDelivery,
     trackingNumber: apiOrder.trackingNumber || apiOrder.orderNumber,
-    shippingAddress: address,
-    customerName: apiOrder.shippingAddress?.fullName,
-    phoneNumber: apiOrder.shippingAddress?.phoneNumber,
-    paymentMethod: apiOrder.paymentMethod,
+    shippingAddress: apiOrder.shippingAddress,
+    paymentMethod: apiOrder.paymentMethod || 'COD',
+    deliveredAt: apiOrder.deliveredAt,
     cancelledDate: apiOrder.cancelledAt,
     cancelReason: apiOrder.cancelReason,
-    note: apiOrder.note
+    addressId: apiOrder.addressId,
+    vouchers: apiOrder.vouchers
   };
 };
 
@@ -83,11 +211,13 @@ export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
+  const [shippingAddress, setShippingAddress] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackForm] = Form.useForm();
-  const { session, status } = useAuth();
+  const { session, status, user } = useAuth();
+  const { userProfile } = useUserProfile();
 
   const orderId = params.id as string;
 
@@ -110,11 +240,69 @@ export default function OrderDetailPage() {
     const loadOrderDetail = async () => {
       setLoading(true);
       try {
-        const apiOrder = await orderService.getOrder(orderId);
+        console.log('Loading order detail for ID:', orderId);
+        
+        let apiOrder;
+        
+        // Always use user context method for consistency with my-orders
+        const currentUserId = userProfile?.id || user?.id;
+        if (!currentUserId) {
+          throw new Error('User ID not available for order lookup');
+        }
+        
+        try {
+          // Use same data source as my-orders for consistency
+          apiOrder = await orderService.getOrderWithUserContext(orderId, currentUserId);
+          
+        } catch (userContextError: any) {
+          console.warn('User context method failed, trying direct:', userContextError);
+          
+          // Fallback to direct order endpoint only if user context fails
+          apiOrder = await orderService.getOrder(orderId);
+          console.log('API Order response (direct fallback):', apiOrder);
+        }
+        
+        // Enrich shop data from product API if shopAvatar is missing
+        if (!apiOrder.shopAvatar || apiOrder.shopAvatar.trim() === '') {
+          console.log('Shop avatar missing, trying to enrich from product API...');
+          apiOrder = await enrichShopDataFromProducts(apiOrder);
+        }
+        
         const transformedOrder = transformApiOrderToLocal(apiOrder);
+       
         setOrder(transformedOrder);
+
+        // Fetch shipping address if addressId exists
+        if (apiOrder.addressId) {
+          try {
+          
+            const addressResponse = await addressApiService.getAddressById(apiOrder.addressId);
+           
+            
+            // Handle different response formats
+            let addressData;
+            if (addressResponse && typeof addressResponse === 'object') {
+              // If response has 'data' property (wrapped response)
+              addressData = (addressResponse as any).data || addressResponse;
+            } else {
+              addressData = addressResponse;
+            }
+            
+            
+            setShippingAddress(addressData);
+          } catch (error) {
+            console.error('Failed to fetch shipping address:', error);
+            // Don't fail the whole order fetch if address fails
+          }
+        }
+
       } catch (error: any) {
         console.error("Failed to load order:", error);
+        console.error("Error details:", {
+          message: error?.message,
+          status: error?.response?.status,
+          data: error?.response?.data
+        });
         message.error(error?.response?.data?.message || "Không thể tải chi tiết đơn hàng");
         setNotFound(true);
       } finally {
@@ -125,20 +313,28 @@ export default function OrderDetailPage() {
     if (orderId && status === "authenticated") {
       loadOrderDetail();
     }
-  }, [orderId, status]);
+  }, [orderId, status, userProfile, user]);
 
   const getOrderSteps = () => {
     const steps: Array<{title: string, status: "finish" | "error" | "wait" | "process"}> = [
       { title: "Order Placed", status: "finish" },
-      { title: "Confirmed", status: order?.status === "pending" ? "wait" : "finish" },
-      { title: "Shipping", status: ["shipping", "delivered"].includes(order?.status || "") ? "finish" : "wait" },
-      { title: "Delivered", status: order?.status === "delivered" ? "finish" : "wait" }
+      { title: "Confirmed", status: order?.status === "PENDING" ? "wait" : "finish" },
+      { title: "Shipping", status: ["SHIPPING", "DELIVERED"].includes(order?.status || "") ? "finish" : "wait" },
+      { title: "Delivered", status: order?.status === "DELIVERED" ? "finish" : "wait" }
     ];
 
-    if (order?.status === "cancelled") {
+    if (order?.status === "CANCELLED") {
       return [
         { title: "Order Placed", status: "finish" as const },
         { title: "Cancelled", status: "error" as const }
+      ];
+    }
+
+    if (["RETURN_REQUESTED", "RETURNED"].includes(order?.status || "")) {
+      return [
+        { title: "Order Placed", status: "finish" as const },
+        { title: "Delivered", status: "finish" as const },
+        { title: order?.status === "RETURN_REQUESTED" ? "Return Requested" : "Returned", status: "error" as const }
       ];
     }
 
@@ -184,6 +380,9 @@ export default function OrderDetailPage() {
       message.error("Failed to submit feedback");
     }
   };
+
+  // Debug log for shipping address state
+ 
 
   if (status === "loading" || loading) {
     return (
@@ -266,12 +465,11 @@ export default function OrderDetailPage() {
                 <div 
                   className="absolute top-12 left-16 h-1 bg-green-500 rounded-full transition-all duration-500"
                   style={{
-                    width: order?.status === "pending" ? "0%" :
-                           order?.status === "confirmed" ? "25%" :
-                           order?.status === "shipping" ? "50%" :
-                           order?.status === "delivered" ? "75%" :
-                           order?.status === "reviewed" ? "100%" : 
-                           ["shipping", "delivered"].includes(order?.status || "") ? "50%" : "25%"
+                    width: order?.status === "PENDING" ? "0%" :
+                           ["CONFIRMED", "PAID"].includes(order?.status || "") ? "25%" :
+                           order?.status === "SHIPPING" ? "50%" :
+                           order?.status === "DELIVERED" ? "75%" :
+                           ["SHIPPING", "DELIVERED"].includes(order?.status || "") ? "50%" : "25%"
                   }}
                 ></div>
 
@@ -290,7 +488,7 @@ export default function OrderDetailPage() {
                   {/* Confirmed */}
                   <div className="flex flex-col items-center text-center">
                     <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 ${
-                      ["confirmed", "shipping", "delivered", "reviewed"].includes(order?.status || "") 
+                      ["CONFIRMED", "PAID", "SHIPPING", "DELIVERED"].includes(order?.status || "") 
                         ? 'border-green-500 text-green-500' 
                         : 'border-gray-300 text-gray-400'
                     }`}>
@@ -298,7 +496,7 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="text-sm font-medium text-gray-900 mt-3">Confirmed</div>
                     <div className="text-xs text-gray-500">
-                      {["confirmed", "shipping", "delivered", "reviewed"].includes(order?.status || "") 
+                      {["CONFIRMED", "PAID", "SHIPPING", "DELIVERED"].includes(order?.status || "") 
                         ? '08:32 01-10-2025' : ''}
                     </div>
                   </div>
@@ -306,7 +504,7 @@ export default function OrderDetailPage() {
                   {/* Shipping */}
                   <div className="flex flex-col items-center text-center">
                     <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 ${
-                      ["shipping", "delivered", "reviewed"].includes(order?.status || "") 
+                      ["SHIPPING", "DELIVERED"].includes(order?.status || "") 
                         ? 'border-green-500 text-green-500' 
                         : 'border-gray-300 text-gray-400'
                     }`}>
@@ -314,7 +512,7 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="text-sm font-medium text-gray-900 mt-3">Shipping</div>
                     <div className="text-xs text-gray-500">
-                      {["shipping", "delivered", "reviewed"].includes(order?.status || "") 
+                      {["SHIPPING", "DELIVERED"].includes(order?.status || "") 
                         ? '08:58 01-10-2025' : ''}
                     </div>
                   </div>
@@ -322,7 +520,7 @@ export default function OrderDetailPage() {
                   {/* Delivered */}
                   <div className="flex flex-col items-center text-center">
                     <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 ${
-                      ["delivered", "reviewed"].includes(order?.status || "") 
+                      ["DELIVERED"].includes(order?.status || "") 
                         ? 'border-green-500 text-green-500' 
                         : 'border-gray-300 text-gray-400'
                     }`}>
@@ -332,31 +530,25 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="text-sm font-medium text-gray-900 mt-3">Delivered</div>
                     <div className="text-xs text-gray-500">
-                      {["delivered", "reviewed"].includes(order?.status || "") 
+                      {["DELIVERED"].includes(order?.status || "") 
                         ? '18:41 06-10-2025' : ''}
                     </div>
                   </div>
 
                   {/* Review */}
                   <div className="flex flex-col items-center text-center">
-                    <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 ${
-                      order?.status === "reviewed" 
-                        ? 'border-green-500 text-green-500' 
-                        : 'border-gray-300 text-gray-400'
-                    }`}>
+                    <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 border-gray-300 text-gray-400`}>
                       <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.953a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.286 3.953c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.175 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.286-3.953a1 1 0 00-.364-1.118L2.05 9.38c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.953z" />
                       </svg>
                     </div>
                     <div className="text-sm font-medium text-gray-900 mt-3">Review</div>
-                    <div className="text-xs text-gray-500">
-                      {order?.status === "reviewed" ? '' : ''}
-                    </div>
+                    <div className="text-xs text-gray-500"></div>
                   </div>
                 </div>
               </div>
               
-              {order.status === "shipping" && order.trackingNumber && (
+              {order.status === "SHIPPING" && order.trackingNumber && (
                 <div className="bg-blue-50 p-4 rounded-lg mt-4">
                   <div className="flex items-center space-x-2 mb-2">
                     <TruckOutlined className="text-blue-600" />
@@ -371,7 +563,11 @@ export default function OrderDetailPage() {
             <Card title="Shop Information" className="shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Avatar src={order.shopAvatar} size="large" icon={<ShopOutlined />} />
+                  <Avatar 
+                    src={order.shopAvatar && order.shopAvatar.trim() !== '' ? order.shopAvatar : null} 
+                    size="large" 
+                    icon={<ShopOutlined />} 
+                  />
                   <div>
                     <Text strong className="text-lg">{order.shopName}</Text>
                     <div className="text-sm text-gray-500">Official Store</div>
@@ -400,7 +596,7 @@ export default function OrderDetailPage() {
                 {order.items.map(item => (
                   <div key={item.id} className="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg">
                     <Image
-                      src={item.image}
+                      src={item.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=80&h=80&fit=crop&crop=center'}
                       alt={item.name}
                       width={80}
                       height={80}
@@ -418,7 +614,7 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="text-right">
                       <Text strong className="text-lg text-red-600">
-                        ${item.price.toLocaleString()}
+                        ₫{formatVND(item.price)}
                       </Text>
                     </div>
                   </div>
@@ -451,20 +647,23 @@ export default function OrderDetailPage() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span>Subtotal ({order.items.length} items):</span>
-                  <span>${(order.totalAmount + 50).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>Voucher Discount:</span>
-                  <span>-$50.00</span>
+                  <span>₫{formatVND(order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0))}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping Fee:</span>
-                  <span>{order.shippingFee === 0 ? 'Free' : `$${order.shippingFee.toLocaleString()}`}</span>
+                  <span>{(order.shippingFee || 0) === 0 ? 'Free' : `₫${formatVND(order.shippingFee || 0)}`}</span>
                 </div>
+                {/* Show discount if available */}
+                {order.discountAmount && order.discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Voucher Discount:</span>
+                    <span>-₫{formatVND(order.discountAmount)}</span>
+                  </div>
+                )}
                 <Divider className="my-2" />
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total:</span>
-                  <span className="text-red-600">${order.totalAmount.toLocaleString()}</span>
+                  <span className="text-red-600">₫{formatVND(order.finalAmount || order.totalAmount)}</span>
                 </div>
                 
                 {/* Payment Method */}
@@ -472,15 +671,57 @@ export default function OrderDetailPage() {
                 <div className="pt-2">
                   <div className="text-sm font-medium text-gray-900 mb-2">Payment Method</div>
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">Credit Card</div>
-                      <div className="text-xs text-gray-500">**** **** **** 1234</div>
-                    </div>
+                    {(() => {
+                      const paymentMethod = order.paymentMethod || 'COD';
+                      
+                      // Define payment method configurations
+                      const paymentConfigs = {
+                        'COD': {
+                          icon: (
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                          ),
+                          bgColor: 'bg-green-600',
+                          label: 'Cash on Delivery',
+                          subtitle: 'Pay when you receive'
+                        },
+                        'CREDIT_CARD': {
+                          icon: (
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                          ),
+                          bgColor: 'bg-blue-600',
+                          label: 'Credit Card',
+                          subtitle: '**** **** **** 1234'
+                        },
+                        'E_WALLET': {
+                          icon: (
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clipRule="evenodd" />
+                            </svg>
+                          ),
+                          bgColor: 'bg-purple-600',
+                          label: 'E-Wallet',
+                          subtitle: 'Digital payment'
+                        }
+                      };
+                      
+                      const config = paymentConfigs[paymentMethod as keyof typeof paymentConfigs] || paymentConfigs['COD'];
+                      
+                      return (
+                        <>
+                          <div className={`w-8 h-8 ${config.bgColor} rounded flex items-center justify-center`}>
+                            {config.icon}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium">{config.label}</div>
+                            <div className="text-xs text-gray-500">{config.subtitle}</div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -500,7 +741,28 @@ export default function OrderDetailPage() {
                   })}</div>
                 </div>
                 
-                {order.estimatedDelivery && order.status !== "delivered" && order.status !== "cancelled" && (
+                {/* Shipping Address */}
+                {shippingAddress ? (
+                  <div>
+                    <Text type="secondary">Shipping Address:</Text>
+                    <div className="mt-1">
+                      <div className="font-medium">{shippingAddress.recipient || 'N/A'}</div>
+                      <div>{shippingAddress.phoneNumber || 'N/A'}</div>
+                      <div className="text-gray-600">
+                        {shippingAddress.fullAddress || 
+                         `${shippingAddress.street || ''}${shippingAddress.commune ? `, ${shippingAddress.commune}` : ''}${shippingAddress.district ? `, ${shippingAddress.district}` : ''}${shippingAddress.city ? `, ${shippingAddress.city}` : ''}`
+                        }
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Text type="secondary">Shipping Address:</Text>
+                    <div className="mt-1 text-gray-500">Loading address...</div>
+                  </div>
+                )}
+                
+                {order.estimatedDelivery && order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
                   <div>
                     <Text type="secondary">Expected Delivery:</Text>
                     <div>{new Date(order.estimatedDelivery).toLocaleDateString('en-US')}</div>
@@ -541,7 +803,7 @@ export default function OrderDetailPage() {
             {/* Actions */}
             <Card title="Actions" className="shadow-sm">
               <Space direction="vertical" className="w-full">
-                {order.status === "pending" && (
+                {order.status === "PENDING" && (
                   <Button 
                     danger 
                     onClick={handleCancelOrder}
@@ -551,7 +813,7 @@ export default function OrderDetailPage() {
                   </Button>
                 )}
                 
-                {order.status === "delivered" && (
+                {order.status === "DELIVERED" && (
                   <>
                     {/* <Button 
                       type="primary" 
@@ -571,7 +833,7 @@ export default function OrderDetailPage() {
                   </>
                 )}
 
-                {order.status === "reviewed" && (
+                {false && ( // Removed review status since it's not in API
                   <>
                     <Button 
                       type="primary" 
@@ -592,7 +854,7 @@ export default function OrderDetailPage() {
                   </>
                 )}
 
-                {["confirmed", "shipping"].includes(order.status) && (
+                {["CONFIRMED", "PAID", "SHIPPING"].includes(order.status) && (
                   <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 rounded-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold shadow-lg py-3">
                     Contact Seller
                   </Button>
@@ -634,14 +896,18 @@ export default function OrderDetailPage() {
           {/* Order Summary */}
           <div className="bg-gray-50 p-4 rounded-lg mb-6">
             <div className="flex items-center space-x-3 mb-3">
-              <Avatar src={order?.shopAvatar} size="small" icon={<ShopOutlined />} />
+              <Avatar 
+                src={order?.shopAvatar && order?.shopAvatar.trim() !== '' ? order?.shopAvatar : null} 
+                size="small" 
+                icon={<ShopOutlined />} 
+              />
               <Text strong className="text-gray-800">{order?.shopName}</Text>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {order?.items.map(item => (
                 <div key={item.id} className="flex items-center space-x-3 bg-white p-3 rounded-lg">
                   <Image
-                    src={item.image}
+                    src={item.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=50&h=50&fit=crop&crop=center'}
                     alt={item.name}
                     width={50}
                     height={50}

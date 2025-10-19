@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { message } from "antd";
 import { useSession } from "next-auth/react";
 import cartService, { type Cart as ApiCart, type CartItem as ApiCartItem } from "@/services/cartService";
+import productService from "@/services/productService";
 
 export interface CartItem {
   id: string;
@@ -36,46 +37,109 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 /**
- * Transform API cart item to local format
+ * Transform API cart item to local format with real shop data
  */
-function transformApiCartToLocal(apiCart: ApiCart): CartItem[] {
-  // Mock shop mapping based on brand - in production, this should come from API
-  const getShopInfo = (brand: string) => {
-    const shopMappings: { [key: string]: { name: string, id: string } } = {
-      'Apple': { name: 'Apple Official Store', id: 'shop-apple' },
-      'Samsung': { name: 'Samsung Galaxy Store', id: 'shop-samsung' },
-      'Sony': { name: 'Sony Electronics', id: 'shop-sony' },
-      'Nike': { name: 'Nike Official', id: 'shop-nike' },
-      'Adidas': { name: 'Adidas Store', id: 'shop-adidas' },
-      'Dell': { name: 'Dell Computer Store', id: 'shop-dell' },
-      'HP': { name: 'HP Official Store', id: 'shop-hp' },
-      // Add more brands as needed
-    };
-    
-    return shopMappings[brand] || { 
-      name: `${brand} Official Store`,
-      id: `shop-${brand.toLowerCase().replace(/\s+/g, '-')}`
-    };
-  };
-
-  return apiCart.items.map((item: ApiCartItem) => {
-    const brand = item.variant.productBrand;
-    const shopInfo = getShopInfo(brand);
-    
-    return {
-      id: item.variant.id,
-      cartItemId: item.id,
-      variantId: item.variant.id,
-      title: item.productName,
-      price: item.variant.price,
-      image: item.productImage,
-      quantity: item.quantity,
-      shopName: shopInfo.name,
-      shopId: shopInfo.id,
-      brand: brand,
-      variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
-    };
+async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
+  // Create a map to cache product data and avoid duplicate API calls
+  const productCache = new Map<string, any>();
+  
+  // Process all cart items in parallel
+  const transformPromises = apiCart.items.map(async (item: ApiCartItem) => {
+    try {
+      // Try to get shop info from cart API first
+      let shopId = item.productShopId;
+      let shopName = item.productShopName;
+      let shopAvatar: string | undefined;
+      
+      // If shop info not available in cart, fetch from product API
+      if (!shopId || !shopName) {
+        // We need to find the product that contains this variant
+        // Since we don't have productId directly, we'll use a search approach
+        try {
+          // Search for products by name to find the one containing this variant
+          const searchResults = await productService.searchProductsByName(item.productName);
+          
+          // Find the product that contains our variant
+          const product = searchResults.find(p => 
+            p.variants?.some(v => v.id === item.variant.id)
+          );
+          
+          if (product?.shop) {
+            shopId = product.shop.id;
+            shopName = product.shop.name;
+            shopAvatar = product.shop.avatar;
+            
+            console.log('Found real shop data from product API:', {
+              productName: item.productName,
+              shopId,
+              shopName,
+              shopAvatar
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to fetch product data for cart item:', error);
+        }
+      }
+      
+      // Fallback to mock data if still no shop info
+      if (!shopId || !shopName) {
+        shopId = `shop-${item.variant.productBrand.toLowerCase().replace(/\s+/g, '-')}`;
+        shopName = `${item.variant.productBrand} Official Store`;
+        
+        console.log('Using fallback shop data:', {
+          productName: item.productName,
+          fallbackShopId: shopId,
+          fallbackShopName: shopName
+        });
+      }
+      
+      console.log('Final cart item transformation:', {
+        productName: item.productName,
+        brand: item.variant.productBrand,
+        finalShopId: shopId,
+        finalShopName: shopName,
+        hasRealShopData: !shopId.startsWith('shop-')
+      });
+      
+      return {
+        id: item.variant.id,
+        cartItemId: item.id,
+        variantId: item.variant.id,
+        title: item.productName,
+        price: item.variant.price,
+        image: item.productImage,
+        quantity: item.quantity,
+        shopName: shopName,
+        shopId: shopId,
+        brand: item.variant.productBrand,
+        variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
+      };
+    } catch (error) {
+      console.error('Error transforming cart item:', error);
+      
+      // Fallback transformation
+      const fallbackShopId = `shop-${item.variant.productBrand.toLowerCase().replace(/\s+/g, '-')}`;
+      const fallbackShopName = `${item.variant.productBrand} Official Store`;
+      
+      return {
+        id: item.variant.id,
+        cartItemId: item.id,
+        variantId: item.variant.id,
+        title: item.productName,
+        price: item.variant.price,
+        image: item.productImage,
+        quantity: item.quantity,
+        shopName: fallbackShopName,
+        shopId: fallbackShopId,
+        brand: item.variant.productBrand,
+        variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
+      };
+    }
   });
+  
+  // Wait for all transformations to complete
+  const transformedItems = await Promise.all(transformPromises);
+  return transformedItems;
 }
 
 export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
@@ -98,7 +162,8 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     try {
       setLoading(true);
       const apiCart = await cartService.getCart();
-      setItems(transformApiCartToLocal(apiCart));
+      const transformedItems = await transformApiCartToLocal(apiCart);
+      setItems(transformedItems);
     } catch (error: any) {
       console.error('Failed to load cart:', error);
       // Don't show error message on initial load, cart might be empty
@@ -120,7 +185,8 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     try {
       setLoading(true);
       const apiCart = await cartService.addItem({ variantId, quantity });
-      setItems(transformApiCartToLocal(apiCart));
+      const transformedItems = await transformApiCartToLocal(apiCart);
+      setItems(transformedItems);
       message.success('Đã thêm vào giỏ hàng');
     } catch (error: any) {
       console.error('Failed to add item to cart:', error);
@@ -166,7 +232,8 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     try {
       const apiCart = await cartService.updateItem({ cartItemId, quantity });
       // Update with actual data from server
-      setItems(transformApiCartToLocal(apiCart));
+      const transformedItems = await transformApiCartToLocal(apiCart);
+      setItems(transformedItems);
     } catch (error: any) {
       console.error('Failed to update cart item:', error);
       message.error(error?.response?.data?.message || 'Không thể cập nhật số lượng');

@@ -31,21 +31,21 @@ export enum PaymentStatus {
 export const paymentApiService = {
   // Create payment
   async createPayment(data: CreatePaymentRequestDto): Promise<PaymentResponseDto> {
-    const response = await apiClient.post<PaymentResponseDto>('/api/payments', data);
+    const response = await apiClient.post<PaymentResponseDto>('/payments', data);
     return response.data;
   },
 
   // Update payment status (callback from payment gateway)
   async updatePaymentStatus(transactionId: string, status: PaymentStatus): Promise<PaymentResponseDto> {
     const response = await apiClient.put<PaymentResponseDto>(
-      `/api/payments/${transactionId}/status?status=${status}`
+      `/payments/${transactionId}/status?status=${status}`
     );
     return response.data;
   },
 
   // Get payment by order ID
   async getPaymentByOrder(orderId: string): Promise<PaymentResponseDto> {
-    const response = await apiClient.get<PaymentResponseDto>(`/api/payments/order/${orderId}`);
+    const response = await apiClient.get<PaymentResponseDto>(`/payments/order/${orderId}`);
     return response.data;
   }
 };

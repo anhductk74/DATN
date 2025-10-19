@@ -40,6 +40,10 @@ export interface Product {
     name: string;
     description: string;
     numberPhone: string;
+    avatar?: string; // Added avatar field to match API response
+    ownerId?: string;
+    ownerName?: string;
+    address?: string;
   };
 }
 

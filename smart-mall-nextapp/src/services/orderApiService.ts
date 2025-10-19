@@ -129,25 +129,25 @@ export enum PaymentStatus {
 export const orderApiService = {
   // Create new order
   async createOrder(orderData: OrderRequestDto): Promise<OrderResponseDto> {
-    const response = await apiClient.post<OrderResponseDto>('/api/orders', orderData);
+    const response = await apiClient.post<OrderResponseDto>('/orders', orderData);
     return response.data;
   },
 
   // Get order by ID
   async getOrderById(id: string): Promise<OrderResponseDto> {
-    const response = await apiClient.get<OrderResponseDto>(`/api/orders/${id}`);
+    const response = await apiClient.get<OrderResponseDto>(`/orders/${id}`);
     return response.data;
   },
 
   // Get orders by user ID
   async getOrdersByUser(userId: string): Promise<OrderSummaryDto[]> {
-    const response = await apiClient.get<OrderSummaryDto[]>(`/api/orders/user/${userId}`);
+    const response = await apiClient.get<OrderSummaryDto[]>(`/orders/user/${userId}`);
     return response.data;
   },
 
   // Update order status
   async updateOrderStatus(data: UpdateOrderStatusDto): Promise<string> {
-    const response = await apiClient.put<string>('/api/orders/status', data);
+    const response = await apiClient.put<string>('/orders/status', data);
     return response.data;
   }
 };

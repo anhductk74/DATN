@@ -16,9 +16,16 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: string;
+  shopName?: string; // Added to match backend response
+  shopAvatar?: string; // Added to match backend response
   status: 'PENDING' | 'PAID' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED';
   items: OrderItem[];
   totalAmount: number;
+  shippingFee?: number; // Added to match backend response
+  discountAmount?: number; // Added for voucher discount
+  finalAmount?: number; // Added for final amount after discounts
+  estimatedDelivery?: string; // Added to match backend response
+  trackingNumber?: string; // Added to match backend response
   shippingAddress: {
     id: string;
     fullName: string;
@@ -65,21 +72,59 @@ const orderService = {
   },
 
   /**
-   * Get current user's orders with pagination
+   * Get current user's orders
    */
-  async getUserOrders(page = 0, size = 10): Promise<PaginatedOrders> {
-    const response = await apiClient.get<{ data: PaginatedOrders }>('/orders', {
-      params: { page, size },
-    });
-    return response.data.data;
+  async getUserOrders(userId: string): Promise<PaginatedOrders> {
+    const response = await apiClient.get<Order[]>(`/orders/user/${userId}`);
+    
+    // Backend now returns full Order objects, not just summaries
+    return {
+      content: response.data,
+      totalPages: 1, // Backend doesn't return pagination info yet
+      totalElements: response.data.length,
+      size: response.data.length,
+      number: 0
+    };
   },
 
   /**
    * Get order by ID
    */
   async getOrder(orderId: string): Promise<Order> {
-    const response = await apiClient.get<{ data: Order }>(`/orders/${orderId}`);
-    return response.data.data;
+    try {
+      // Try direct order endpoint first
+      const response = await apiClient.get<Order | { data: Order }>(`/orders/${orderId}`);
+      
+      // Handle both response formats
+      if ('data' in response.data) {
+        return response.data.data;
+      } else {
+        return response.data as Order;
+      }
+    } catch (error: any) {
+      console.error('Failed to get order by ID:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get order by ID with user context (fallback method)
+   */
+  async getOrderWithUserContext(orderId: string, userId: string): Promise<Order> {
+    try {
+      // Get all user orders and find the specific one
+      const userOrders = await this.getUserOrders(userId);
+      const order = userOrders.content.find(o => o.id === orderId);
+      
+      if (!order) {
+        throw new Error('Order not found in user orders');
+      }
+      
+      return order;
+    } catch (error: any) {
+      console.error('Failed to get order with user context:', error);
+      throw error;
+    }
   },
 
   /**

@@ -19,7 +19,7 @@ export interface OrderTrackingLogRequest {
 export const orderTrackingApiService = {
   // Get tracking logs by order ID
   async getTrackingLogs(orderId: string): Promise<OrderTrackingLogResponse[]> {
-    const response = await apiClient.get<OrderTrackingLogResponse[]>(`/api/order-tracking/${orderId}`);
+    const response = await apiClient.get<OrderTrackingLogResponse[]>(`/order-tracking/${orderId}`);
     return response.data;
   },
 
@@ -31,7 +31,7 @@ export const orderTrackingApiService = {
       currentLocation: data.currentLocation,
       statusDescription: data.statusDescription
     });
-    
-    await apiClient.post(`/api/order-tracking/${orderId}/add-log?${params}`);
+
+    await apiClient.post(`/order-tracking/${orderId}/add-log?${params}`);
   }
 };

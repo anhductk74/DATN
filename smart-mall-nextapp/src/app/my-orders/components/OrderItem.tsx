@@ -42,7 +42,11 @@ export default function OrderItem({
       {/* Order Header */}
       <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
         <div className="flex items-center space-x-3">
-          <Avatar src={order.shopAvatar} size="default" icon={<ShopOutlined />} />
+          <Avatar 
+            src={order.shopAvatar && order.shopAvatar.trim() !== '' ? order.shopAvatar : null} 
+            size="default" 
+            icon={<ShopOutlined />} 
+          />
           <div>
             <div className="flex items-center space-x-2">
               <Text strong className="text-base">{order.shopName}</Text>
@@ -97,16 +101,16 @@ export default function OrderItem({
         {order.items.map(item => (
           <div key={item.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg">
             <div className="w-16 h-16 bg-white rounded-md overflow-hidden shadow-sm flex-shrink-0">
-              <Image 
-                src={item.image} 
+              <img 
+                src={item.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=64&h=64&fit=crop&crop=center'} 
                 alt={item.name}
-                width={64}
-                height={64}
                 className="w-full h-full object-cover"
                 onError={(e) => {
+                  // Use fallback image if original fails
                   e.currentTarget.src = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=64&h=64&fit=crop&crop=center';
+                  // Prevent infinite loop by removing the onError handler after first error
+                  e.currentTarget.onerror = null;
                 }}
-                priority={false}
                 loading="lazy"
               />
             </div>
@@ -118,13 +122,13 @@ export default function OrderItem({
               <div className="flex items-center justify-between">
                 <Text className="text-gray-600 text-xs">Qty: {item.quantity}</Text>
                 <Text strong className="text-red-600 text-sm">
-                  ${item.price.toLocaleString()}
+                  ₫{item.price.toLocaleString('vi-VN')}
                 </Text>
               </div>
             </div>
-            
-            {order.status === "delivered" && order.canReview && onReview && (
-              <Button 
+
+            {order.status === "DELIVERED" && order.canReview && onReview && (
+              <Button
                 size="small"
                 icon={<StarOutlined />}
                 onClick={() => onReview(order.id, item.id)}
@@ -141,18 +145,18 @@ export default function OrderItem({
       <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 p-3 rounded-lg mb-3">
         <div className="flex justify-between items-center text-xs text-gray-600 mb-1">
           <span>Subtotal:</span>
-          <span>${(order.totalAmount - order.shippingFee).toLocaleString()}</span>
+          <span>₫{(order.totalAmount - order.shippingFee).toLocaleString('vi-VN')}</span>
         </div>
         <div className="flex justify-between items-center text-xs text-gray-600 mb-1">
           <span>Shipping (Standard):</span>
-          <span>{order.shippingFee === 0 ? 'Free' : `$${order.shippingFee.toLocaleString()}`}</span>
+          <span>{order.shippingFee === 0 ? 'Free' : `₫${order.shippingFee.toLocaleString('vi-VN')}`}</span>
         </div>
         <Divider className="my-1" />
         <div className="flex justify-between items-center text-sm font-bold">
           <span>Total Amount:</span>
-          <span className="text-red-600">${order.totalAmount.toLocaleString()}</span>
+          <span className="text-red-600">₫{order.totalAmount.toLocaleString('vi-VN')}</span>
         </div>
-        {order.estimatedDelivery && order.status !== "delivered" && order.status !== "cancelled" && (
+        {order.estimatedDelivery && order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
           <div className="text-xs text-blue-600 mt-1">
             <TruckOutlined className="mr-1" />
             Expected delivery: {new Date(order.estimatedDelivery).toLocaleDateString('en-US')}
@@ -163,7 +167,7 @@ export default function OrderItem({
       {/* Order Actions */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
         <div className="flex space-x-1">
-          {order.status === "pending" && (
+          {order.status === "PENDING" && (
             <Popconfirm
               title="Cancel Order"
               description="Are you sure you want to cancel this order?"
@@ -181,8 +185,8 @@ export default function OrderItem({
               </Button>
             </Popconfirm>
           )}
-          
-          {(order.status === "delivered" || order.status === "cancelled") && onReorder && (
+
+          {(order.status === "DELIVERED" || order.status === "CANCELLED") && onReorder && (
             <Button 
               size="small"
               icon={<ReloadOutlined />}
@@ -203,7 +207,7 @@ export default function OrderItem({
             Details
           </Button>
           
-          {order.status === "delivered" && (
+          {order.status === "DELIVERED" && (
             <Button 
               size="small"
               type="primary"

@@ -6,34 +6,73 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderTabs from "./components/OrderTabs";
 import OrderList from "./components/OrderList";
 import orderService, { type Order as ApiOrder } from "@/services/orderService";
 import type { Order } from "@/types/order";
+import { getCloudinaryUrl } from "@/config/config";
 
 const { Title } = Typography;
 
+// Helper function to format VND currency
+const formatVND = (amount: number): string => {
+  return amount.toLocaleString('vi-VN');
+};
+
 // Transform API order to local format
 function transformApiOrderToLocal(apiOrder: ApiOrder): Order {
+  // Default images to prevent empty string src errors
+  const defaultShopAvatar = "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=40&h=40&fit=crop&crop=center";
+  const defaultProductImage = "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=64&h=64&fit=crop&crop=center";
+  
+  // Helper function to get proper image URL
+  const getImageUrl = (imagePath: string | null | undefined, fallback: string): string => {
+    if (!imagePath || imagePath.trim() === '') return fallback;
+    
+    // If it's already a full URL (starts with http), return as is
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    // If it's a Cloudinary path, convert to full URL
+    if (imagePath.startsWith('/')) {
+      return getCloudinaryUrl(imagePath);
+    }
+    
+    // Otherwise use fallback
+    return fallback;
+  };
+  
   return {
     id: apiOrder.id,
-    shopName: "Smart Mall", // Default shop name
-    shopAvatar: "",
-    items: apiOrder.items.map(item => ({
-      id: item.id,
-      name: item.productName,
-      image: item.productImage,
-      variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
-      quantity: item.quantity,
-      price: item.price
-    })),
-    status: apiOrder.status.toLowerCase() as Order['status'],
-    totalAmount: apiOrder.totalAmount,
-    shippingFee: 0, // Not in API response
-    createdAt: apiOrder.createdAt,
-    estimatedDelivery: apiOrder.updatedAt,
-    trackingNumber: apiOrder.orderNumber
+    shopName: apiOrder.shopName || "Smart Mall",
+    shopAvatar: getImageUrl(apiOrder.shopAvatar, defaultShopAvatar),
+    items: Array.isArray(apiOrder.items) ? apiOrder.items.map(item => {
+      // Safe variant processing
+      let variantText = "Default Variant";
+      if (item.variant?.attributes && Array.isArray(item.variant.attributes)) {
+        variantText = item.variant.attributes
+          .map((attr: any) => `${attr.name || 'Unknown'}: ${attr.value || 'N/A'}`)
+          .join(', ');
+      } else if (item.variant?.sku) {
+        variantText = `SKU: ${item.variant.sku}`;
+      }
+      
+      return {
+        id: item.id || 'unknown',
+        name: item.productName || "Unknown Product",
+        image: getImageUrl(item.productImage, defaultProductImage),
+        variant: variantText,
+        quantity: item.quantity || 1,
+        price: item.price || 0
+      };
+    }) : [],
+    status: (apiOrder.status || 'PENDING') as Order['status'],
+    totalAmount: apiOrder.totalAmount || 0,
+    shippingFee: apiOrder.shippingFee || 0,
+    createdAt: apiOrder.createdAt || new Date().toISOString(),
+    estimatedDelivery: apiOrder.estimatedDelivery || apiOrder.createdAt || new Date().toISOString(),
+    trackingNumber: apiOrder.trackingNumber || apiOrder.id
   };
 }
 
@@ -44,7 +83,8 @@ export default function MyOrdersPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const router = useRouter();
-  const { session, status } = useAuth();
+  const { session, status, user } = useAuth();
+  const { userProfile } = useUserProfile();
 
   // Auto logout after 30 minutes of inactivity
   useAutoLogout({
@@ -65,9 +105,15 @@ export default function MyOrdersPage() {
     const loadOrders = async () => {
       if (status !== "authenticated") return;
       
+      const currentUserId = userProfile?.id || user?.id;
+      if (!currentUserId) {
+        message.error("Unable to get user information");
+        return;
+      }
+      
       setLoading(true);
       try {
-        const response = await orderService.getUserOrders(currentPage, 10);
+        const response = await orderService.getUserOrders(currentUserId);
         const transformedOrders = response.content.map(transformApiOrderToLocal);
         setOrders(transformedOrders);
         setTotalPages(response.totalPages);
@@ -80,23 +126,24 @@ export default function MyOrdersPage() {
     };
 
     loadOrders();
-  }, [status, currentPage]);
+  }, [status, currentPage, userProfile, user]);
 
   // Filter orders based on active tab
   const filteredOrders = orders.filter(order => {
     if (activeTab === "all") return true;
     
-    // Map UI tabs to API status values
+    // Map UI tabs to database ENUM values
     const statusMap: Record<string, string[]> = {
-      pending: ["pending"],
-      confirmed: ["confirmed", "paid"],
-      shipping: ["shipping", "shipped"],
-      delivered: ["delivered", "completed"],
-      cancelled: ["cancelled"]
+      pending: ["PENDING"],
+      confirmed: ["CONFIRMED", "PAID"], 
+      shipping: ["SHIPPING"],
+      delivered: ["DELIVERED"],
+      cancelled: ["CANCELLED"],
+      returned: ["RETURN_REQUESTED", "RETURNED"]
     };
     
     const matchingStatuses = statusMap[activeTab] || [];
-    return matchingStatuses.includes(order.status.toLowerCase());
+    return matchingStatuses.includes(order.status);
   });
 
   // Get order counts for each status
@@ -111,13 +158,14 @@ export default function MyOrdersPage() {
     };
 
     orders.forEach(order => {
-      const status = order.status.toLowerCase();
+      const status = order.status;
       
-      if (status === "pending") counts.pending++;
-      else if (status === "confirmed" || status === "paid") counts.confirmed++;
-      else if (status === "shipping" || status === "shipped") counts.shipping++;
-      else if (status === "delivered" || status === "completed") counts.delivered++;
-      else if (status === "cancelled") counts.cancelled++;
+      if (status === "PENDING") counts.pending++;
+      else if (status === "CONFIRMED" || status === "PAID") counts.confirmed++;
+      else if (status === "SHIPPING") counts.shipping++;
+      else if (status === "DELIVERED") counts.delivered++;
+      else if (status === "CANCELLED") counts.cancelled++;
+      // Note: RETURN_REQUESTED and RETURNED can be added to a separate tab if needed
     });
 
     return counts;
@@ -128,9 +176,12 @@ export default function MyOrdersPage() {
       await orderService.cancelOrder(orderId);
       
       // Reload orders after cancellation
-      const response = await orderService.getUserOrders(currentPage, 10);
-      const transformedOrders = response.content.map(transformApiOrderToLocal);
-      setOrders(transformedOrders);
+      const currentUserId = userProfile?.id || user?.id;
+      if (currentUserId) {
+        const response = await orderService.getUserOrders(currentUserId);
+        const transformedOrders = response.content.map(transformApiOrderToLocal);
+        setOrders(transformedOrders);
+      }
       
       message.success("Đã hủy đơn hàng thành công");
     } catch (error: any) {
@@ -184,26 +235,24 @@ export default function MyOrdersPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
       
-      <main className="py-6">
-        <div className="max-w-6xl mx-auto px-4">
-          <OrderTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            orderCounts={getOrderCounts()}
-            title="My Orders"
-            orderCount={orders.length}
-          />
+      <main className="pb-6">
+        <OrderTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          orderCounts={getOrderCounts()}
+          title="My Orders"
+          orderCount={orders.length}
+        />
 
-          <div className="pt-2">
-            <OrderList
-              orders={filteredOrders}
-              loading={loading}
-              onCancelOrder={handleCancelOrder}
-              onViewOrder={handleViewOrder}
-              onReorder={handleReorder}
-              onReview={handleReview}
-            />
-          </div>
+        <div className="max-w-6xl mx-auto px-4 pt-6">
+          <OrderList
+            orders={filteredOrders}
+            loading={loading}
+            onCancelOrder={handleCancelOrder}
+            onViewOrder={handleViewOrder}
+            onReorder={handleReorder}
+            onReview={handleReview}
+          />
 
           {/* Pagination Controls */}
           {totalPages > 1 && (

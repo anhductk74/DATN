@@ -186,16 +186,109 @@ public class OrderService {
      *  Lấy danh sách đơn hàng theo user
      */
     public List<OrderSummaryDto> getOrdersByUserId(UUID userId) {
-        return orderRepository.findByUserId(userId).stream()
-                .map(order -> OrderSummaryDto.builder()
-                        .id(order.getId())
-                        .shopName(order.getShop().getName())
-                        .status(order.getStatus())
-                        .finalAmount(order.getFinalAmount())
-                        .createdAt(order.getCreatedAt())
-                        .build())
-                .collect(Collectors.toList());
+        List<Order> orders = orderRepository.findByUserId(userId);
+
+        return orders.stream().map(order -> {
+            //  Tính toán các giá trị
+            double totalAmount = order.getFinalAmount() != null ? order.getFinalAmount() : 0.0;
+            double shippingFee = order.getShippingFees() != null && !order.getShippingFees().isEmpty()
+                    ? order.getShippingFees().get(0).getFeeAmount()
+                    : 0.0;
+            LocalDateTime estimatedDelivery = order.getShippingFees() != null && !order.getShippingFees().isEmpty()
+                    ? order.getShippingFees().get(0).getEstimatedDeliveryDate()
+                    : null;
+
+            //  Map danh sách sản phẩm (OrderItemResponseDto)
+            List<OrderItemResponseDto> itemDtos = order.getItems().stream()
+                    .map(item -> OrderItemResponseDto.builder()
+                            .id(item.getId())
+                            .orderId(order.getId())
+                            .productName(item.getVariant().getProduct().getName())
+                            .productImage(
+                                    item.getVariant().getProduct().getImages() != null &&
+                                            !item.getVariant().getProduct().getImages().isEmpty()
+                                            ? item.getVariant().getProduct().getImages().get(0)
+                                            : null
+                            )
+                            .variant(item.getVariant().toDto())
+                            .quantity(item.getQuantity())
+                            .price(item.getPrice())
+                            .subtotal(item.getSubtotal())
+                            .createdAt(item.getCreatedAt())
+                            .updatedAt(item.getUpdatedAt())
+                            .build()
+                    ).collect(Collectors.toList());
+
+            //  Lấy avatar shop (nếu có)
+            String shopAvatar = order.getShop().getAvatar() != null
+                    ? order.getShop().getAvatar()
+                    : null;
+
+            //  Tracking number (nếu có trong order)
+            String trackingNumber = order.getShippingAddress().getPhoneNumber() != null
+                    ? order.getShippingAddress().getPhoneNumber()
+                    : "N/A";
+
+            //  Map sang OrderSummaryDto
+            return OrderSummaryDto.builder()
+                    .id(order.getId())
+                    .shopName(order.getShop().getName())
+                    .shopAvatar(shopAvatar)
+                    .addressId(order.getShippingAddress().getId())
+                    .shopId(order.getShop().getId())
+                    .status(order.getStatus())
+                    .totalAmount(totalAmount)
+                    .shippingFee(shippingFee)
+                    .createdAt(order.getCreatedAt())
+                    .estimatedDelivery(estimatedDelivery)
+                    .trackingNumber(trackingNumber)
+                    .items(itemDtos)
+                    .build();
+        }).collect(Collectors.toList());
     }
+
+    @Transactional
+    public boolean cancelOrderByUser(UUID orderId, UUID userId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        //  Kiểm tra quyền sở hữu đơn
+        if (!order.getUser().getId().equals(userId)) {
+            throw new RuntimeException("You do not have permission to cancel this order");
+        }
+
+        //  Kiểm tra trạng thái đơn
+        if (order.getStatus() != StatusOrder.PENDING && order.getStatus() != StatusOrder.CONFIRMED) {
+            throw new RuntimeException("Cannot cancel this order at its current status");
+        }
+
+        //  Cập nhật trạng thái
+        StatusOrder oldStatus = order.getStatus();
+        order.setStatus(StatusOrder.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        // Lưu lịch sử
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrder(order);
+        history.setFromStatus(oldStatus);
+        history.setToStatus(StatusOrder.CANCELLED);
+        history.setNote("Order cancelled by user: " + (reason != null ? reason : "No reason provided"));
+        history.setChangedAt(LocalDateTime.now());
+        orderStatusHistoryRepository.save(history);
+
+        //  Nếu cần, xử lý hoàn tiền ở đây
+//        Payment payment = order.getPayment();
+//        if (payment != null && payment.getStatus() == PaymentStatus.PAID) {
+//            payment.setStatus(PaymentStatus.REFUNDED);
+//            payment.setUpdatedAt(LocalDateTime.now());
+//            paymentRepository.save(payment);
+//        }
+
+        return true;
+    }
+
+
 
     /**
      *  Cập nhật trạng thái đơn hàng
@@ -232,6 +325,7 @@ public class OrderService {
                 .userId(order.getUser().getId())
                 .userName(order.getUser().getProfile().getFullName())
                 .shopId(order.getShop().getId())
+                .addressId(order.getShippingAddress().getId())
                 .shopName(order.getShop().getName())
                 .status(order.getStatus())
                 .totalAmount(subtotal)
@@ -241,7 +335,7 @@ public class OrderService {
                 .paymentMethod(order.getPaymentMethod())
                 .createdAt(order.getCreatedAt())
 
-                // 🟩 Items
+                //  Items
                 .items(order.getItems().stream()
                         .map(item -> OrderItemResponseDto.builder()
                                 .id(item.getId())
@@ -262,7 +356,7 @@ public class OrderService {
                                 .build())
                         .collect(Collectors.toList()))
 
-                // 🟩 Vouchers (đảm bảo không null id, orderId)
+                //  Vouchers (đảm bảo không null id, orderId)
                 .vouchers(order.getVouchers().stream()
                         .map(v -> OrderVoucherResponseDto.builder()
                                 .id(v.getId())
@@ -274,7 +368,7 @@ public class OrderService {
                                 .build())
                         .collect(Collectors.toList()))
 
-                // 🟩 Shipping Fees
+                //  Shipping Fees
                 .shippingFees(order.getShippingFees().stream()
                         .map(f -> ShippingFeeResponseDto.builder()
                                 .id(f.getId())
@@ -285,7 +379,7 @@ public class OrderService {
                                 .build())
                         .collect(Collectors.toList()))
 
-                // 🟩 Payment (đảm bảo id, orderId, status, transactionId)
+                //  Payment (đảm bảo id, orderId, status, transactionId)
                 .payment(order.getPayment() != null
                         ? PaymentResponseDto.builder()
                         .id(order.getPayment().getId())
@@ -298,7 +392,7 @@ public class OrderService {
                         .build()
                         : null)
 
-                // 🟩 Status histories
+                //  Status histories
                 .statusHistories(order.getStatusHistories().stream()
                         .map(h -> OrderStatusHistoryDto.builder()
                                 .id(h.getId())

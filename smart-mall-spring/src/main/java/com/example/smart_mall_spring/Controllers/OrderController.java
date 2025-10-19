@@ -50,4 +50,11 @@ public class OrderController {
                 ? ResponseEntity.ok("Order status updated successfully")
                 : ResponseEntity.badRequest().body("Failed to update order status");
     }
+    @PostMapping("/cancel")
+    public ResponseEntity<?> cancelOrder(@RequestParam UUID orderId,
+                                         @RequestParam UUID userId,
+                                         @RequestParam(required = false) String reason) {
+        orderService.cancelOrderByUser(orderId, userId, reason);
+        return ResponseEntity.ok("Order cancelled successfully");
+    }
 }

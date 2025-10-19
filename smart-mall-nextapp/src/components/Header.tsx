@@ -95,17 +95,15 @@ export default function Header() {
   
   // helper: resolve avatar from both Google users (image field) and registered users (avatar field)
   const resolveAvatar = (user: any) => {
-    console.log('Resolving avatar for user:', user);
-    
     // For Google users, use the 'image' field
     if (user?.image) {
-      console.log('Using Google image:', user.image);
+
       return user.image; // Google avatars are already full URLs
     }
     
     // For registered users, use the 'avatar' field
     if (user?.avatar) {
-      console.log('Using user avatar:', user.avatar);
+    
       return getCloudinaryUrl(user.avatar);
     }
     
@@ -114,15 +112,6 @@ export default function Header() {
   };
   
   // Debug: Log current user data
-  useEffect(() => {
-    if (mergedUser) {
-      console.log('Merged user data:', mergedUser);
-      console.log('User avatar:', mergedUser.avatar);
-      console.log('User image:', mergedUser.image);
-      console.log('User from session:', user);
-      console.log('User from API:', userProfile);
-    }
-  }, [mergedUser, user, userProfile]);
 
   const handleLogoutClick = async () => {
     setShowUserMenu(false);

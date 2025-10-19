@@ -20,114 +20,122 @@ interface OrderTabsProps {
 }
 
 export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, orderCount }: OrderTabsProps) {
-  const [isSticky, setIsSticky] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      // Khi scroll xuống 200px thì bắt đầu show sticky effect
-      setIsSticky(scrollTop > 200);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   return (
-    <div className={`sticky top-16 z-10 transition-all duration-300 ${
-      isSticky ? 'bg-white/95 backdrop-blur-md shadow-lg' : 'bg-transparent'
-    } pt-4 pb-2`}>
-      <Card className={`mb-4 border-0 rounded-2xl overflow-hidden transition-all duration-300 ${
-        isSticky ? 'shadow-xl bg-white/95' : 'shadow-lg bg-white'
-      }`}>
+    <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+      <div className="max-w-6xl mx-auto px-4">
         {title && (
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
-            <Title level={3} className="mb-0 text-gray-800">
+          <div className="flex items-center justify-between py-3 border-b border-gray-50">
+            <Title level={4} className="mb-0 text-gray-800 font-semibold">
               {title}
             </Title>
             {orderCount !== undefined && (
-              <div className="text-sm text-gray-500">
-                {orderCount} {orderCount === 1 ? 'order' : 'orders'} total
+              <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
+                {orderCount} {orderCount === 1 ? 'order' : 'orders'}
               </div>
             )}
           </div>
         )}
+        
         <Tabs 
           activeKey={activeTab} 
           onChange={onTabChange}
-          className="order-tabs"
-          size="large"
+          className="order-tabs compact-tabs"
+          size="small"
         >
-        <TabPane 
-          tab={
-            <Badge count={orderCounts.all} showZero>
-              <span className="px-2">All Orders</span>
-            </Badge>
-          } 
-          key="all" 
-        />
-        <TabPane 
-          tab={
-            <Badge count={orderCounts.pending} showZero>
-              <span className="px-2">Pending</span>
-            </Badge>
-          } 
-          key="pending" 
-        />
-        <TabPane 
-          tab={
-            <Badge count={orderCounts.confirmed} showZero>
-              <span className="px-2">Confirmed</span>
-            </Badge>
-          } 
-          key="confirmed" 
-        />
-        <TabPane 
-          tab={
-            <Badge count={orderCounts.shipping} showZero>
-              <span className="px-2">Shipping</span>
-            </Badge>
-          } 
-          key="shipping" 
-        />
-        <TabPane 
-          tab={
-            <Badge count={orderCounts.delivered} showZero>
-              <span className="px-2">Delivered</span>
-            </Badge>
-          } 
-          key="delivered" 
-        />
-        <TabPane 
-          tab={
-            <Badge count={orderCounts.cancelled} showZero>
-              <span className="px-2">Cancelled</span>
-            </Badge>
-          } 
-          key="cancelled" 
-        />
-      </Tabs>
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.all} showZero size="small">
+                <span className="text-sm">All</span>
+              </Badge>
+            } 
+            key="all" 
+          />
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.pending} showZero size="small">
+                <span className="text-sm">Pending</span>
+              </Badge>
+            } 
+            key="pending" 
+          />
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.confirmed} showZero size="small">
+                <span className="text-sm">Confirmed</span>
+              </Badge>
+            } 
+            key="confirmed" 
+          />
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.shipping} showZero size="small">
+                <span className="text-sm">Shipping</span>
+              </Badge>
+            } 
+            key="shipping" 
+          />
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.delivered} showZero size="small">
+                <span className="text-sm">Delivered</span>
+              </Badge>
+            } 
+            key="delivered" 
+          />
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.cancelled} showZero size="small">
+                <span className="text-sm">Cancelled</span>
+              </Badge>
+            } 
+            key="cancelled" 
+          />
+        </Tabs>
+      </div>
 
       <style jsx global>{`
-        .order-tabs .ant-tabs-tab {
+        .compact-tabs {
+          margin-bottom: 0;
+        }
+        
+        .compact-tabs .ant-tabs-nav {
+          margin-bottom: 0 !important;
+        }
+        
+        .compact-tabs .ant-tabs-tab {
           font-weight: 500;
-          padding: 12px 16px;
+          padding: 8px 12px !important;
+          margin: 0 4px !important;
           color: #64748b;
-          transition: all 0.3s ease;
+          transition: all 0.2s ease;
+          border-radius: 6px 6px 0 0;
+          min-width: auto;
         }
         
-        .order-tabs .ant-tabs-tab:hover {
+        .compact-tabs .ant-tabs-tab:hover {
           color: #3b82f6;
+          background: #f8fafc;
         }
         
-        .order-tabs .ant-tabs-tab-active {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+        .compact-tabs .ant-tabs-tab-active {
+          color: #2563eb !important;
+          background: #eff6ff;
+          border-bottom-color: #2563eb !important;
+        }
+        
+        .compact-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+          color: #2563eb !important;
+        }
+        
+        .compact-tabs .ant-tabs-ink-bar {
+          background: #2563eb !important;
+          height: 2px !important;
+        }
+        
+        .compact-tabs .ant-tabs-content-holder {
+          display: none;
         }
       `}</style>
-      </Card>
     </div>
   );
 }

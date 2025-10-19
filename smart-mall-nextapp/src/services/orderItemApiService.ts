@@ -17,7 +17,7 @@ export interface OrderItemResponseDto {
 export const orderItemApiService = {
   // Get order items by order ID
   async getOrderItemsByOrder(orderId: string): Promise<OrderItemResponseDto[]> {
-    const response = await apiClient.get<OrderItemResponseDto[]>(`/api/order-items/${orderId}`);
+    const response = await apiClient.get<OrderItemResponseDto[]>(`/order-items/${orderId}`);
     return response.data;
   }
 };

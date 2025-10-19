@@ -18,19 +18,19 @@ export interface ShippingFeeResponseDto {
 export const shippingFeeApiService = {
   // Create shipping fee for order
   async createShippingFee(data: ShippingFeeRequestDto): Promise<ShippingFeeResponseDto> {
-    const response = await apiClient.post<ShippingFeeResponseDto>('/api/shipping-fees', data);
+    const response = await apiClient.post<ShippingFeeResponseDto>('/shipping-fees', data);
     return response.data;
   },
 
   // Get shipping fee by order ID
   async getShippingFeeByOrder(orderId: string): Promise<ShippingFeeResponseDto> {
-    const response = await apiClient.get<ShippingFeeResponseDto>(`/api/shipping-fees/order/${orderId}`);
+    const response = await apiClient.get<ShippingFeeResponseDto>(`/shipping-fees/order/${orderId}`);
     return response.data;
   },
 
   // Update shipping fee
   async updateShippingFee(orderId: string, data: ShippingFeeRequestDto): Promise<ShippingFeeResponseDto> {
-    const response = await apiClient.put<ShippingFeeResponseDto>(`/api/shipping-fees/order/${orderId}`, data);
+    const response = await apiClient.put<ShippingFeeResponseDto>(`/shipping-fees/order/${orderId}`, data);
     return response.data;
   }
 };

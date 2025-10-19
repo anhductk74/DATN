@@ -10,6 +10,18 @@ interface OrderStatusBadgeProps {
 }
 
 const getStatusConfig = (status: string) => {
+  // Map database ENUM to config keys
+  const statusMap: Record<string, string> = {
+    'PENDING': 'pending',
+    'CONFIRMED': 'confirmed',
+    'PAID': 'paid', 
+    'SHIPPING': 'shipping',
+    'DELIVERED': 'delivered',
+    'CANCELLED': 'cancelled',
+    'RETURN_REQUESTED': 'return_requested',
+    'RETURNED': 'returned'
+  };
+
   const configs = {
     pending: {
       icon: <ClockCircleOutlined />,
@@ -24,6 +36,13 @@ const getStatusConfig = (status: string) => {
       bgColor: "bg-blue-50",
       textColor: "text-blue-600",
       borderColor: "border-blue-200"
+    },
+    paid: {
+      icon: <CheckCircleOutlined />,
+      text: "Paid",
+      bgColor: "bg-green-50",
+      textColor: "text-green-600",
+      borderColor: "border-green-200"
     },
     shipping: {
       icon: <TruckOutlined />,
@@ -45,9 +64,25 @@ const getStatusConfig = (status: string) => {
       bgColor: "bg-red-50",
       textColor: "text-red-600",
       borderColor: "border-red-200"
+    },
+    return_requested: {
+      icon: <ClockCircleOutlined />,
+      text: "Return Requested",
+      bgColor: "bg-yellow-50",
+      textColor: "text-yellow-600", 
+      borderColor: "border-yellow-200"
+    },
+    returned: {
+      icon: <CheckCircleOutlined />,
+      text: "Returned",
+      bgColor: "bg-gray-50",
+      textColor: "text-gray-600",
+      borderColor: "border-gray-200"
     }
   };
-  return configs[status as keyof typeof configs] || configs.pending;
+  
+  const configKey = statusMap[status] || 'pending';
+  return configs[configKey as keyof typeof configs] || configs.pending;
 };
 
 export default function OrderStatusBadge({ status }: OrderStatusBadgeProps) {

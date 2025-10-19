@@ -1,5 +1,12 @@
 "use client";
 
+import { voucherApiService, VoucherResponseDto, VoucherType, DiscountType, calculateVoucherDiscount, isVoucherApplicable, filterApplicableVouchers } from '@/services/voucherApiService';
+import { orderVoucherApiService } from '@/services/orderVoucherApiService';
+import { orderApiService, PaymentMethod } from '@/services/orderApiService';
+import { integratedOrderService } from '@/services/integratedOrderService';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserProfile } from '@/contexts/UserProfileContext';
+import { useAntdApp } from '@/hooks/useAntdApp';
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Radio, Checkbox, Divider, Modal, message, Card, Spin } from "antd";
@@ -16,7 +23,6 @@ import {
 import { useCart } from "@/contexts/CartContext";
 import { DeliveryAddress, type DeliveryAddressType } from "./components";
 import { getCloudinaryUrl } from "@/config/config";
-import { voucherApiService, VoucherResponseDto, calculateVoucherDiscount, isVoucherApplicable, filterApplicableVouchers, VoucherType } from "@/services/voucherApiService";
 
 const { TextArea } = Input;
 
@@ -87,7 +93,10 @@ const paymentMethods = [
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { clearCart } = useCart();
+  const { clearCart, removeItem } = useCart();
+  const { user } = useAuth();
+  const { userProfile } = useUserProfile();
+  const { message } = useAntdApp();
   const [items, setItems] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,47 +204,172 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Get current user ID
+    const currentUserId = userProfile?.id || user?.id;
+    if (!currentUserId) {
+      message.error("Please login to place order");
+      return;
+    }
+
     setLoading(true);
     try {
-      // For now, simulate API call
-      // TODO: Implement actual order creation with orderApiService
-      // const orderData = {
-      //   userId: userProfile.id,
-      //   shopId: items[0].shopId, // Assuming all items from same shop
-      //   shippingAddressId: selectedAddressId,
-      //   paymentMethod: selectedPayment as PaymentMethod,
-      //   shippingFee: finalShippingFee,
-      //   items: items.map(item => ({
-      //     variantId: item.variantId,
-      //     quantity: item.quantity
-      //   })),
-      //   voucherIds: selectedVouchers
-      // };
-      // 
-      // const order = await orderApiService.createOrder(orderData);
+      // Log data for debugging
+      console.log('Items data:', items);
+      console.log('User data:', { userProfile, user, currentUserId });
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      message.success("Order placed successfully!");
-      
-      // Apply vouchers to the order if any selected
-      if (selectedVouchers.length > 0) {
-        // TODO: Use orderVoucherApiService.applyVoucher for each selected voucher
-        // for (const voucherId of selectedVouchers) {
-        //   await orderVoucherApiService.applyVoucher({
-        //     orderId: order.id,
-        //     voucherId: voucherId
-        //   });
-        // }
-      }
-      
-      // Clear checkout items from sessionStorage
-      sessionStorage.removeItem('checkout_items');
-      // Remove ordered items from cart
-      items.forEach(item => {
-        // You could call removeItem here if needed
+      // Check if items have real shopId
+      items.forEach((item, index) => {
+        console.log(`Item ${index}:`, {
+          title: item.title,
+          shopId: item.shopId,
+          shopName: item.shopName,
+          variantId: item.variantId,
+          cartItemId: item.cartItemId
+        });
       });
-      router.push("/orders");
+
+      // Group items by shopId to create separate orders for each shop
+      const itemsByShop = items.reduce((groups: { [shopId: string]: typeof items }, item) => {
+        const shopId = item.shopId || "unknown-shop";
+        if (!groups[shopId]) {
+          groups[shopId] = [];
+        }
+        groups[shopId].push(item);
+        return groups;
+      }, {});
+
+      console.log('Items grouped by shop:', itemsByShop);
+
+      // Create orders for each shop
+      const orderResults = [];
+      let allOrdersSucceeded = true;
+      let failedShops: string[] = [];
+
+      for (const [shopId, shopItems] of Object.entries(itemsByShop)) {
+        // Calculate shipping fee per shop (for now, use the selected shipping for each)
+        const shopShippingFee = Math.round(finalShippingFee / Object.keys(itemsByShop).length);
+        
+        // Filter vouchers applicable to this shop
+        const applicableVouchers = selectedVouchers.filter(voucherId => {
+          const voucher = availableVouchers.find(v => v.id === voucherId);
+          return !voucher?.shopId || voucher.shopId === shopId;
+        });
+
+        // Use shopId directly from cart items (should be real shopId from product API now)
+        const actualShopId = shopId;
+        
+        console.log('Processing shop for order:', {
+          originalShopId: shopId,
+          isRealShopId: !shopId.startsWith('shop-') && shopId !== 'unknown-shop',
+          shopName: shopItems[0]?.shopName,
+          itemCount: shopItems.length
+        });
+
+        // Map UI payment method to backend PaymentMethod enum
+        const paymentMethodMapping: { [key: string]: string } = {
+          'cod': 'COD',
+          'card': 'CREDIT_CARD', 
+          'bank': 'CREDIT_CARD', // Map bank to CREDIT_CARD
+          'wallet': 'E_WALLET'
+        };
+        const finalPaymentMethod = paymentMethodMapping[selectedPayment.toLowerCase()] || 'COD';
+
+        const orderData = {
+          userId: currentUserId,
+          shopId: actualShopId,
+          shippingAddressId: selectedAddressId,
+          paymentMethod: finalPaymentMethod as PaymentMethod,
+          shippingFee: shopShippingFee,
+          items: shopItems.map(item => ({
+            variantId: item.variantId || item.id, // Use variantId or fallback to item.id
+            quantity: item.quantity
+          })),
+          voucherIds: applicableVouchers
+        };
+
+        // Validate required fields
+        if (!currentUserId || !actualShopId || !selectedAddressId) {
+          console.error('Missing required fields:', { 
+            userId: currentUserId, 
+            shopId: actualShopId, 
+            shippingAddressId: selectedAddressId 
+          });
+          orderResults.push({ 
+            shopId, 
+            success: false, 
+            errors: ['Missing required fields: userId, shopId, or shippingAddressId'] 
+          });
+          allOrdersSucceeded = false;
+          failedShops.push(shopItems[0]?.shopName || shopId);
+          continue;
+        }
+
+        // Validate items have valid variantIds
+        const hasInvalidVariants = shopItems.some(item => !item.variantId && !item.id);
+        if (hasInvalidVariants) {
+          console.error('Some items missing variantId:', shopItems);
+          orderResults.push({ 
+            shopId, 
+            success: false, 
+            errors: ['Some items are missing variant IDs'] 
+          });
+          allOrdersSucceeded = false;
+          failedShops.push(shopItems[0]?.shopName || shopId);
+          continue;
+        }
+
+        console.log(`Creating order for shop ${shopId}:`);
+        console.log('Order data:', JSON.stringify(orderData, null, 2));
+        console.log('Shop items:', shopItems);
+
+        try {
+          // Create order using integratedOrderService
+          const result = await integratedOrderService.createCompleteOrder(orderData);
+
+          if (result.success && result.order) {
+            orderResults.push({ shopId, success: true, order: result.order });
+            console.log(`Order created successfully for shop ${shopId}:`, result.order.id);
+          } else {
+            orderResults.push({ shopId, success: false, errors: result.errors });
+            allOrdersSucceeded = false;
+            failedShops.push(shopItems[0]?.shopName || shopId);
+            console.error(`Order creation failed for shop ${shopId}:`, result.errors);
+          }
+        } catch (error) {
+          orderResults.push({ shopId, success: false, error });
+          allOrdersSucceeded = false;
+          failedShops.push(shopItems[0]?.shopName || shopId);
+          console.error(`Error creating order for shop ${shopId}:`, error);
+        }
+      }
+
+      if (allOrdersSucceeded) {
+        message.success(`${orderResults.length} order(s) placed successfully!`);
+        
+        // Clear checkout items from sessionStorage
+        sessionStorage.removeItem('checkout_items');
+        
+        // Remove only the ordered items from cart (not clear all)
+        try {
+          for (const item of items) {
+            if (item.cartItemId) {
+              await removeItem(item.cartItemId);
+            }
+          }
+        } catch (error) {
+          console.warn('Failed to remove some items from cart:', error);
+        }
+        
+        // Navigate to orders page
+        router.push("/my-orders");
+      } else {
+        const successCount = orderResults.filter(r => r.success).length;
+        if (successCount > 0) {
+          message.warning(`${successCount} order(s) succeeded, but failed to create orders for: ${failedShops.join(', ')}`);
+        } else {
+          message.error(`Failed to place orders for all shops: ${failedShops.join(', ')}`);
+        }
+      }
     } catch (error) {
       console.error('Failed to place order:', error);
       message.error("Failed to place order. Please try again.");
@@ -329,46 +463,73 @@ export default function CheckoutPage() {
               onSelectedAddressChange={handleSelectedAddressChange}
             />
 
-            {/* Products */}
+            {/* Products grouped by Shop */}
             <Card title="Products Ordered" className="overflow-hidden">
-              <div className="space-y-4">
-                {items.map((item, index) => (
-                  <div key={item.id}>
-                    <div className="flex items-start space-x-4">
-                      <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                        <img 
-                          src={getCloudinaryUrl(item.image)} 
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23666"%3ENo Image%3C/text%3E%3C/svg%3E';
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-800 line-clamp-2">
-                          {item.title}
-                        </h4>
-                        <p className="text-xs text-gray-500 mt-1">{item.variant}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-400 line-through">
-                              {(item as any).originalPrice ? formatCurrency((item as any).originalPrice) : ''} VND
-                            </span>
-                            <span className="text-sm font-medium text-orange-600">
-                              {formatCurrency(item.price)} VND
-                            </span>
-                          </div>
-                          <span className="text-sm text-gray-600">x{item.quantity}</span>
+              <div className="space-y-6">
+                {Object.entries(items.reduce((groups: { [shopId: string]: typeof items }, item) => {
+                  const shopId = item.shopId || "unknown-shop";
+                  if (!groups[shopId]) {
+                    groups[shopId] = [];
+                  }
+                  groups[shopId].push(item);
+                  return groups;
+                }, {})).map(([shopId, shopItems]) => (
+                  <div key={shopId} className="border rounded-lg p-4 bg-gray-50">
+                    {/* Shop Header */}
+                    <div className="flex items-center mb-4 pb-2 border-b border-gray-200">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center">
+                          <span className="text-white font-bold text-xs">S</span>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-gray-800">
-                          {formatCurrency(item.price * item.quantity)} VND
-                        </div>
+                        <span className="font-medium text-gray-800">
+                          {shopItems[0]?.shopName || `Shop ${shopId}`}
+                        </span>
+                        <span className="text-xs text-gray-500">({shopItems.length} items)</span>
                       </div>
                     </div>
-                    {index < items.length - 1 && <Divider />}
+                    
+                    {/* Shop Products */}
+                    <div className="space-y-4">
+                      {shopItems.map((item, index) => (
+                        <div key={item.id}>
+                          <div className="flex items-start space-x-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                              <img 
+                                src={getCloudinaryUrl(item.image)} 
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23666"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-gray-800 line-clamp-2">
+                                {item.title}
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1">{item.variant}</p>
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-sm text-gray-400 line-through">
+                                    {(item as any).originalPrice ? formatCurrency((item as any).originalPrice) : ''} VND
+                                  </span>
+                                  <span className="text-sm font-medium text-orange-600">
+                                    {formatCurrency(item.price)} VND
+                                  </span>
+                                </div>
+                                <span className="text-sm text-gray-600">x{item.quantity}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-gray-800">
+                                {formatCurrency(item.price * item.quantity)} VND
+                              </div>
+                            </div>
+                          </div>
+                          {index < shopItems.length - 1 && <Divider />}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

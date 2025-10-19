@@ -2,16 +2,17 @@ import apiClient from '../lib/apiClient';
 
 export interface AddressDto {
   id: string;
-  userId: string;
-  fullName: string;
+  userId?: string;
+  recipient: string;
   phoneNumber: string;
-  addressLine: string;
-  ward: string;
+  street: string;
+  commune: string;
   district: string;
   city: string;
-  postalCode?: string;
-  isDefault: boolean;
+  fullAddress: string;
+  default: boolean;
   addressType: AddressType;
+  status: string;
   latitude?: number;
   longitude?: number;
   createdAt: string;
@@ -20,28 +21,28 @@ export interface AddressDto {
 
 export interface CreateAddressDto {
   userId: string;
-  fullName: string;
+  recipient: string;
   phoneNumber: string;
-  addressLine: string;
-  ward: string;
+  street: string;
+  commune: string;
   district: string;
   city: string;
-  postalCode?: string;
-  isDefault?: boolean;
+  fullAddress?: string;
+  default?: boolean;
   addressType: AddressType;
   latitude?: number;
   longitude?: number;
 }
 
 export interface UpdateAddressDto {
-  fullName?: string;
+  recipient?: string;
   phoneNumber?: string;
-  addressLine?: string;
-  ward?: string;
+  street?: string;
+  commune?: string;
   district?: string;
   city?: string;
-  postalCode?: string;
-  isDefault?: boolean;
+  fullAddress?: string;
+  default?: boolean;
   addressType?: AddressType;
   latitude?: number;
   longitude?: number;
@@ -50,6 +51,7 @@ export interface UpdateAddressDto {
 export enum AddressType {
   HOME = 'HOME',
   OFFICE = 'OFFICE',
+  WORK = 'WORK',
   OTHER = 'OTHER'
 }
 
@@ -91,37 +93,37 @@ export interface Ward {
 export const addressApiService = {
   // Get addresses by user
   async getAddressesByUser(userId: string): Promise<AddressDto[]> {
-    const response = await apiClient.get<AddressDto[]>(`/api/addresses/user/${userId}`);
+    const response = await apiClient.get<AddressDto[]>(`/addresses/user/${userId}`);
     return response.data;
   },
 
   // Get address by ID
   async getAddressById(id: string): Promise<AddressDto> {
-    const response = await apiClient.get<AddressDto>(`/api/addresses/${id}`);
+    const response = await apiClient.get<AddressDto>(`/addresses/${id}`);
     return response.data;
   },
 
   // Create address
   async createAddress(data: CreateAddressDto): Promise<AddressDto> {
-    const response = await apiClient.post<AddressDto>('/api/addresses', data);
+    const response = await apiClient.post<AddressDto>('/addresses', data);
     return response.data;
   },
 
   // Update address
   async updateAddress(id: string, data: UpdateAddressDto): Promise<AddressDto> {
-    const response = await apiClient.put<AddressDto>(`/api/addresses/${id}`, data);
+    const response = await apiClient.put<AddressDto>(`/addresses/${id}`, data);
     return response.data;
   },
 
   // Delete address
   async deleteAddress(id: string): Promise<void> {
-    await apiClient.delete(`/api/addresses/${id}`);
+    await apiClient.delete(`/addresses/${id}`);
   },
 
   // Set default address
   async setDefaultAddress(userId: string, addressId: string): Promise<AddressDto> {
     const response = await apiClient.put<AddressDto>(
-      `/api/addresses/user/${userId}/default/${addressId}`
+      `/addresses/user/${userId}/default/${addressId}`
     );
     return response.data;
   },
@@ -129,7 +131,7 @@ export const addressApiService = {
   // Get default address
   async getDefaultAddress(userId: string): Promise<AddressDto | null> {
     try {
-      const response = await apiClient.get<AddressDto>(`/api/addresses/user/${userId}/default`);
+      const response = await apiClient.get<AddressDto>(`/addresses/user/${userId}/default`);
       return response.data;
     } catch (error) {
       return null;
@@ -139,7 +141,7 @@ export const addressApiService = {
   // Validate address
   async validateAddress(data: CreateAddressDto): Promise<{ isValid: boolean; message?: string }> {
     const response = await apiClient.post<{ isValid: boolean; message?: string }>(
-      '/api/addresses/validate',
+      '/addresses/validate',
       data
     );
     return response.data;

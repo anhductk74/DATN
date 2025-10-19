@@ -23,6 +23,8 @@ export interface CartItem {
   variant: ProductVariant;
   productName: string;
   productImage: string;
+  productShopId?: string; // Add shopId from product
+  productShopName?: string; // Add shop name from product
   quantity: number;
   subtotal: number;
   createdAt: string;
