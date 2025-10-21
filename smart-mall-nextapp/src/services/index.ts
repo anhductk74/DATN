@@ -1,36 +1,36 @@
 // Export all services
 export { default as apiClient } from '../lib/apiClient';
-export { default as authService } from './authService';
-export { default as userService } from './userService';
-export { default as shopService } from './shopService';
-export { default as productService } from './productService';
-export { default as categoryService } from './categoryService';
-export { default as cartService } from './cartService';
-export { default as orderService } from './orderService';
-export { default as reviewService } from './reviewService';
-export { default as addressService } from './addressService';
+export { default as authService } from './AuthService';
+export { default as userService } from './UserService';
+export { default as shopService } from './ShopService';
+export { default as productService } from './ProductService';
+export { default as categoryService } from './CategoryService';
+export { default as cartService } from './CartService';
+export { default as orderService } from './OrderService';
+export { default as reviewService } from './ReviewService';
+export { default as addressService } from './AddressService';
 
 // New API services based on backend controllers
-export { orderApiService } from './orderApiService';
-export { orderItemApiService } from './orderItemApiService';
-export { orderTrackingApiService } from './orderTrackingApiService';
-export { orderVoucherApiService } from './orderVoucherApiService';
-export { paymentApiService } from './paymentApiService';
-export { shippingFeeApiService } from './shippingFeeApiService';
-export { voucherApiService } from './voucherApiService';
+export { orderApiService } from './OrderApiService';
+export { orderItemApiService } from './OrderItemApiService';
+export { orderTrackingApiService } from './OrderTrackingApiService';
+export { orderVoucherApiService } from './OrderVoucherApiService';
+export { paymentApiService } from './PaymentApiService';
+export { shippingFeeApiService } from './ShippingFeeApiService';
+export { voucherApiService } from './VoucherApiService';
 // export { notificationApiService } from './notificationApiService';
-export { addressApiService } from './addressApiService';
+export { addressApiService } from './AddressApiService';
 
 
 // Export service wrappers and integrated services
-export { orderServiceWrapper, paymentServiceWrapper } from './serviceWrappers';
-export { integratedOrderService, IntegratedOrderService } from './integratedOrderService';
+export { orderServiceWrapper, paymentServiceWrapper } from './ServiceWrappers';
+export { integratedOrderService, IntegratedOrderService } from './IntegratedOrderService';
 
 // Export types from common types
 export type * from '@/types/common';
-export type { Shop, ShopAddress, CreateShopData, UpdateShopData } from './shopService';
-export type { Product, ProductVariant, ProductAttribute, CreateProductData, UpdateProductData } from './productService';
-export type { Category, CreateCategoryData, UpdateCategoryData } from './categoryService';
+export type { Shop, ShopAddress, CreateShopData, UpdateShopData } from './ShopService';
+export type { Product, ProductVariant, ProductAttribute, CreateProductData, UpdateProductData } from './ProductService';
+export type { Category, CreateCategoryData, UpdateCategoryData } from './CategoryService';
 
 // Export types from new API services
 export type { 
@@ -40,50 +40,50 @@ export type {
   UpdateOrderStatusDto, 
   OrderStatus,
   PaymentMethod as OrderPaymentMethod
-} from './orderApiService';
-export type { OrderItemResponseDto } from './orderItemApiService';
-export type { OrderTrackingLogResponse, OrderTrackingLogRequest } from './orderTrackingApiService';
+} from './OrderApiService';
+export type { OrderItemResponseDto } from './OrderItemApiService';
+export type { OrderTrackingLogResponse, OrderTrackingLogRequest } from './OrderTrackingApiService';
 export type { 
   ApplyVoucherRequestDto, 
   OrderVoucherResponseDto 
-} from './orderVoucherApiService';
+} from './OrderVoucherApiService';
 export type { 
   CreatePaymentRequestDto, 
   PaymentResponseDto, 
   PaymentMethod, 
   PaymentStatus 
-} from './paymentApiService';
+} from './PaymentApiService';
 export type { 
   ShippingFeeRequestDto, 
   ShippingFeeResponseDto
-} from './shippingFeeApiService';
+} from './ShippingFeeApiService';
 export type { 
   VoucherRequestDto, 
   VoucherResponseDto, 
   VoucherType,
   DiscountType 
-} from './voucherApiService';
+} from './VoucherApiService';
 
 // Import services for the services object
-import authService from './authService';
-import userService from './userService';
-import shopService from './shopService';
-import productService from './productService';
-import categoryService from './categoryService';
-import cartService from './cartService';
-import orderService from './orderService';
-import reviewService from './reviewService';
-import addressService from './addressService';
+import authService from './AuthService';
+import userService from './UserService';
+import shopService from './ShopService';
+import productService from './ProductService';
+import categoryService from './CategoryService';
+import cartService from './CartService';
+import orderService from './OrderService';
+import reviewService from './ReviewService';
+import addressService from './AddressService';
 
 // Import new API services for the services object
-import { orderApiService } from './orderApiService';
-import { orderItemApiService } from './orderItemApiService';
-import { orderTrackingApiService } from './orderTrackingApiService';
-import { orderVoucherApiService } from './orderVoucherApiService';
-import { paymentApiService } from './paymentApiService';
-import { shippingFeeApiService } from './shippingFeeApiService';
-import { voucherApiService } from './voucherApiService';
-import { orderServiceWrapper, paymentServiceWrapper } from './serviceWrappers';
+import { orderApiService } from './OrderApiService';
+import { orderItemApiService } from './OrderItemApiService';
+import { orderTrackingApiService } from './OrderTrackingApiService';
+import { orderVoucherApiService } from './OrderVoucherApiService';
+import { paymentApiService } from './PaymentApiService';
+import { shippingFeeApiService } from './ShippingFeeApiService';
+import { voucherApiService } from './VoucherApiService';
+import { orderServiceWrapper, paymentServiceWrapper } from './ServiceWrappers';
 
 // Create a services object for easier importing
 export const services = {

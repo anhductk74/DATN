@@ -7,7 +7,7 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
-import productService from "@/services/productService";
+import productService from "@/services/ProductService";
 import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 

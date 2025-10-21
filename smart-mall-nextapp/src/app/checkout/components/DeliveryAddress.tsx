@@ -10,8 +10,8 @@ import {
   ShopOutlined,
   DeleteOutlined
 } from "@ant-design/icons";
-import { locationService, type Province, type District, type Ward } from "@/services/locationService";
-import addressService, { type Address, type CreateAddressRequest, type UpdateAddressRequest, type AddressType } from "@/services/addressService";
+import { locationService, type Province, type District, type Ward } from "@/services/LocationService";
+import addressService, { type Address, type CreateAddressRequest, type UpdateAddressRequest, type AddressType } from "@/services/AddressService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 

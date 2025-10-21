@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { message } from "antd";
 import { useSession } from "next-auth/react";
-import cartService, { type Cart as ApiCart, type CartItem as ApiCartItem } from "@/services/cartService";
-import productService from "@/services/productService";
+import cartService, { type Cart as ApiCart, type CartItem as ApiCartItem } from "@/services/CartService";
+import productService from "@/services/ProductService";
 
 export interface CartItem {
   id: string;

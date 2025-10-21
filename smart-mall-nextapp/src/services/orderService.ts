@@ -1,5 +1,5 @@
 import apiClient from '../lib/apiClient';
-import type { ProductVariant } from './cartService';
+import type { ProductVariant } from './CartService';
 
 export interface OrderItem {
   id: string;

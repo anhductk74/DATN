@@ -3,20 +3,20 @@
  * Basic integration of order-related APIs
  */
 
-import { orderApiService } from './orderApiService';
-import { orderItemApiService } from './orderItemApiService';
-import { orderTrackingApiService } from './orderTrackingApiService';
-import { orderVoucherApiService } from './orderVoucherApiService';
-import { paymentApiService } from './paymentApiService';
-import { shippingFeeApiService } from './shippingFeeApiService';
-import { voucherApiService } from './voucherApiService';
+import { orderApiService } from './OrderApiService';
+import { orderItemApiService } from './OrderItemApiService';
+import { orderTrackingApiService } from './OrderTrackingApiService';
+import { orderVoucherApiService } from './OrderVoucherApiService';
+import { paymentApiService } from './PaymentApiService';
+import { shippingFeeApiService } from './ShippingFeeApiService';
+import { voucherApiService } from './VoucherApiService';
 
 import type {
   OrderRequestDto,
   OrderResponseDto,
   OrderStatus,
   PaymentMethod
-} from './orderApiService';
+} from './OrderApiService';
 
 export interface SimpleOrderRequest {
   userId: string;
