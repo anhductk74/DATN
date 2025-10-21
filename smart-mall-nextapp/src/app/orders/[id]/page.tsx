@@ -38,7 +38,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
-import { orderService, addressApiService } from "@/services";
+import { orderService, addressApiService, orderTrackingApiService } from "@/services";
 
 // Define Order interface for this page
 interface OrderItem {
@@ -134,6 +134,29 @@ const formatVND = (amount: number): string => {
   return amount.toLocaleString('vi-VN');
 };
 
+// Safe date formatting to prevent hydration mismatch
+const formatDate = (dateString: string, options: Intl.DateTimeFormatOptions = {}) => {
+  if (typeof window === 'undefined') {
+    // Server-side: return a placeholder or basic format
+    return new Date(dateString).toISOString().split('T')[0];
+  }
+  // Client-side: use full formatting
+  return new Date(dateString).toLocaleDateString('en-US', options);
+};
+
+const formatDateTime = (dateString: string) => {
+  if (typeof window === 'undefined') {
+    return new Date(dateString).toISOString().split('T')[0];
+  }
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 // Transform API order to local format
 const transformApiOrderToLocal = (apiOrder: any): Order => {
   // Default images to prevent empty string src errors
@@ -212,14 +235,21 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [shippingAddress, setShippingAddress] = useState<any>(null);
+  const [trackingLogs, setTrackingLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackForm] = Form.useForm();
+  const [isClient, setIsClient] = useState(false);
   const { session, status, user } = useAuth();
   const { userProfile } = useUserProfile();
 
   const orderId = params.id as string;
+
+  // Fix hydration mismatch
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Auto logout after 30 minutes of inactivity
   useAutoLogout({
@@ -293,6 +323,19 @@ export default function OrderDetailPage() {
           } catch (error) {
             console.error('Failed to fetch shipping address:', error);
             // Don't fail the whole order fetch if address fails
+          }
+        }
+
+        // Fetch tracking logs if order is in shipping status
+        if (['SHIPPING', 'DELIVERED'].includes(apiOrder.status)) {
+          try {
+            console.log('Fetching tracking logs for order:', orderId);
+            const trackingResponse = await orderTrackingApiService.getTrackingLogs(orderId);
+            console.log('Tracking logs response:', trackingResponse);
+            setTrackingLogs(trackingResponse);
+          } catch (error) {
+            console.error('Failed to fetch tracking logs:', error);
+            // Don't fail if tracking logs fetch fails
           }
         }
 
@@ -622,17 +665,47 @@ export default function OrderDetailPage() {
               </div>
             </Card>
 
-            {/* Order Timeline - TODO: Add tracking events from API */}
+            {/* Package Tracking Timeline */}
             {order.trackingNumber && (
-              <Card title="Mã vận đơn" className="shadow-sm">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+              <Card title="Package Tracking" className="shadow-sm">
+                <div className="space-y-4">
+                  {/* Tracking Number */}
+                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
                     <TruckOutlined className="text-blue-600" />
-                    <Text strong>{order.trackingNumber}</Text>
+                    <div>
+                      <Text strong>Tracking Number: {order.trackingNumber}</Text>
+                      {order.estimatedDelivery && (
+                        <div className="text-sm text-gray-600">
+                          Expected delivery: {isClient ? new Date(order.estimatedDelivery).toLocaleString('en-US') : 'Loading...'}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {order.estimatedDelivery && (
-                    <div className="text-sm text-gray-600">
-                      Dự kiến giao: {new Date(order.estimatedDelivery).toLocaleString('vi-VN')}
+
+                  {/* Tracking Timeline */}
+                  {trackingLogs.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="font-medium text-gray-700">Tracking History:</div>
+                      <Timeline
+                        items={trackingLogs.map((log, index) => ({
+                          color: index === 0 ? 'green' : 'blue',
+                          children: (
+                            <div className="space-y-1">
+                              <div className="font-medium">{log.statusDescription}</div>
+                              <div className="text-sm text-gray-600">{log.currentLocation}</div>
+                              <div className="text-xs text-gray-500">
+                                {isClient ? new Date(log.updatedAt).toLocaleString('en-US') : 'Loading...'}
+                              </div>
+                              <div className="text-xs text-gray-400">Carrier: {log.carrier}</div>
+                            </div>
+                          )
+                        }))}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      <TruckOutlined className="text-2xl mb-2" />
+                      <div>Tracking information will be updated once package is shipped</div>
                     </div>
                   )}
                 </div>
@@ -732,13 +805,7 @@ export default function OrderDetailPage() {
               <div className="space-y-3 text-sm">
                 <div>
                   <Text type="secondary">Order Date:</Text>
-                  <div>{new Date(order.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</div>
+                  <div>{isClient ? formatDateTime(order.createdAt) : 'Loading...'}</div>
                 </div>
                 
                 {/* Shipping Address */}
@@ -765,7 +832,7 @@ export default function OrderDetailPage() {
                 {order.estimatedDelivery && order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
                   <div>
                     <Text type="secondary">Expected Delivery:</Text>
-                    <div>{new Date(order.estimatedDelivery).toLocaleDateString('en-US')}</div>
+                    <div>{isClient ? formatDate(order.estimatedDelivery) : 'Loading...'}</div>
                   </div>
                 )}
 
@@ -773,13 +840,7 @@ export default function OrderDetailPage() {
                   <div>
                     <Text type="secondary">Delivered Date:</Text>
                     <div className="text-green-600 font-medium">
-                      {new Date(order.deliveredAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {isClient ? formatDateTime(order.deliveredAt) : 'Loading...'}
                     </div>
                   </div>
                 )}
@@ -788,7 +849,7 @@ export default function OrderDetailPage() {
                   <div>
                     <Text type="secondary">Cancelled Date:</Text>
                     <div className="text-red-600">
-                      {new Date(order.cancelledDate).toLocaleDateString('en-US')}
+                      {isClient ? formatDate(order.cancelledDate) : 'Loading...'}
                     </div>
                     {order.cancelReason && (
                       <div className="text-xs text-gray-500 mt-1">
