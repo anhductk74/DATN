@@ -4,6 +4,7 @@ import { voucherApiService, VoucherResponseDto, VoucherType, DiscountType, calcu
 import { orderVoucherApiService } from '@/services/orderVoucherApiService';
 import { orderApiService, PaymentMethod } from '@/services/orderApiService';
 import { integratedOrderService } from '@/services/integratedOrderService';
+import { vnPayService, paymentStatusService } from "@/services";
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/contexts/UserProfileContext';
 import { useAntdApp } from '@/hooks/useAntdApp';
@@ -70,8 +71,14 @@ const paymentMethods = [
     description: "Pay when you receive your order"
   },
   {
+    id: "vnpay",
+    name: "VNPay",
+    icon: <CreditCardOutlined />,
+    description: "Pay securely with VNPay gateway"
+  },
+  {
     id: "card",
-    name: "Credit/Debit Card",
+    name: "Credit Card",
     icon: <CreditCardOutlined />,
     description: "Visa, Mastercard, JCB"
   },
@@ -268,6 +275,7 @@ export default function CheckoutPage() {
         // Map UI payment method to backend PaymentMethod enum
         const paymentMethodMapping: { [key: string]: string } = {
           'cod': 'COD',
+          'vnpay': 'CREDIT_CARD', // VNPay will be processed as CREDIT_CARD in backend
           'card': 'CREDIT_CARD', 
           'bank': 'CREDIT_CARD', // Map bank to CREDIT_CARD
           'wallet': 'E_WALLET'
@@ -344,24 +352,48 @@ export default function CheckoutPage() {
       }
 
       if (allOrdersSucceeded) {
-        message.success(`${orderResults.length} order(s) placed successfully!`);
-        
-        // Clear checkout items from sessionStorage
-        sessionStorage.removeItem('checkout_items');
-        
-        // Remove only the ordered items from cart (not clear all)
-        try {
-          for (const item of items) {
-            if (item.cartItemId) {
-              await removeItem(item.cartItemId);
+        // Handle different payment methods
+        if (selectedPayment === 'vnpay') {
+          // For VNPay, redirect to payment gateway
+          const paymentSuccess = await handleVnPayPayment(orderResults);
+          if (paymentSuccess) {
+            // Clear checkout items from sessionStorage before redirect
+            sessionStorage.removeItem('checkout_items');
+            
+            // Remove only the ordered items from cart (not clear all)
+            try {
+              for (const item of items) {
+                if (item.cartItemId) {
+                  await removeItem(item.cartItemId);
+                }
+              }
+            } catch (error) {
+              console.warn('Failed to remove some items from cart:', error);
             }
+            // VNPay will handle redirect after payment completion
+            return;
           }
-        } catch (error) {
-          console.warn('Failed to remove some items from cart:', error);
+        } else {
+          // For other payment methods (COD, etc.)
+          message.success(`${orderResults.length} order(s) placed successfully!`);
+          
+          // Clear checkout items from sessionStorage
+          sessionStorage.removeItem('checkout_items');
+          
+          // Remove only the ordered items from cart (not clear all)
+          try {
+            for (const item of items) {
+              if (item.cartItemId) {
+                await removeItem(item.cartItemId);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to remove some items from cart:', error);
+          }
+          
+          // Navigate to orders page
+          router.push("/my-orders");
         }
-        
-        // Navigate to orders page
-        router.push("/my-orders");
       } else {
         const successCount = orderResults.filter(r => r.success).length;
         if (successCount > 0) {
@@ -383,6 +415,52 @@ export default function CheckoutPage() {
       setSelectedVouchers(prev => prev.filter(id => id !== voucherId));
     } else {
       setSelectedVouchers(prev => [...prev, voucherId]);
+    }
+  };
+
+  // Handle VNPay payment
+  const handleVnPayPayment = async (orderResults: any[]) => {
+    const currentUserId = userProfile?.id || user?.id;
+    if (!currentUserId) {
+      message.error("Please login to make payment");
+      return false;
+    }
+
+    try {
+      // Get the first successful order for payment (assuming single payment for all orders)
+      const successfulOrder = orderResults.find(result => result.success && result.order);
+      if (!successfulOrder) {
+        message.error("No valid order found for payment");
+        return false;
+      }
+
+      const orderId = successfulOrder.order.id;
+      
+      // Lưu thông tin đơn hàng vào sessionStorage để theo dõi trạng thái
+      const paymentInfo = {
+        orderIds: orderResults.filter(r => r.success).map(r => r.order.id),
+        totalAmount: total,
+        timestamp: Date.now(),
+        paymentMethod: 'vnpay'
+      };
+      paymentStatusService.savePendingPayment(paymentInfo);
+
+      // Create payment URL with VNPay - format orderInfo theo yêu cầu
+      const orderInfo = `OrderId:${orderId}|Thanh toan don hang #${orderId}`;
+      const paymentUrl = await vnPayService.createPaymentUrl({
+        amount: total, // Use total checkout amount
+        orderInfo: orderInfo,
+        userId: currentUserId,
+        orderId: orderId // Truyền orderId trực tiếp để backend liên kết
+      });
+
+      // Redirect to VNPay payment page
+      window.location.href = paymentUrl;
+      return true;
+    } catch (error) {
+      console.error('VNPay payment failed:', error);
+      message.error("Failed to initialize VNPay payment. Please try again.");
+      return false;
     }
   };
 

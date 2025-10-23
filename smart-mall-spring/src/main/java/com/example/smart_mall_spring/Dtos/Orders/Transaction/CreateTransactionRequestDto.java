@@ -1,6 +1,8 @@
 package com.example.smart_mall_spring.Dtos.Orders.Transaction;
+
 import lombok.Data;
 import java.sql.Date;
+import java.util.UUID;
 
 @Data
 public class CreateTransactionRequestDto {
@@ -11,4 +13,7 @@ public class CreateTransactionRequestDto {
     private Date transactionDate;
     private Integer status;
     private String bankTransactionName;
+
+    // Thêm orderId để liên kết với Order
+    private UUID orderId;
 }

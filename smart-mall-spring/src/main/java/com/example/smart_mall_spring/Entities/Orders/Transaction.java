@@ -1,4 +1,5 @@
 package com.example.smart_mall_spring.Entities.Orders;
+
 import com.example.smart_mall_spring.Entities.Users.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -47,4 +48,9 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    // Liên kết với Order
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
 }

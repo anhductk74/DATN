@@ -146,6 +146,8 @@ public class OrderService {
         payment.setMethod(dto.getPaymentMethod());
         payment.setAmount(finalAmount);
         payment.setPaidAt(LocalDateTime.now());
+        payment.setStatus(PaymentStatus.PENDING); // Trạng thái chờ thanh toán
+        payment.setTransactionId(UUID.randomUUID().toString()); // sinh tạm transactionId
         paymentRepository.save(payment);
         order.setPayment(payment);
         // gán các giá trị tiền ệ

@@ -1,7 +1,5 @@
 package com.example.smart_mall_spring.Controllers;
 
-
-
 import com.example.smart_mall_spring.Dtos.Orders.Transaction.VnPayPaymentResponseDto;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Repositories.UserRepository;
@@ -22,22 +20,24 @@ public class VnPayController {
     private final UserRepository userRepository;
 
     /**
-     * API tạo URL thanh toán
+     * API tạo URL thanh toán VNPay
      */
     @PostMapping("/create")
     public String createPayment(
             HttpServletRequest request,
             @RequestParam double amount,
             @RequestParam String orderInfo,
-            @RequestParam UUID userId
-    ) {
+            @RequestParam UUID userId) {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // ⚙️ Gọi service tạo URL thanh toán
         return vnPayService.createPaymentUrl(request, amount, orderInfo, user);
     }
 
     /**
-     * API callback từ VNPay
+     * API callback khi VNPay redirect về
      */
     @GetMapping("/payment-return")
     public VnPayPaymentResponseDto paymentReturn(@RequestParam Map<String, String> params) {
@@ -51,10 +51,11 @@ public class VnPayController {
     public VnPayPaymentResponseDto refundPayment(
             @RequestParam String transactionCode,
             @RequestParam double amount,
-            @RequestParam UUID userId
-    ) {
+            @RequestParam UUID userId) {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
         return vnPayService.refundPayment(transactionCode, amount, user);
     }
 }

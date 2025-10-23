@@ -18,4 +18,8 @@ public class TransactionResponseDto {
     private String bankTransactionName;
     private UUID userId;
     private String userName;
+
+    // Thêm thông tin order liên quan
+    private UUID orderId;
+    private String orderCode;
 }

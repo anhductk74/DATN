@@ -20,10 +20,12 @@ export { shippingFeeApiService } from './shippingFeeApiService';
 export { voucherApiService } from './voucherApiService';
 // export { notificationApiService } from './notificationApiService';
 export { addressApiService } from './addressApiService';
+export { vnPayService } from './vnPayService';
 
 
 // Export service wrappers and integrated services
-export { orderServiceWrapper, paymentServiceWrapper } from './serviceWrappers';
+export * from './serviceWrappers';
+export * from './paymentStatusService';
 export { integratedOrderService, IntegratedOrderService } from './integratedOrderService';
 
 // Export types from common types
