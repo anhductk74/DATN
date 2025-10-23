@@ -193,11 +193,19 @@ const ChatWidget: React.FC = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
+    // Multiple layers of protection against duplicate sends
     if (!messageText.trim() || !selectedUser || !currentUserId || sending) {
+      console.log('Send blocked:', { 
+        hasText: !!messageText.trim(), 
+        hasUser: !!selectedUser, 
+        hasCurrentUser: !!currentUserId, 
+        sending 
+      });
       return;
     }
 
     const textToSend = messageText.trim();
+    console.log('Sending message:', textToSend);
     
     try {
       setSending(true);
@@ -208,6 +216,7 @@ const ChatWidget: React.FC = () => {
         selectedUser.id,
         textToSend
       );
+      console.log('Message sent successfully');
     } catch (error) {
       console.error("Error sending message:", error);
       // Restore message nếu gửi failed
@@ -514,27 +523,31 @@ const ChatWidget: React.FC = () => {
                       padding: "12px 16px",
                       borderTop: "1px solid #f0f0f0",
                       backgroundColor: "white",
+                      display: "flex",
+                      gap: "8px",
                     }}
                   >
-                    <Input.Search
+                    <Input
                       placeholder="Nhập tin nhắn..."
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}
-                      onSearch={handleSendMessage}
                       onPressEnter={(e) => {
                         e.preventDefault();
-                        handleSendMessage();
+                        if (!sending && messageText.trim()) {
+                          handleSendMessage();
+                        }
                       }}
-                      enterButton={
-                        <Button
-                          type="primary"
-                          icon={<SendOutlined />}
-                          loading={sending}
-                          disabled={sending || !messageText.trim()}
-                        />
-                      }
                       size="large"
                       disabled={sending}
+                      style={{ flex: 1 }}
+                    />
+                    <Button
+                      type="primary"
+                      icon={<SendOutlined />}
+                      onClick={handleSendMessage}
+                      loading={sending}
+                      disabled={sending || !messageText.trim()}
+                      size="large"
                     />
                   </div>
                 </>
