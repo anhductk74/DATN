@@ -9,6 +9,7 @@ export { default as cartService } from './CartService';
 export { default as orderService } from './OrderService';
 export { default as reviewService } from './ReviewService';
 export { default as addressService } from './AddressService';
+export { ChatService } from './ChatService';
 
 // New API services based on backend controllers
 export { orderApiService } from './OrderApiService';

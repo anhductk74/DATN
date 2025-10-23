@@ -25,7 +25,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 
-// Initialize Firestore
+// Initialize Firestore (sử dụng cho Chat)
 export const db = getFirestore(app);
 
 // Initialize Analytics (only on client side)

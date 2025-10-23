@@ -8,6 +8,8 @@ import AntdProvider from "@/components/AntdProvider";
 import SessionProvider from "@/components/SessionProvider";
 import QueryProvider from "@/components/QueryProvider";
 import ClearLegacyStorage from "@/components/ClearLegacyStorage";
+import ChatWidget from "@/components/ChatWidget";
+import ChatUserSync from "@/components/ChatUserSync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,7 +48,9 @@ export default function RootLayout({
                 <UserProfileProvider>
                   <CartProvider>
                     <ClearLegacyStorage />
+                    <ChatUserSync />
                     {children}
+                    <ChatWidget />
                   </CartProvider>
                 </UserProfileProvider>
               </AuthProvider>
