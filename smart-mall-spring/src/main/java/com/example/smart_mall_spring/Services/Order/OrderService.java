@@ -329,6 +329,7 @@ public class OrderService {
                 .shopId(order.getShop().getId())
                 .addressId(order.getShippingAddress().getId())
                 .shopName(order.getShop().getName())
+                .shopAvatar(order.getShop().getAvatar())
                 .status(order.getStatus())
                 .totalAmount(subtotal)
                 .shippingFee(shippingFee)

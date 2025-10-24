@@ -95,10 +95,14 @@ const orderService = {
       // Try direct order endpoint first
       const response = await apiClient.get<Order | { data: Order }>(`/orders/${orderId}`);
       
+      console.log('Direct order endpoint response:', response.data);
+      
       // Handle both response formats
       if ('data' in response.data) {
+        console.log('Returning wrapped response data:', response.data.data);
         return response.data.data;
       } else {
+        console.log('Returning direct response data:', response.data);
         return response.data as Order;
       }
     } catch (error: any) {

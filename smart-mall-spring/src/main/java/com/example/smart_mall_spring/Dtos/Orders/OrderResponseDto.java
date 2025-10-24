@@ -25,6 +25,7 @@ public class OrderResponseDto {
     private UUID userId;
     private String userName;
     private UUID shopId;
+    private String shopAvatar;
     private  UUID addressId;
     private String shopName;
     private StatusOrder status;

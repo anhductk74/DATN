@@ -43,6 +43,8 @@ function transformApiOrderToLocal(apiOrder: ApiOrder): Order {
     return fallback;
   };
   
+
+
   return {
     id: apiOrder.id,
     shopName: apiOrder.shopName || "Smart Mall",
@@ -80,8 +82,9 @@ export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const router = useRouter();
   const { session, status, user } = useAuth();
   const { userProfile } = useUserProfile();
@@ -93,6 +96,25 @@ export default function MyOrdersPage() {
       router.push("/login");
     },
   });
+
+  // Function to refresh orders when needed
+  const refreshOrders = async () => {
+    const currentUserId = userProfile?.id || user?.id;
+    if (!currentUserId || status !== "authenticated") return;
+    
+    setLoading(true);
+    try {
+      const response = await orderService.getUserOrders(currentUserId);
+      const transformedOrders = response.content.map(transformApiOrderToLocal);
+      setOrders(transformedOrders);
+      setTotalPages(response.totalPages);
+    } catch (error: any) {
+      console.error("Failed to refresh orders:", error);
+      message.error(error?.response?.data?.message || "Không thể tải danh sách đơn hàng");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -107,9 +129,12 @@ export default function MyOrdersPage() {
       
       const currentUserId = userProfile?.id || user?.id;
       if (!currentUserId) {
-        message.error("Unable to get user information");
+        setLoading(false);
         return;
       }
+      
+      // Prevent loading if already loaded and user hasn't changed
+      if (hasLoaded && currentUserId) return;
       
       setLoading(true);
       try {
@@ -117,6 +142,7 @@ export default function MyOrdersPage() {
         const transformedOrders = response.content.map(transformApiOrderToLocal);
         setOrders(transformedOrders);
         setTotalPages(response.totalPages);
+        setHasLoaded(true);
       } catch (error: any) {
         console.error("Failed to load orders:", error);
         message.error(error?.response?.data?.message || "Không thể tải danh sách đơn hàng");
@@ -125,8 +151,13 @@ export default function MyOrdersPage() {
       }
     };
 
-    loadOrders();
-  }, [status, currentPage, userProfile, user]);
+    // Only load when we have authentication status and user info
+    if (status === "authenticated" && (userProfile?.id || user?.id)) {
+      loadOrders();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
+    }
+  }, [status, userProfile?.id, user?.id, hasLoaded]);
 
   // Filter orders based on active tab
   const filteredOrders = orders.filter(order => {
@@ -175,13 +206,14 @@ export default function MyOrdersPage() {
     try {
       await orderService.cancelOrder(orderId);
       
-      // Reload orders after cancellation
-      const currentUserId = userProfile?.id || user?.id;
-      if (currentUserId) {
-        const response = await orderService.getUserOrders(currentUserId);
-        const transformedOrders = response.content.map(transformApiOrderToLocal);
-        setOrders(transformedOrders);
-      }
+      // Update local state instead of reloading from API
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: 'CANCELLED' as Order['status'] }
+            : order
+        )
+      );
       
       message.success("Đã hủy đơn hàng thành công");
     } catch (error: any) {
@@ -254,8 +286,8 @@ export default function MyOrdersPage() {
             onReview={handleReview}
           />
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
+          {/* Pagination Controls - Hidden for now since backend doesn't support pagination */}
+          {false && totalPages > 1 && (
             <div className="mt-6 flex justify-center">
               <div className="flex gap-2">
                 <button

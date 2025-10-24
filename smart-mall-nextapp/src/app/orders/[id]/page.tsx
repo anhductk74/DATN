@@ -39,6 +39,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
 import { orderService, addressApiService, orderTrackingApiService } from "@/services";
+import orderReturnRequestApiService, { OrderReturnRequestDto, OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
 
 // Define Order interface for this page
 interface OrderItem {
@@ -71,6 +72,13 @@ interface Order {
   cancelReason?: string;
   addressId?: string;
   vouchers?: any[];
+  statusHistories?: Array<{
+    id: string;
+    fromStatus: string | null;
+    toStatus: string;
+    note: string;
+    changedAt: string;
+  }>;
 }
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
@@ -194,6 +202,8 @@ const transformApiOrderToLocal = (apiOrder: any): Order => {
 
 
 
+
+
   return {
     id: apiOrder.id.toString(),
     orderNumber: apiOrder.orderNumber || apiOrder.id.toString(),
@@ -222,11 +232,12 @@ const transformApiOrderToLocal = (apiOrder: any): Order => {
     trackingNumber: apiOrder.trackingNumber || apiOrder.orderNumber,
     shippingAddress: apiOrder.shippingAddress,
     paymentMethod: apiOrder.paymentMethod || 'COD',
-    deliveredAt: apiOrder.deliveredAt,
+    deliveredAt: apiOrder.deliveredAt || (apiOrder.status === 'DELIVERED' ? new Date().toISOString() : undefined),
     cancelledDate: apiOrder.cancelledAt,
     cancelReason: apiOrder.cancelReason,
     addressId: apiOrder.addressId,
-    vouchers: apiOrder.vouchers
+    vouchers: apiOrder.vouchers,
+    statusHistories: apiOrder.statusHistories || []
   };
 };
 
@@ -240,11 +251,24 @@ export default function OrderDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackForm] = Form.useForm();
+  const [returnRequestModalOpen, setReturnRequestModalOpen] = useState(false);
+  const [returnRequestForm] = Form.useForm();
+  const [returnImages, setReturnImages] = useState<File[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const { session, status, user } = useAuth();
   const { userProfile } = useUserProfile();
 
   const orderId = params.id as string;
+
+  // Reset state when orderId changes
+  useEffect(() => {
+    setOrder(null);
+    setShippingAddress(null);
+    setTrackingLogs([]);
+    setHasLoaded(false);
+    setNotFound(false);
+  }, [orderId]);
 
   // Fix hydration mismatch
   useEffect(() => {
@@ -268,46 +292,46 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     const loadOrderDetail = async () => {
+      if (status !== "authenticated") return;
+      
+      const currentUserId = userProfile?.id || user?.id;
+      if (!currentUserId) {
+        setLoading(false);
+        return;
+      }
+
+      // Prevent reload if already loaded with same data
+      if (hasLoaded && order && order.id === orderId) return;
+      
       setLoading(true);
       try {
-        console.log('Loading order detail for ID:', orderId);
         
         let apiOrder;
         
-        // Always use user context method for consistency with my-orders
-        const currentUserId = userProfile?.id || user?.id;
-        if (!currentUserId) {
-          throw new Error('User ID not available for order lookup');
-        }
-        
         try {
-          // Use same data source as my-orders for consistency
-          apiOrder = await orderService.getOrderWithUserContext(orderId, currentUserId);
+          // Use orderApiService directly to get full data including statusHistories
+          const { orderApiService } = await import('@/services');
+          apiOrder = await orderApiService.getOrderById(orderId);
           
-        } catch (userContextError: any) {
-          console.warn('User context method failed, trying direct:', userContextError);
-          
-          // Fallback to direct order endpoint only if user context fails
+        } catch (directError: any) {
+          // Fallback to orderService
           apiOrder = await orderService.getOrder(orderId);
-          console.log('API Order response (direct fallback):', apiOrder);
         }
         
         // Enrich shop data from product API if shopAvatar is missing
-        if (!apiOrder.shopAvatar || apiOrder.shopAvatar.trim() === '') {
-          console.log('Shop avatar missing, trying to enrich from product API...');
+        const shopAvatar = (apiOrder as any).shopAvatar;
+        if (!shopAvatar || shopAvatar.trim() === '') {
           apiOrder = await enrichShopDataFromProducts(apiOrder);
         }
         
         const transformedOrder = transformApiOrderToLocal(apiOrder);
-       
+        
         setOrder(transformedOrder);
 
         // Fetch shipping address if addressId exists
         if (apiOrder.addressId) {
           try {
-          
             const addressResponse = await addressApiService.getAddressById(apiOrder.addressId);
-           
             
             // Handle different response formats
             let addressData;
@@ -317,7 +341,6 @@ export default function OrderDetailPage() {
             } else {
               addressData = addressResponse;
             }
-            
             
             setShippingAddress(addressData);
           } catch (error) {
@@ -329,15 +352,15 @@ export default function OrderDetailPage() {
         // Fetch tracking logs if order is in shipping status
         if (['SHIPPING', 'DELIVERED'].includes(apiOrder.status)) {
           try {
-            console.log('Fetching tracking logs for order:', orderId);
             const trackingResponse = await orderTrackingApiService.getTrackingLogs(orderId);
-            console.log('Tracking logs response:', trackingResponse);
             setTrackingLogs(trackingResponse);
           } catch (error) {
             console.error('Failed to fetch tracking logs:', error);
             // Don't fail if tracking logs fetch fails
           }
         }
+
+        setHasLoaded(true);
 
       } catch (error: any) {
         console.error("Failed to load order:", error);
@@ -353,10 +376,13 @@ export default function OrderDetailPage() {
       }
     };
 
-    if (orderId && status === "authenticated") {
+    // Only load when we have all required data and haven't loaded yet
+    if (orderId && status === "authenticated" && (userProfile?.id || user?.id) && !hasLoaded) {
       loadOrderDetail();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
     }
-  }, [orderId, status, userProfile, user]);
+  }, [orderId, status, userProfile?.id, user?.id, hasLoaded]);
 
   const getOrderSteps = () => {
     const steps: Array<{title: string, status: "finish" | "error" | "wait" | "process"}> = [
@@ -397,10 +423,13 @@ export default function OrderDetailPage() {
         try {
           await orderService.cancelOrder(order.id);
           
-          // Reload order details
-          const apiOrder = await orderService.getOrder(order.id);
-          const transformedOrder = transformApiOrderToLocal(apiOrder);
-          setOrder(transformedOrder);
+          // Update local state instead of reloading from API
+          setOrder(prevOrder => prevOrder ? {
+            ...prevOrder,
+            status: 'CANCELLED' as Order['status'],
+            cancelledDate: new Date().toISOString(),
+            cancelReason: 'Cancelled by customer'
+          } : null);
           
           message.success("Đã hủy đơn hàng thành công");
         } catch (error: any) {
@@ -409,6 +438,28 @@ export default function OrderDetailPage() {
         }
       }
     });
+  };
+
+  // Check if order can be returned (within 3 days of delivery)
+  const canReturnOrder = () => {
+    if (order?.status !== 'DELIVERED') {
+      return false;
+    }
+    
+    // Find the status history entry when order changed to DELIVERED
+    const deliveredStatusHistory = order?.statusHistories?.find(
+      history => history.toStatus === 'DELIVERED'
+    );
+    
+    if (!deliveredStatusHistory) {
+      return false;
+    }
+    
+    const deliveredDate = new Date(deliveredStatusHistory.changedAt);
+    const currentDate = new Date();
+    const daysDifference = (currentDate.getTime() - deliveredDate.getTime()) / (1000 * 3600 * 24);
+    
+    return daysDifference <= 3;
   };
 
   const handleSubmitFeedback = async (values: any) => {
@@ -421,6 +472,37 @@ export default function OrderDetailPage() {
       feedbackForm.resetFields();
     } catch (error) {
       message.error("Failed to submit feedback");
+    }
+  };
+
+  const handleSubmitReturnRequest = async (values: any) => {
+    if (!order) return;
+    
+    const currentUserId = userProfile?.id || user?.id;
+    if (!currentUserId) return;
+    
+    try {
+      await orderReturnRequestApiService.createReturnRequest(
+        order.id,
+        currentUserId,
+        values.reason,
+        returnImages
+      );
+      
+      message.success("Yêu cầu hoàn trả đã được gửi thành công!");
+      setReturnRequestModalOpen(false);
+      returnRequestForm.resetFields();
+      setReturnImages([]);
+      
+      // Update order status locally
+      setOrder(prevOrder => prevOrder ? {
+        ...prevOrder,
+        status: 'RETURN_REQUESTED' as Order['status']
+      } : null);
+      
+    } catch (error: any) {
+      console.error("Failed to submit return request:", error);
+      message.error(error?.response?.data?.message || "Không thể gửi yêu cầu hoàn trả");
     }
   };
 
@@ -876,6 +958,31 @@ export default function OrderDetailPage() {
                 
                 {order.status === "DELIVERED" && (
                   <>
+
+                    
+                    {canReturnOrder() && (
+                      <Button 
+                        className="w-full bg-gradient-to-r from-red-500 to-pink-600 text-white border-0 rounded-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold shadow-lg py-3"
+                        onClick={() => setReturnRequestModalOpen(true)}
+                      >
+                        🔄 Return Request
+                      </Button>
+                    )}
+                    
+                    {/* Show when return is not available */}
+                    {!canReturnOrder() && order.status === "DELIVERED" && (
+                      <div className="text-xs text-gray-500 mb-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                        {(() => {
+                          const deliveredHistory = order.statusHistories?.find(h => h.toStatus === 'DELIVERED');
+                          if (deliveredHistory) {
+                            const deliveredDate = new Date(deliveredHistory.changedAt);
+                            const expireDate = new Date(deliveredDate.getTime() + (3 * 24 * 60 * 60 * 1000));
+                            return `Return period expired. Returns were available until ${expireDate.toLocaleDateString('en-US')}`;
+                          }
+                          return 'Return period expired or no delivery date available';
+                        })()}
+                      </div>
+                    )}
                     {/* <Button 
                       type="primary" 
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 rounded-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold shadow-lg py-3"
@@ -1096,6 +1203,232 @@ export default function OrderDetailPage() {
               className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
             >
               🚀 Submit Feedback
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Return Request Modal */}
+      <Modal
+        title={
+          <div className="flex items-center space-x-3 pb-4 border-b">
+            <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-600 rounded-full flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-gray-800">Request Return</div>
+              <div className="text-sm text-gray-500">Submit a return request for this order</div>
+            </div>
+          </div>
+        }
+        open={returnRequestModalOpen}
+        onCancel={() => {
+          setReturnRequestModalOpen(false);
+          returnRequestForm.resetFields();
+          setReturnImages([]);
+        }}
+        footer={null}
+        width={700}
+        className="return-request-modal"
+      >
+        <Form
+          form={returnRequestForm}
+          layout="vertical"
+          onFinish={handleSubmitReturnRequest}
+          className="mt-6"
+        >
+          {/* Order Summary */}
+          <div className="bg-red-50 p-4 rounded-lg mb-6 border border-red-200">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <Text strong className="text-red-800">Return Request Information</Text>
+                <div className="text-sm text-red-600">
+                  Return window: {(() => {
+                    const deliveredHistory = order?.statusHistories?.find(h => h.toStatus === 'DELIVERED');
+                    if (deliveredHistory && canReturnOrder()) {
+                      const deliveredDate = new Date(deliveredHistory.changedAt);
+                      const currentDate = new Date();
+                      const daysRemaining = Math.ceil(3 - (currentDate.getTime() - deliveredDate.getTime()) / (1000 * 3600 * 24));
+                      return `${daysRemaining} days remaining`;
+                    }
+                    return 'Return period expired';
+                  })()}
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-3 rounded-lg border">
+              <div className="flex items-center space-x-3 mb-2">
+                <Avatar 
+                  src={order?.shopAvatar && order?.shopAvatar.trim() !== '' ? order?.shopAvatar : null} 
+                  size="small" 
+                  icon={<ShopOutlined />} 
+                />
+                <Text strong className="text-gray-800">{order?.shopName}</Text>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {order?.items.map(item => (
+                  <div key={item.id} className="flex items-center space-x-3 bg-gray-50 p-2 rounded-lg">
+                    <Image
+                      src={item.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=40&h=40&fit=crop&crop=center'}
+                      alt={item.name}
+                      width={40}
+                      height={40}
+                      className="rounded object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=40&h=40&fit=crop&crop=center';
+                      }}
+                    />
+                    <div className="flex-1">
+                      <Text className="text-sm font-medium text-gray-800">{item.name}</Text>
+                      <div className="text-xs text-gray-500">{item.variant}</div>
+                      <div className="text-xs text-gray-500">Qty: {item.quantity}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Return Reason */}
+          <Form.Item
+            label={<span className="text-gray-700 font-medium">Reason for Return</span>}
+            name="reason"
+            rules={[
+              { required: true, message: 'Please provide a reason for return!' },
+              { min: 10, message: 'Reason must be at least 10 characters long!' }
+            ]}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder="Please describe why you want to return this order (e.g., damaged items, wrong product, not as described, etc.)"
+              className="resize-none"
+              showCount
+              maxLength={500}
+            />
+          </Form.Item>
+
+          {/* Common Return Reasons */}
+          <Form.Item label={<span className="text-gray-700 font-medium">Common Reasons (Optional)</span>}>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {[
+                { key: 'damaged', label: '📦 Damaged Product', reason: 'Product arrived damaged or broken' },
+                { key: 'wrong', label: '❌ Wrong Item', reason: 'Received wrong product or variant' },
+                { key: 'quality', label: '⭐ Poor Quality', reason: 'Product quality is not as expected' },
+                { key: 'description', label: '📝 Not as Described', reason: 'Product does not match description or photos' },
+                { key: 'size', label: '📏 Size Issue', reason: 'Product size or fit is incorrect' },
+                { key: 'defective', label: '🔧 Defective', reason: 'Product has manufacturing defects or does not work properly' }
+              ].map(reason => (
+                <Button
+                  key={reason.key}
+                  type="default"
+                  size="small"
+                  className="h-auto py-2 px-2 text-xs border-gray-300 hover:border-red-400 hover:text-red-600 hover:bg-red-50 rounded text-left"
+                  onClick={() => returnRequestForm.setFieldsValue({ reason: reason.reason })}
+                >
+                  {reason.label}
+                </Button>
+              ))}
+            </div>
+          </Form.Item>
+
+          {/* Evidence Photos */}
+          <Form.Item
+            label={<span className="text-gray-700 font-medium">Evidence Photos (Required)</span>}
+            name="photos"
+            rules={[{ required: true, message: 'Please upload at least one photo as evidence!' }]}
+          >
+            <Upload
+              listType="picture-card"
+              maxCount={5}
+              multiple
+              beforeUpload={(file) => {
+                const isImage = file.type.startsWith('image/');
+                if (!isImage) {
+                  message.error('You can only upload image files!');
+                  return false;
+                }
+                
+                const isLt5M = file.size / 1024 / 1024 < 5;
+                if (!isLt5M) {
+                  message.error('Image must be smaller than 5MB!');
+                  return false;
+                }
+
+                setReturnImages(prev => [...prev, file]);
+                return false; // Prevent auto upload
+              }}
+              onRemove={(file) => {
+                const fileName = file.name || '';
+                setReturnImages(prev => prev.filter(item => item.name !== fileName));
+              }}
+              fileList={returnImages.map((file, index) => ({
+                uid: `${file.name}-${index}`,
+                name: file.name,
+                status: 'done' as const,
+                url: URL.createObjectURL(file)
+              }))}
+            >
+              {returnImages.length >= 5 ? null : (
+                <div className="text-center">
+                  <CameraOutlined className="text-2xl text-gray-400 mb-2" />
+                  <div className="text-sm text-gray-500">Upload Photo</div>
+                </div>
+              )}
+            </Upload>
+            <div className="text-xs text-gray-400 mt-2">
+              📸 Upload clear photos showing the issue (max 5 photos, 5MB each)
+              <br />• Product damage or defects
+              <br />• Wrong items received  
+              <br />• Packaging condition
+            </div>
+          </Form.Item>
+
+          {/* Return Policy Notice */}
+          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6">
+            <div className="flex items-start space-x-3">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <div className="text-sm font-medium text-yellow-800">Return Policy</div>
+                <ul className="text-xs text-yellow-700 mt-1 space-y-1">
+                  <li>• Returns must be requested within 3 days of delivery</li>
+                  <li>• Items must be in original condition with tags attached</li>
+                  <li>• Clear photos showing the issue are required</li>
+                  <li>• Processing time: 3-5 business days after approval</li>
+                  <li>• Refund will be processed to original payment method</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Buttons */}
+          <div className="flex space-x-3 pt-4">
+            <Button 
+              onClick={() => {
+                setReturnRequestModalOpen(false);
+                returnRequestForm.resetFields();
+                setReturnImages([]);
+              }}
+              className="flex-1 h-12 text-gray-600 border-gray-300 hover:border-gray-400"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="primary" 
+              htmlType="submit"
+              className="flex-1 h-12 bg-gradient-to-r from-red-500 to-pink-600 border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              disabled={returnImages.length === 0}
+            >
+              🔄 Submit Return Request
             </Button>
           </div>
         </Form>

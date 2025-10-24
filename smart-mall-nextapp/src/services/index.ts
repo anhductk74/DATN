@@ -15,6 +15,7 @@ export { orderApiService } from './orderApiService';
 export { orderItemApiService } from './orderItemApiService';
 export { orderTrackingApiService } from './orderTrackingApiService';
 export { orderVoucherApiService } from './orderVoucherApiService';
+export { orderReturnRequestApiService } from './orderReturnRequestApiService';
 export { paymentApiService } from './paymentApiService';
 export { shippingFeeApiService } from './shippingFeeApiService';
 export { voucherApiService } from './voucherApiService';
@@ -49,6 +50,12 @@ export type {
   ApplyVoucherRequestDto, 
   OrderVoucherResponseDto 
 } from './orderVoucherApiService';
+export type { 
+  OrderReturnRequestDto,
+  OrderReturnResponseDto,
+  OrderReturnImageResponseDto
+} from './orderReturnRequestApiService';
+export { ReturnStatus } from './orderReturnRequestApiService';
 export type { 
   CreatePaymentRequestDto, 
   PaymentResponseDto, 
