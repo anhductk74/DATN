@@ -240,7 +240,7 @@ const ChatWidget: React.FC = () => {
           console.log('Images uploaded:', imageUrls);
         } catch (error) {
           console.error('Error uploading images:', error);
-          messageApi.error('Lỗi khi upload ảnh');
+          messageApi.error('Error uploading images');
           // Restore nếu upload failed
           setMessageText(textToSend);
           setFileList(filesToUpload);
@@ -260,7 +260,7 @@ const ChatWidget: React.FC = () => {
       console.log('Message sent successfully');
     } catch (error) {
       console.error("Error sending message:", error);
-      messageApi.error('Lỗi khi gửi tin nhắn');
+      messageApi.error('Error sending message');
       // Restore message nếu gửi failed
       setMessageText(textToSend);
       setFileList(filesToUpload);
@@ -276,13 +276,11 @@ const ChatWidget: React.FC = () => {
     const newFiles = Array.from(files)
       .map((file, index) => {
         // Validate file
-        const validation = ImageUploadService.validateImage(file);
-        if (!validation.valid) {
-          messageApi.error(validation.error || 'File không hợp lệ');
-          return null;
-        }
-
-        return {
+      const validation = ImageUploadService.validateImage(file);
+      if (!validation.valid) {
+        messageApi.error(validation.error || 'Invalid file');
+        return null;
+      }        return {
           uid: `${Date.now()}-${index}`,
           name: file.name,
           status: 'done' as const,
@@ -380,11 +378,11 @@ const ChatWidget: React.FC = () => {
             position: "fixed",
             bottom: "96px",
             right: "24px",
-            width: "700px",
-            height: "500px",
+            width: "750px",
+            height: "600px",
             backgroundColor: "white",
-            borderRadius: "12px",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+            borderRadius: "16px",
+            boxShadow: "0 12px 40px rgba(0, 0, 0, 0.2)",
             display: "flex",
             flexDirection: "column",
             zIndex: 1000,
@@ -394,23 +392,27 @@ const ChatWidget: React.FC = () => {
           {/* Header */}
           <div
             style={{
-              padding: "16px 20px",
-              borderBottom: "1px solid #f0f0f0",
+              padding: "20px 24px",
+              borderBottom: "1px solid #e8e8e8",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              backgroundColor: "#1890ff",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               color: "white",
             }}
           >
-            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
-              {selectedUser ? selectedUser.name : "Tin nhắn"}
+            <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>
+              💬 Messages
             </h3>
             <Button
               type="text"
               icon={<CloseOutlined />}
               onClick={() => setIsOpen(false)}
-              style={{ color: "white" }}
+              style={{ 
+                color: "white",
+                fontSize: "16px",
+              }}
+              size="large"
             />
           </div>
 
@@ -419,21 +421,21 @@ const ChatWidget: React.FC = () => {
             {/* User List */}
             <div
               style={{
-                width: "250px",
-                borderRight: "1px solid #f0f0f0",
+                width: "280px",
+                borderRight: "1px solid #e8e8e8",
                 overflowY: "auto",
+                backgroundColor: "#fafafa",
               }}
             >
               {chatRooms.length === 0 ? (
                 <div
                   style={{
-                    padding: "20px",
+                    padding: "40px 20px",
                     textAlign: "center",
-                    color: "#999",
                   }}
                 >
                   <Empty
-                    description="Chưa có cuộc trò chuyện"
+                    description="No conversations yet"
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                   />
                 </div>
@@ -448,64 +450,67 @@ const ChatWidget: React.FC = () => {
 
                   if (!userInfo) return null;
 
+                  const isSelected = selectedUser?.id === userInfo.id;
+
                   return (
                     <div
                       key={room.id}
                       onClick={() => handleSelectUser(room)}
                       style={{
-                        padding: "12px 16px",
+                        padding: "16px 20px",
                         cursor: "pointer",
                         borderBottom: "1px solid #f0f0f0",
-                        backgroundColor:
-                          selectedUser?.id === userInfo.id
-                            ? "#e6f7ff"
-                            : "transparent",
-                        transition: "background-color 0.2s",
+                        backgroundColor: isSelected ? "#e6f7ff" : "white",
+                        transition: "all 0.2s ease",
+                        borderLeft: isSelected ? "3px solid #667eea" : "3px solid transparent",
                       }}
                       onMouseEnter={(e) => {
-                        if (selectedUser?.id !== userInfo.id) {
+                        if (!isSelected) {
                           e.currentTarget.style.backgroundColor = "#f5f5f5";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (selectedUser?.id !== userInfo.id) {
-                          e.currentTarget.style.backgroundColor =
-                            "transparent";
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "white";
                         }
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <Avatar
-                          src={userInfo.avatar}
-                          icon={<UserOutlined />}
-                          size={40}
-                        />
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <Badge dot={room.lastMessage && !isSelected}>
+                          <Avatar
+                            src={userInfo.avatar}
+                            icon={<UserOutlined />}
+                            size={48}
+                            style={{ flexShrink: 0 }}
+                          />
+                        </Badge>
                         <div
                           style={{
-                            marginLeft: "12px",
                             flex: 1,
                             overflow: "hidden",
+                            minWidth: 0,
                           }}
                         >
                           <div
                             style={{
-                              fontWeight: 500,
+                              fontWeight: 600,
                               marginBottom: "4px",
                               fontSize: "14px",
+                              color: "#262626",
                             }}
                           >
                             {userInfo.name}
                           </div>
                           <div
                             style={{
-                              fontSize: "12px",
-                              color: "#999",
+                              fontSize: "13px",
+                              color: "#8c8c8c",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                             }}
                           >
-                            {room.lastMessage?.text || "Bắt đầu trò chuyện"}
+                            {room.lastMessage?.text || "Start conversation"}
                           </div>
                         </div>
                       </div>
@@ -516,7 +521,7 @@ const ChatWidget: React.FC = () => {
             </div>
 
             {/* Messages Area */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", backgroundColor: "#f8f9fa" }}>
               {!selectedUser ? (
                 <div
                   style={{
@@ -527,17 +532,68 @@ const ChatWidget: React.FC = () => {
                     color: "#999",
                   }}
                 >
-                  <Empty description="Chọn một cuộc trò chuyện để bắt đầu" />
+                  <Empty 
+                    description="Select a conversation to start"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
                 </div>
               ) : (
                 <>
+                  {/* Chat Header with User Info */}
+                  <div
+                    style={{
+                      padding: "16px 24px",
+                      borderBottom: "1px solid #e8e8e8",
+                      backgroundColor: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <Avatar
+                      src={selectedUser.avatar}
+                      icon={<UserOutlined />}
+                      size={44}
+                      style={{ flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ 
+                        margin: 0, 
+                        fontSize: "16px", 
+                        fontWeight: 600,
+                        color: "#262626",
+                      }}>
+                        {selectedUser.name}
+                      </h4>
+                      <div style={{ 
+                        fontSize: "13px", 
+                        color: "#52c41a",
+                        marginTop: "2px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}>
+                        <span style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          backgroundColor: "#52c41a",
+                          display: "inline-block",
+                        }}></span>
+                        Online
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Messages */}
                   <div
                     style={{
                       flex: 1,
                       overflowY: "auto",
-                      padding: "16px",
-                      backgroundColor: "#f5f5f5",
+                      padding: "20px 24px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
                     }}
                   >
                     {loading ? (
@@ -545,14 +601,17 @@ const ChatWidget: React.FC = () => {
                         style={{
                           display: "flex",
                           justifyContent: "center",
-                          padding: "20px",
+                          padding: "40px",
                         }}
                       >
-                        <Spin />
+                        <Spin size="large" />
                       </div>
                     ) : messages.length === 0 ? (
-                      <div style={{ textAlign: "center", color: "#999" }}>
-                        Chưa có tin nhắn
+                      <div style={{ textAlign: "center", color: "#999", padding: "40px 0" }}>
+                        <Empty 
+                          description="No messages yet. Start the conversation!"
+                          image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
                       </div>
                     ) : (
                       messages.map((msg) => {
@@ -566,17 +625,31 @@ const ChatWidget: React.FC = () => {
                             style={{
                               display: "flex",
                               justifyContent: isOwn ? "flex-end" : "flex-start",
-                              marginBottom: "12px",
+                              alignItems: "flex-end",
+                              gap: "8px",
                             }}
                           >
+                            {!isOwn && (
+                              <Avatar
+                                src={selectedUser?.avatar}
+                                icon={<UserOutlined />}
+                                size={32}
+                                style={{ flexShrink: 0 }}
+                              />
+                            )}
                             <div
                               style={{
-                                maxWidth: "70%",
-                                padding: hasImages ? "8px" : "8px 12px",
-                                borderRadius: "12px",
-                                backgroundColor: isOwn ? "#1890ff" : "white",
-                                color: isOwn ? "white" : "#333",
-                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+                                maxWidth: "65%",
+                                padding: hasImages ? "6px" : "10px 14px",
+                                borderRadius: isOwn 
+                                  ? "18px 18px 4px 18px" 
+                                  : "18px 18px 18px 4px",
+                                background: isOwn 
+                                  ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" 
+                                  : "white",
+                                color: isOwn ? "white" : "#262626",
+                                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+                                wordBreak: "break-word",
                               }}
                             >
                               {/* Images */}
@@ -587,7 +660,7 @@ const ChatWidget: React.FC = () => {
                                       style={{
                                         display: "grid",
                                         gridTemplateColumns: msg.images!.length === 1 ? "1fr" : "repeat(2, 1fr)",
-                                        gap: "4px",
+                                        gap: "6px",
                                       }}
                                     >
                                       {msg.images!.map((imgUrl, index) => (
@@ -597,9 +670,10 @@ const ChatWidget: React.FC = () => {
                                           alt={`Image ${index + 1}`}
                                           style={{
                                             width: "100%",
-                                            height: msg.images!.length === 1 ? "auto" : "120px",
+                                            height: msg.images!.length === 1 ? "auto" : "140px",
+                                            maxHeight: msg.images!.length === 1 ? "300px" : "140px",
                                             objectFit: "cover",
-                                            borderRadius: "8px",
+                                            borderRadius: "12px",
                                             cursor: "pointer",
                                           }}
                                         />
@@ -611,7 +685,11 @@ const ChatWidget: React.FC = () => {
                               
                               {/* Text */}
                               {hasText && (
-                                <div style={{ padding: hasImages ? "0 4px" : "0" }}>
+                                <div style={{ 
+                                  padding: hasImages ? "0 6px" : "0",
+                                  fontSize: "14px",
+                                  lineHeight: "1.5",
+                                }}>
                                   {msg.text}
                                 </div>
                               )}
@@ -619,11 +697,11 @@ const ChatWidget: React.FC = () => {
                               {/* Timestamp */}
                               <div
                                 style={{
-                                  fontSize: "10px",
+                                  fontSize: "11px",
                                   marginTop: "4px",
                                   opacity: 0.7,
                                   textAlign: "right",
-                                  padding: hasImages ? "0 4px" : "0",
+                                  padding: hasImages ? "0 6px" : "0",
                                 }}
                               >
                                 {formatTime(msg.timestamp)}
@@ -637,18 +715,20 @@ const ChatWidget: React.FC = () => {
                   </div>
 
                   {/* Input */}
-                  <div>
+                  <div style={{ 
+                    backgroundColor: "white",
+                    borderTop: "1px solid #e8e8e8",
+                  }}>
                     {/* Image Preview */}
                     {fileList.length > 0 && (
                       <div
                         style={{
-                          padding: "8px 16px",
-                          borderTop: "1px solid #f0f0f0",
+                          padding: "12px 20px",
                           backgroundColor: "#fafafa",
                           display: "flex",
-                          gap: "8px",
+                          gap: "10px",
                           flexWrap: "wrap",
-                          maxHeight: "150px",
+                          maxHeight: "180px",
                           overflowY: "auto",
                         }}
                       >
@@ -657,11 +737,12 @@ const ChatWidget: React.FC = () => {
                             key={file.uid}
                             style={{
                               position: "relative",
-                              width: "80px",
-                              height: "80px",
-                              borderRadius: "8px",
+                              width: "90px",
+                              height: "90px",
+                              borderRadius: "12px",
                               overflow: "hidden",
-                              border: "1px solid #d9d9d9",
+                              border: "2px solid #e8e8e8",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                             }}
                           >
                             <img
@@ -681,12 +762,14 @@ const ChatWidget: React.FC = () => {
                               onClick={() => handleRemoveFile(file.uid)}
                               style={{
                                 position: "absolute",
-                                top: "2px",
-                                right: "2px",
-                                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                                top: "4px",
+                                right: "4px",
+                                backgroundColor: "rgba(0, 0, 0, 0.6)",
                                 color: "white",
-                                padding: "2px 4px",
+                                padding: "4px",
                                 minWidth: "auto",
+                                height: "auto",
+                                borderRadius: "50%",
                               }}
                             />
                           </div>
@@ -697,11 +780,9 @@ const ChatWidget: React.FC = () => {
                     {/* Input Area */}
                     <div
                       style={{
-                        padding: "12px 16px",
-                        borderTop: fileList.length === 0 ? "1px solid #f0f0f0" : "none",
-                        backgroundColor: "white",
+                        padding: "16px 20px",
                         display: "flex",
-                        gap: "8px",
+                        gap: "12px",
                         alignItems: "flex-end",
                       }}
                     >
@@ -722,12 +803,16 @@ const ChatWidget: React.FC = () => {
                         onClick={() => fileInputRef.current?.click()}
                         disabled={sending || uploading}
                         size="large"
-                        style={{ flexShrink: 0 }}
+                        style={{ 
+                          flexShrink: 0,
+                          color: "#667eea",
+                          fontSize: "20px",
+                        }}
                       />
                       
                       {/* Text Input */}
                       <Input
-                        placeholder="Nhập tin nhắn..."
+                        placeholder="Type a message..."
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
                         onPressEnter={(e) => {
@@ -738,7 +823,11 @@ const ChatWidget: React.FC = () => {
                         }}
                         size="large"
                         disabled={sending || uploading}
-                        style={{ flex: 1 }}
+                        style={{ 
+                          flex: 1,
+                          borderRadius: "24px",
+                          padding: "8px 20px",
+                        }}
                       />
                       
                       {/* Send Button */}
@@ -749,7 +838,15 @@ const ChatWidget: React.FC = () => {
                         loading={sending || uploading}
                         disabled={sending || uploading || (!messageText.trim() && fileList.length === 0)}
                         size="large"
-                        style={{ flexShrink: 0 }}
+                        style={{ 
+                          flexShrink: 0,
+                          borderRadius: "50%",
+                          width: "48px",
+                          height: "48px",
+                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          border: "none",
+                          boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
+                        }}
                       />
                     </div>
                   </div>
