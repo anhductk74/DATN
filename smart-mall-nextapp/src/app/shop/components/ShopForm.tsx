@@ -7,7 +7,7 @@ import * as yup from "yup";
 import Image from "next/image";
 import { Select } from "antd";
 import {getCloudinaryUrl} from "@/config/config";
-import { locationService } from "@/services/locationService";
+import { locationService } from "@/services/LocationService";
 import { 
   ShopOutlined,
   CameraOutlined,

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, Button, message } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import AddProductForm from "../components/AddProductForm";
-import type { CreateProductData } from "@/services/productService";
+import type { CreateProductData } from "@/services/ProductService";
 
 export default function AddProductPage() {
   const router = useRouter();

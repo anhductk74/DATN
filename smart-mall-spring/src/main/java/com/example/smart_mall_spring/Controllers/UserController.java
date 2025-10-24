@@ -79,7 +79,7 @@ public class UserController {
     }
 
     @GetMapping("/profile/{userId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserInfoDto>> getUserProfileById(@PathVariable UUID userId) {
         try {
             UserInfoDto userInfo = userService.getUserProfile(userId);

@@ -82,7 +82,7 @@ interface Order {
 }
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
-import productService from "@/services/productService";
+import productService from "@/services/ProductService";
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;

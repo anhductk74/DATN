@@ -7,7 +7,7 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
-import productService from "@/services/productService";
+import productService from "@/services/ProductService";
 import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 
@@ -23,7 +23,8 @@ import {
   SafetyOutlined,
   ThunderboltOutlined,
   CrownOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  ShopOutlined
 } from "@ant-design/icons";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -290,6 +291,36 @@ export default function ProductDetail() {
 
           {/* Product Info */}
           <div className="space-y-6">
+            {/* Shop Info Banner */}
+            {product.shop && (
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 border border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                      <ShopOutlined className="text-blue-600 text-xl" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">Sold by</div>
+                      <button
+                        onClick={() => router.push(`/shop/${product.shop?.id}`)}
+                        className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
+                      >
+                        {product.shop.name}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => router.push(`/shop/${product.shop?.id}`)}
+                      className="border border-blue-600 text-blue-600 px-4 py-2 rounded-xl font-medium hover:bg-blue-50 transition-all duration-200"
+                    >
+                      View Shop
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Brand & Title */}
             <div>
               <div className="flex items-center space-x-3 mb-2">
@@ -495,7 +526,15 @@ export default function ProductDetail() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircleOutlined className="text-green-500" />
-                      <span className="text-gray-700">Shop: {product.shop?.name}</span>
+                      <span className="text-gray-700">
+                        Shop:{" "}
+                        <button
+                          onClick={() => router.push(`/shop/${product.shop?.id}`)}
+                          className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                        >
+                          {product.shop?.name}
+                        </button>
+                      </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircleOutlined className="text-green-500" />

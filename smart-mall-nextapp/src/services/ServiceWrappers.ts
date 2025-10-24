@@ -9,8 +9,8 @@ import {
   paymentApiService,
 } from './index';
 
-import { OrderStatus as NewOrderStatus } from './orderApiService';
-import { PaymentMethod, PaymentStatus } from './paymentApiService';
+import { OrderStatus as NewOrderStatus } from './OrderApiService';
+import { PaymentMethod, PaymentStatus } from './PaymentApiService';
 
 // Mapping between old and new order status
 export const mapOrderStatus = {

@@ -10,7 +10,7 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderTabs from "./components/OrderTabs";
 import OrderList from "./components/OrderList";
-import orderService, { type Order as ApiOrder } from "@/services/orderService";
+import orderService, { type Order as ApiOrder } from "@/services/OrderService";
 import type { Order } from "@/types/order";
 import { getCloudinaryUrl } from "@/config/config";
 

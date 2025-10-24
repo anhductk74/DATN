@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
-import productService, { Product } from "@/services/productService";
+import productService, { Product } from "@/services/ProductService";
 import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 

@@ -50,7 +50,7 @@ export interface UpdateCartItemRequest {
   quantity: number;
 }
 
-const cartService = {
+const CartService = {
   /**
    * Get current user's cart
    */
@@ -114,4 +114,4 @@ const cartService = {
   },
 };
 
-export default cartService;
+export default CartService;
