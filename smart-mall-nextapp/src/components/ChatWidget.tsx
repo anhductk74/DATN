@@ -1,31 +1,40 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Input, Badge, Avatar, Empty, Spin } from "antd";
+import { Button, Input, Badge, Avatar, Empty, Spin, Upload, Image, App as AntApp } from "antd";
 import {
   MessageOutlined,
   CloseOutlined,
   SendOutlined,
   UserOutlined,
+  PictureOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
+import type { UploadFile } from "antd";
 import { ChatService } from "@/services/ChatService";
+import { ImageUploadService } from "@/services/ImageUploadService";
 import { Message, ChatRoom, UserInfo, ChatUser } from "@/types/chat";
 import { useSession } from "next-auth/react";
+import { getCloudinaryUrl } from "@/config/config";
 
 const ChatWidget: React.FC = () => {
   const { data: session } = useSession();
+  const { message: messageApi } = AntApp.useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false); // Thêm state để prevent double send
+  const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [userInfoCache, setUserInfoCache] = useState<Map<string, UserInfo>>(
     new Map()
   );
   const [totalUnread, setTotalUnread] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUserId = session?.user?.id || "";
 
@@ -194,9 +203,10 @@ const ChatWidget: React.FC = () => {
 
   const handleSendMessage = async () => {
     // Multiple layers of protection against duplicate sends
-    if (!messageText.trim() || !selectedUser || !currentUserId || sending) {
+    if ((!messageText.trim() && fileList.length === 0) || !selectedUser || !currentUserId || sending) {
       console.log('Send blocked:', { 
-        hasText: !!messageText.trim(), 
+        hasText: !!messageText.trim(),
+        hasImages: fileList.length > 0,
         hasUser: !!selectedUser, 
         hasCurrentUser: !!currentUserId, 
         sending 
@@ -205,25 +215,93 @@ const ChatWidget: React.FC = () => {
     }
 
     const textToSend = messageText.trim();
-    console.log('Sending message:', textToSend);
+    const filesToUpload = [...fileList];
+    
+    console.log('Sending message with:', { text: textToSend, imageCount: filesToUpload.length });
     
     try {
       setSending(true);
-      setMessageText(""); // Clear input ngay để tránh gửi 2 lần
+      setMessageText(""); // Clear input ngay
+      setFileList([]); // Clear file list ngay
       
+      // Upload images nếu có
+      let imageUrls: string[] = [];
+      if (filesToUpload.length > 0) {
+        setUploading(true);
+        try {
+          const files: File[] = [];
+          for (const f of filesToUpload) {
+            if (f.originFileObj) {
+              files.push(f.originFileObj as File);
+            }
+          }
+          
+          imageUrls = await ImageUploadService.uploadImages(files);
+          console.log('Images uploaded:', imageUrls);
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          messageApi.error('Lỗi khi upload ảnh');
+          // Restore nếu upload failed
+          setMessageText(textToSend);
+          setFileList(filesToUpload);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+      
+      // Gửi tin nhắn
       await ChatService.sendMessage(
         currentUserId,
         selectedUser.id,
-        textToSend
+        textToSend,
+        imageUrls.length > 0 ? imageUrls : undefined
       );
       console.log('Message sent successfully');
     } catch (error) {
       console.error("Error sending message:", error);
+      messageApi.error('Lỗi khi gửi tin nhắn');
       // Restore message nếu gửi failed
       setMessageText(textToSend);
+      setFileList(filesToUpload);
     } finally {
       setSending(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles = Array.from(files)
+      .map((file, index) => {
+        // Validate file
+        const validation = ImageUploadService.validateImage(file);
+        if (!validation.valid) {
+          messageApi.error(validation.error || 'File không hợp lệ');
+          return null;
+        }
+
+        return {
+          uid: `${Date.now()}-${index}`,
+          name: file.name,
+          status: 'done' as const,
+          originFileObj: file,
+          url: URL.createObjectURL(file),
+        } as UploadFile;
+      })
+      .filter((f): f is UploadFile => f !== null);
+
+    setFileList([...fileList, ...newFiles]);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveFile = (uid: string) => {
+    setFileList(fileList.filter(f => f.uid !== uid));
   };
 
   const handleSelectUser = async (room: ChatRoom) => {
@@ -479,6 +557,9 @@ const ChatWidget: React.FC = () => {
                     ) : (
                       messages.map((msg) => {
                         const isOwn = msg.senderId === currentUserId;
+                        const hasImages = msg.images && msg.images.length > 0;
+                        const hasText = msg.text && msg.text.trim().length > 0;
+                        
                         return (
                           <div
                             key={msg.id}
@@ -491,20 +572,58 @@ const ChatWidget: React.FC = () => {
                             <div
                               style={{
                                 maxWidth: "70%",
-                                padding: "8px 12px",
+                                padding: hasImages ? "8px" : "8px 12px",
                                 borderRadius: "12px",
                                 backgroundColor: isOwn ? "#1890ff" : "white",
                                 color: isOwn ? "white" : "#333",
                                 boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
                               }}
                             >
-                              <div>{msg.text}</div>
+                              {/* Images */}
+                              {hasImages && (
+                                <div style={{ marginBottom: hasText ? "8px" : "0" }}>
+                                  <Image.PreviewGroup>
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: msg.images!.length === 1 ? "1fr" : "repeat(2, 1fr)",
+                                        gap: "4px",
+                                      }}
+                                    >
+                                      {msg.images!.map((imgUrl, index) => (
+                                        <Image
+                                          key={index}
+                                          src={getCloudinaryUrl(imgUrl)}
+                                          alt={`Image ${index + 1}`}
+                                          style={{
+                                            width: "100%",
+                                            height: msg.images!.length === 1 ? "auto" : "120px",
+                                            objectFit: "cover",
+                                            borderRadius: "8px",
+                                            cursor: "pointer",
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </Image.PreviewGroup>
+                                </div>
+                              )}
+                              
+                              {/* Text */}
+                              {hasText && (
+                                <div style={{ padding: hasImages ? "0 4px" : "0" }}>
+                                  {msg.text}
+                                </div>
+                              )}
+                              
+                              {/* Timestamp */}
                               <div
                                 style={{
                                   fontSize: "10px",
                                   marginTop: "4px",
                                   opacity: 0.7,
                                   textAlign: "right",
+                                  padding: hasImages ? "0 4px" : "0",
                                 }}
                               >
                                 {formatTime(msg.timestamp)}
@@ -518,37 +637,121 @@ const ChatWidget: React.FC = () => {
                   </div>
 
                   {/* Input */}
-                  <div
-                    style={{
-                      padding: "12px 16px",
-                      borderTop: "1px solid #f0f0f0",
-                      backgroundColor: "white",
-                      display: "flex",
-                      gap: "8px",
-                    }}
-                  >
-                    <Input
-                      placeholder="Nhập tin nhắn..."
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onPressEnter={(e) => {
-                        e.preventDefault();
-                        if (!sending && messageText.trim()) {
-                          handleSendMessage();
-                        }
+                  <div>
+                    {/* Image Preview */}
+                    {fileList.length > 0 && (
+                      <div
+                        style={{
+                          padding: "8px 16px",
+                          borderTop: "1px solid #f0f0f0",
+                          backgroundColor: "#fafafa",
+                          display: "flex",
+                          gap: "8px",
+                          flexWrap: "wrap",
+                          maxHeight: "150px",
+                          overflowY: "auto",
+                        }}
+                      >
+                        {fileList.map((file) => (
+                          <div
+                            key={file.uid}
+                            style={{
+                              position: "relative",
+                              width: "80px",
+                              height: "80px",
+                              borderRadius: "8px",
+                              overflow: "hidden",
+                              border: "1px solid #d9d9d9",
+                            }}
+                          >
+                            <img
+                              src={file.url}
+                              alt={file.name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                            <Button
+                              type="text"
+                              danger
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleRemoveFile(file.uid)}
+                              style={{
+                                position: "absolute",
+                                top: "2px",
+                                right: "2px",
+                                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                                color: "white",
+                                padding: "2px 4px",
+                                minWidth: "auto",
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Input Area */}
+                    <div
+                      style={{
+                        padding: "12px 16px",
+                        borderTop: fileList.length === 0 ? "1px solid #f0f0f0" : "none",
+                        backgroundColor: "white",
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "flex-end",
                       }}
-                      size="large"
-                      disabled={sending}
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      type="primary"
-                      icon={<SendOutlined />}
-                      onClick={handleSendMessage}
-                      loading={sending}
-                      disabled={sending || !messageText.trim()}
-                      size="large"
-                    />
+                    >
+                      {/* Hidden File Input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileSelect}
+                        style={{ display: "none" }}
+                      />
+                      
+                      {/* Image Upload Button */}
+                      <Button
+                        type="text"
+                        icon={<PictureOutlined />}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={sending || uploading}
+                        size="large"
+                        style={{ flexShrink: 0 }}
+                      />
+                      
+                      {/* Text Input */}
+                      <Input
+                        placeholder="Nhập tin nhắn..."
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onPressEnter={(e) => {
+                          e.preventDefault();
+                          if (!sending && !uploading && (messageText.trim() || fileList.length > 0)) {
+                            handleSendMessage();
+                          }
+                        }}
+                        size="large"
+                        disabled={sending || uploading}
+                        style={{ flex: 1 }}
+                      />
+                      
+                      {/* Send Button */}
+                      <Button
+                        type="primary"
+                        icon={<SendOutlined />}
+                        onClick={handleSendMessage}
+                        loading={sending || uploading}
+                        disabled={sending || uploading || (!messageText.trim() && fileList.length === 0)}
+                        size="large"
+                        style={{ flexShrink: 0 }}
+                      />
+                    </div>
                   </div>
                 </>
               )}

@@ -3,6 +3,7 @@ export interface Message {
   senderId: string;
   receiverId: string;
   text: string;
+  images?: string[]; // Array of image URLs
   timestamp: number;
   read: boolean;
 }
