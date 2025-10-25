@@ -1,31 +1,40 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Input, Badge, Avatar, Empty, Spin } from "antd";
+import { Button, Input, Badge, Avatar, Empty, Spin, Upload, Image, App as AntApp } from "antd";
 import {
   MessageOutlined,
   CloseOutlined,
   SendOutlined,
   UserOutlined,
+  PictureOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
+import type { UploadFile } from "antd";
 import { ChatService } from "@/services/ChatService";
+import { ImageUploadService } from "@/services/ImageUploadService";
 import { Message, ChatRoom, UserInfo, ChatUser } from "@/types/chat";
 import { useSession } from "next-auth/react";
+import { getCloudinaryUrl } from "@/config/config";
 
 const ChatWidget: React.FC = () => {
   const { data: session } = useSession();
+  const { message: messageApi } = AntApp.useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false); // Thêm state để prevent double send
+  const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [userInfoCache, setUserInfoCache] = useState<Map<string, UserInfo>>(
     new Map()
   );
   const [totalUnread, setTotalUnread] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUserId = session?.user?.id || "";
 
@@ -194,9 +203,10 @@ const ChatWidget: React.FC = () => {
 
   const handleSendMessage = async () => {
     // Multiple layers of protection against duplicate sends
-    if (!messageText.trim() || !selectedUser || !currentUserId || sending) {
+    if ((!messageText.trim() && fileList.length === 0) || !selectedUser || !currentUserId || sending) {
       console.log('Send blocked:', { 
-        hasText: !!messageText.trim(), 
+        hasText: !!messageText.trim(),
+        hasImages: fileList.length > 0,
         hasUser: !!selectedUser, 
         hasCurrentUser: !!currentUserId, 
         sending 
@@ -205,25 +215,91 @@ const ChatWidget: React.FC = () => {
     }
 
     const textToSend = messageText.trim();
-    console.log('Sending message:', textToSend);
+    const filesToUpload = [...fileList];
+    
+    console.log('Sending message with:', { text: textToSend, imageCount: filesToUpload.length });
     
     try {
       setSending(true);
-      setMessageText(""); // Clear input ngay để tránh gửi 2 lần
+      setMessageText(""); // Clear input ngay
+      setFileList([]); // Clear file list ngay
       
+      // Upload images nếu có
+      let imageUrls: string[] = [];
+      if (filesToUpload.length > 0) {
+        setUploading(true);
+        try {
+          const files: File[] = [];
+          for (const f of filesToUpload) {
+            if (f.originFileObj) {
+              files.push(f.originFileObj as File);
+            }
+          }
+          
+          imageUrls = await ImageUploadService.uploadImages(files);
+          console.log('Images uploaded:', imageUrls);
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          messageApi.error('Error uploading images');
+          // Restore nếu upload failed
+          setMessageText(textToSend);
+          setFileList(filesToUpload);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
+      
+      // Gửi tin nhắn
       await ChatService.sendMessage(
         currentUserId,
         selectedUser.id,
-        textToSend
+        textToSend,
+        imageUrls.length > 0 ? imageUrls : undefined
       );
       console.log('Message sent successfully');
     } catch (error) {
       console.error("Error sending message:", error);
+      messageApi.error('Error sending message');
       // Restore message nếu gửi failed
       setMessageText(textToSend);
+      setFileList(filesToUpload);
     } finally {
       setSending(false);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles = Array.from(files)
+      .map((file, index) => {
+        // Validate file
+      const validation = ImageUploadService.validateImage(file);
+      if (!validation.valid) {
+        messageApi.error(validation.error || 'Invalid file');
+        return null;
+      }        return {
+          uid: `${Date.now()}-${index}`,
+          name: file.name,
+          status: 'done' as const,
+          originFileObj: file,
+          url: URL.createObjectURL(file),
+        } as UploadFile;
+      })
+      .filter((f): f is UploadFile => f !== null);
+
+    setFileList([...fileList, ...newFiles]);
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveFile = (uid: string) => {
+    setFileList(fileList.filter(f => f.uid !== uid));
   };
 
   const handleSelectUser = async (room: ChatRoom) => {
@@ -302,11 +378,11 @@ const ChatWidget: React.FC = () => {
             position: "fixed",
             bottom: "96px",
             right: "24px",
-            width: "700px",
-            height: "500px",
+            width: "750px",
+            height: "600px",
             backgroundColor: "white",
-            borderRadius: "12px",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+            borderRadius: "16px",
+            boxShadow: "0 12px 40px rgba(0, 0, 0, 0.2)",
             display: "flex",
             flexDirection: "column",
             zIndex: 1000,
@@ -316,23 +392,27 @@ const ChatWidget: React.FC = () => {
           {/* Header */}
           <div
             style={{
-              padding: "16px 20px",
-              borderBottom: "1px solid #f0f0f0",
+              padding: "20px 24px",
+              borderBottom: "1px solid #e8e8e8",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              backgroundColor: "#1890ff",
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               color: "white",
             }}
           >
-            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
-              {selectedUser ? selectedUser.name : "Tin nhắn"}
+            <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>
+              💬 Messages
             </h3>
             <Button
               type="text"
               icon={<CloseOutlined />}
               onClick={() => setIsOpen(false)}
-              style={{ color: "white" }}
+              style={{ 
+                color: "white",
+                fontSize: "16px",
+              }}
+              size="large"
             />
           </div>
 
@@ -341,21 +421,21 @@ const ChatWidget: React.FC = () => {
             {/* User List */}
             <div
               style={{
-                width: "250px",
-                borderRight: "1px solid #f0f0f0",
+                width: "280px",
+                borderRight: "1px solid #e8e8e8",
                 overflowY: "auto",
+                backgroundColor: "#fafafa",
               }}
             >
               {chatRooms.length === 0 ? (
                 <div
                   style={{
-                    padding: "20px",
+                    padding: "40px 20px",
                     textAlign: "center",
-                    color: "#999",
                   }}
                 >
                   <Empty
-                    description="Chưa có cuộc trò chuyện"
+                    description="No conversations yet"
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                   />
                 </div>
@@ -370,64 +450,67 @@ const ChatWidget: React.FC = () => {
 
                   if (!userInfo) return null;
 
+                  const isSelected = selectedUser?.id === userInfo.id;
+
                   return (
                     <div
                       key={room.id}
                       onClick={() => handleSelectUser(room)}
                       style={{
-                        padding: "12px 16px",
+                        padding: "16px 20px",
                         cursor: "pointer",
                         borderBottom: "1px solid #f0f0f0",
-                        backgroundColor:
-                          selectedUser?.id === userInfo.id
-                            ? "#e6f7ff"
-                            : "transparent",
-                        transition: "background-color 0.2s",
+                        backgroundColor: isSelected ? "#e6f7ff" : "white",
+                        transition: "all 0.2s ease",
+                        borderLeft: isSelected ? "3px solid #667eea" : "3px solid transparent",
                       }}
                       onMouseEnter={(e) => {
-                        if (selectedUser?.id !== userInfo.id) {
+                        if (!isSelected) {
                           e.currentTarget.style.backgroundColor = "#f5f5f5";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (selectedUser?.id !== userInfo.id) {
-                          e.currentTarget.style.backgroundColor =
-                            "transparent";
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = "white";
                         }
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <Avatar
-                          src={userInfo.avatar}
-                          icon={<UserOutlined />}
-                          size={40}
-                        />
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <Badge dot={room.lastMessage && !isSelected}>
+                          <Avatar
+                            src={userInfo.avatar}
+                            icon={<UserOutlined />}
+                            size={48}
+                            style={{ flexShrink: 0 }}
+                          />
+                        </Badge>
                         <div
                           style={{
-                            marginLeft: "12px",
                             flex: 1,
                             overflow: "hidden",
+                            minWidth: 0,
                           }}
                         >
                           <div
                             style={{
-                              fontWeight: 500,
+                              fontWeight: 600,
                               marginBottom: "4px",
                               fontSize: "14px",
+                              color: "#262626",
                             }}
                           >
                             {userInfo.name}
                           </div>
                           <div
                             style={{
-                              fontSize: "12px",
-                              color: "#999",
+                              fontSize: "13px",
+                              color: "#8c8c8c",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                             }}
                           >
-                            {room.lastMessage?.text || "Bắt đầu trò chuyện"}
+                            {room.lastMessage?.text || "Start conversation"}
                           </div>
                         </div>
                       </div>
@@ -438,7 +521,7 @@ const ChatWidget: React.FC = () => {
             </div>
 
             {/* Messages Area */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", backgroundColor: "#f8f9fa" }}>
               {!selectedUser ? (
                 <div
                   style={{
@@ -449,17 +532,68 @@ const ChatWidget: React.FC = () => {
                     color: "#999",
                   }}
                 >
-                  <Empty description="Chọn một cuộc trò chuyện để bắt đầu" />
+                  <Empty 
+                    description="Select a conversation to start"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
                 </div>
               ) : (
                 <>
+                  {/* Chat Header with User Info */}
+                  <div
+                    style={{
+                      padding: "16px 24px",
+                      borderBottom: "1px solid #e8e8e8",
+                      backgroundColor: "white",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <Avatar
+                      src={selectedUser.avatar}
+                      icon={<UserOutlined />}
+                      size={44}
+                      style={{ flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ 
+                        margin: 0, 
+                        fontSize: "16px", 
+                        fontWeight: 600,
+                        color: "#262626",
+                      }}>
+                        {selectedUser.name}
+                      </h4>
+                      <div style={{ 
+                        fontSize: "13px", 
+                        color: "#52c41a",
+                        marginTop: "2px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}>
+                        <span style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          backgroundColor: "#52c41a",
+                          display: "inline-block",
+                        }}></span>
+                        Online
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Messages */}
                   <div
                     style={{
                       flex: 1,
                       overflowY: "auto",
-                      padding: "16px",
-                      backgroundColor: "#f5f5f5",
+                      padding: "20px 24px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
                     }}
                   >
                     {loading ? (
@@ -467,44 +601,107 @@ const ChatWidget: React.FC = () => {
                         style={{
                           display: "flex",
                           justifyContent: "center",
-                          padding: "20px",
+                          padding: "40px",
                         }}
                       >
-                        <Spin />
+                        <Spin size="large" />
                       </div>
                     ) : messages.length === 0 ? (
-                      <div style={{ textAlign: "center", color: "#999" }}>
-                        Chưa có tin nhắn
+                      <div style={{ textAlign: "center", color: "#999", padding: "40px 0" }}>
+                        <Empty 
+                          description="No messages yet. Start the conversation!"
+                          image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
                       </div>
                     ) : (
                       messages.map((msg) => {
                         const isOwn = msg.senderId === currentUserId;
+                        const hasImages = msg.images && msg.images.length > 0;
+                        const hasText = msg.text && msg.text.trim().length > 0;
+                        
                         return (
                           <div
                             key={msg.id}
                             style={{
                               display: "flex",
                               justifyContent: isOwn ? "flex-end" : "flex-start",
-                              marginBottom: "12px",
+                              alignItems: "flex-end",
+                              gap: "8px",
                             }}
                           >
+                            {!isOwn && (
+                              <Avatar
+                                src={selectedUser?.avatar}
+                                icon={<UserOutlined />}
+                                size={32}
+                                style={{ flexShrink: 0 }}
+                              />
+                            )}
                             <div
                               style={{
-                                maxWidth: "70%",
-                                padding: "8px 12px",
-                                borderRadius: "12px",
-                                backgroundColor: isOwn ? "#1890ff" : "white",
-                                color: isOwn ? "white" : "#333",
-                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.1)",
+                                maxWidth: "65%",
+                                padding: hasImages ? "6px" : "10px 14px",
+                                borderRadius: isOwn 
+                                  ? "18px 18px 4px 18px" 
+                                  : "18px 18px 18px 4px",
+                                background: isOwn 
+                                  ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" 
+                                  : "white",
+                                color: isOwn ? "white" : "#262626",
+                                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+                                wordBreak: "break-word",
                               }}
                             >
-                              <div>{msg.text}</div>
+                              {/* Images */}
+                              {hasImages && (
+                                <div style={{ marginBottom: hasText ? "8px" : "0" }}>
+                                  <Image.PreviewGroup>
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: msg.images!.length === 1 ? "1fr" : "repeat(2, 1fr)",
+                                        gap: "6px",
+                                      }}
+                                    >
+                                      {msg.images!.map((imgUrl, index) => (
+                                        <Image
+                                          key={index}
+                                          src={getCloudinaryUrl(imgUrl)}
+                                          alt={`Image ${index + 1}`}
+                                          style={{
+                                            width: "100%",
+                                            height: msg.images!.length === 1 ? "auto" : "140px",
+                                            maxHeight: msg.images!.length === 1 ? "300px" : "140px",
+                                            objectFit: "cover",
+                                            borderRadius: "12px",
+                                            cursor: "pointer",
+                                          }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </Image.PreviewGroup>
+                                </div>
+                              )}
+                              
+                              {/* Text */}
+                              {hasText && (
+                                <div style={{ 
+                                  padding: hasImages ? "0 6px" : "0",
+                                  fontSize: "14px",
+                                  lineHeight: "1.5",
+                                }}>
+                                  {msg.text}
+                                </div>
+                              )}
+                              
+                              {/* Timestamp */}
                               <div
                                 style={{
-                                  fontSize: "10px",
+                                  fontSize: "11px",
                                   marginTop: "4px",
                                   opacity: 0.7,
                                   textAlign: "right",
+                                  padding: hasImages ? "0 6px" : "0",
                                 }}
                               >
                                 {formatTime(msg.timestamp)}
@@ -518,37 +715,140 @@ const ChatWidget: React.FC = () => {
                   </div>
 
                   {/* Input */}
-                  <div
-                    style={{
-                      padding: "12px 16px",
-                      borderTop: "1px solid #f0f0f0",
-                      backgroundColor: "white",
-                      display: "flex",
-                      gap: "8px",
-                    }}
-                  >
-                    <Input
-                      placeholder="Nhập tin nhắn..."
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onPressEnter={(e) => {
-                        e.preventDefault();
-                        if (!sending && messageText.trim()) {
-                          handleSendMessage();
-                        }
+                  <div style={{ 
+                    backgroundColor: "white",
+                    borderTop: "1px solid #e8e8e8",
+                  }}>
+                    {/* Image Preview */}
+                    {fileList.length > 0 && (
+                      <div
+                        style={{
+                          padding: "12px 20px",
+                          backgroundColor: "#fafafa",
+                          display: "flex",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                          maxHeight: "180px",
+                          overflowY: "auto",
+                        }}
+                      >
+                        {fileList.map((file) => (
+                          <div
+                            key={file.uid}
+                            style={{
+                              position: "relative",
+                              width: "90px",
+                              height: "90px",
+                              borderRadius: "12px",
+                              overflow: "hidden",
+                              border: "2px solid #e8e8e8",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                            }}
+                          >
+                            <img
+                              src={file.url}
+                              alt={file.name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                            <Button
+                              type="text"
+                              danger
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleRemoveFile(file.uid)}
+                              style={{
+                                position: "absolute",
+                                top: "4px",
+                                right: "4px",
+                                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                                color: "white",
+                                padding: "4px",
+                                minWidth: "auto",
+                                height: "auto",
+                                borderRadius: "50%",
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Input Area */}
+                    <div
+                      style={{
+                        padding: "16px 20px",
+                        display: "flex",
+                        gap: "12px",
+                        alignItems: "flex-end",
                       }}
-                      size="large"
-                      disabled={sending}
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      type="primary"
-                      icon={<SendOutlined />}
-                      onClick={handleSendMessage}
-                      loading={sending}
-                      disabled={sending || !messageText.trim()}
-                      size="large"
-                    />
+                    >
+                      {/* Hidden File Input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleFileSelect}
+                        style={{ display: "none" }}
+                      />
+                      
+                      {/* Image Upload Button */}
+                      <Button
+                        type="text"
+                        icon={<PictureOutlined />}
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={sending || uploading}
+                        size="large"
+                        style={{ 
+                          flexShrink: 0,
+                          color: "#667eea",
+                          fontSize: "20px",
+                        }}
+                      />
+                      
+                      {/* Text Input */}
+                      <Input
+                        placeholder="Type a message..."
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onPressEnter={(e) => {
+                          e.preventDefault();
+                          if (!sending && !uploading && (messageText.trim() || fileList.length > 0)) {
+                            handleSendMessage();
+                          }
+                        }}
+                        size="large"
+                        disabled={sending || uploading}
+                        style={{ 
+                          flex: 1,
+                          borderRadius: "24px",
+                          padding: "8px 20px",
+                        }}
+                      />
+                      
+                      {/* Send Button */}
+                      <Button
+                        type="primary"
+                        icon={<SendOutlined />}
+                        onClick={handleSendMessage}
+                        loading={sending || uploading}
+                        disabled={sending || uploading || (!messageText.trim() && fileList.length === 0)}
+                        size="large"
+                        style={{ 
+                          flexShrink: 0,
+                          borderRadius: "50%",
+                          width: "48px",
+                          height: "48px",
+                          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                          border: "none",
+                          boxShadow: "0 4px 12px rgba(102, 126, 234, 0.4)",
+                        }}
+                      />
+                    </div>
                   </div>
                 </>
               )}

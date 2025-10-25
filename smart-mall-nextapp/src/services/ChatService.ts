@@ -49,7 +49,8 @@ export class ChatService {
   static async sendMessage(
     senderId: string,
     receiverId: string,
-    text: string
+    text: string,
+    images?: string[]
   ): Promise<void> {
     const roomId = await this.getChatRoomId(senderId, receiverId);
     const messagesRef = collection(db, "chatRooms", roomId, "messages");
@@ -58,6 +59,7 @@ export class ChatService {
       senderId,
       receiverId,
       text,
+      images: images || [],
       timestamp: serverTimestamp(),
       read: false,
     };
@@ -95,6 +97,7 @@ export class ChatService {
           senderId: data.senderId,
           receiverId: data.receiverId,
           text: data.text,
+          images: data.images || [],
           timestamp: data.timestamp?.toMillis() || Date.now(),
           read: data.read || false,
         });
