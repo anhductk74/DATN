@@ -34,7 +34,7 @@ import {
   StarFilled
 } from "@ant-design/icons";
 import type { ColumnsType } from 'antd/es/table';
-import type { Product, ProductVariant, ProductAttribute, CreateProductData, UpdateProductData } from "@/services/productService";
+import type { Product, ProductVariant, ProductAttribute, CreateProductData, UpdateProductData } from "@/services/ProductService";
 import AddProductForm from "./AddProductForm";
 import EditProductForm from "./EditProductForm";
 

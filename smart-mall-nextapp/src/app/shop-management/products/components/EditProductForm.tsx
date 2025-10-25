@@ -26,7 +26,7 @@ import {
   EyeOutlined
 } from "@ant-design/icons";
 import type { UploadFile } from 'antd/es/upload/interface';
-import type { Product, UpdateProductData, ProductVariant, ProductAttribute } from "@/services/productService";
+import type { Product, UpdateProductData, ProductVariant, ProductAttribute } from "@/services/ProductService";
 
 const { TextArea } = Input;
 const { Option } = Select;

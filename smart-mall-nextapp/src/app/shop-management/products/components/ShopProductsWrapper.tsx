@@ -1,5 +1,5 @@
 ﻿import { Suspense } from 'react';
-import ShopProductsContent from './components/ShopProductsContent';
+import ShopProductsContent from './ShopProductsContent';
 
 function LoadingSpinner() {
   return (
