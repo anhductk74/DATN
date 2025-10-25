@@ -1,7 +1,6 @@
 package com.example.smart_mall_spring.Enum;
 
 public enum StatusOrder {
-//    PENDING, PAID, SHIPPED, COMPLETED, CANCELLED
     PENDING,          // Đang chờ xác nhận
     CONFIRMED,        // Đã xác nhận
     PACKED,           // Đã đóng gói

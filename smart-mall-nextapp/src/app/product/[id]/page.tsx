@@ -302,7 +302,7 @@ export default function ProductDetail() {
                     <div>
                       <div className="text-sm text-gray-600">Sold by</div>
                       <button
-                        onClick={() => router.push(`/shop/${product.shop?.id}`)}
+                        onClick={() => router.push(`/shop-detail/${product.shop?.id}`)}
                         className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                       >
                         {product.shop.name}
@@ -311,7 +311,7 @@ export default function ProductDetail() {
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => router.push(`/shop/${product.shop?.id}`)}
+                      onClick={() => router.push(`/shop-detail/${product.shop?.id}`)}
                       className="border border-blue-600 text-blue-600 px-4 py-2 rounded-xl font-medium hover:bg-blue-50 transition-all duration-200"
                     >
                       View Shop

@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Repositories;
 
 import com.example.smart_mall_spring.Entities.Orders.OrderReturnRequest;
+import com.example.smart_mall_spring.Enum.ReturnStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -19,4 +20,5 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
 
     @Query("SELECT r FROM OrderReturnRequest r WHERE r.status = 'PENDING'")
     List<OrderReturnRequest> findPendingRequests();
+    boolean existsByOrderIdAndStatus(UUID orderId, ReturnStatus status);
 }

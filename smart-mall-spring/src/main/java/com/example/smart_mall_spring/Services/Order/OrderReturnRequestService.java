@@ -8,6 +8,7 @@ import com.example.smart_mall_spring.Entities.Orders.OrderReturnImage;
 import com.example.smart_mall_spring.Entities.Orders.OrderReturnRequest;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Enum.ReturnStatus;
+import com.example.smart_mall_spring.Enum.StatusOrder;
 import com.example.smart_mall_spring.Repositories.OrderRepository;
 import com.example.smart_mall_spring.Repositories.OrderReturnImageRepository;
 import com.example.smart_mall_spring.Repositories.OrderReturnRequestRepository;
@@ -22,6 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import static com.example.smart_mall_spring.Enum.StatusOrder.DELIVERED;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +50,13 @@ public class OrderReturnRequestService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        if (!order.getStatus().equals(StatusOrder.DELIVERED)) {
+            throw new RuntimeException("Refund requests can only be submitted for orders that have been shipped..");
+        }
+        boolean existsPending = returnRequestRepository.existsByOrderIdAndStatus(dto.getOrderId(), ReturnStatus.PENDING);
+        if (existsPending) {
+            throw new RuntimeException("You have submitted a refund request for this order and it is pending.");
+        }
         //  Tạo đối tượng yêu cầu hoàn trả
         OrderReturnRequest request = OrderReturnRequest.builder()
                 .order(order)
@@ -102,11 +112,23 @@ public class OrderReturnRequestService {
     @Transactional
     public OrderReturnResponseDto updateReturnStatus(UUID requestId, ReturnStatus newStatus) {
         OrderReturnRequest request = returnRequestRepository.findById(requestId)
-                .orElseThrow(() -> new RuntimeException("Return request not found"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn trả."));
 
         request.setStatus(newStatus);
         request.setProcessedDate(LocalDateTime.now());
         returnRequestRepository.save(request);
+
+        // 🔹 Cập nhật trạng thái Order tương ứng
+        Order order = request.getOrder();
+
+        switch (newStatus) {
+            case APPROVED -> order.setStatus(StatusOrder.RETURN_REQUESTED);
+            case REJECTED -> order.setStatus(DELIVERED);
+            case COMPLETED  -> order.setStatus(StatusOrder.RETURNED);
+            default -> { /* giữ nguyên trạng thái nếu là PENDING */ }
+        }
+
+        orderRepository.save(order);
 
         return mapper.toResponseDto(request);
     }

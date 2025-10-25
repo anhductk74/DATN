@@ -1,9 +1,8 @@
 package com.example.smart_mall_spring.Enum;
 
 public enum ReturnStatus {
-    PENDING,        // Người dùng gửi yêu cầu, chờ xử lý
-    APPROVED,       // Admin hoặc shop đã chấp nhận
-    REJECTED,       // Yêu cầu bị từ chối
-    REFUNDED,       // Đã hoàn tiền xong
-    CANCELED        // Người dùng tự hủy yêu cầu
+    PENDING,     // Người dùng gửi yêu cầu
+    APPROVED,    // Shop duyệt yêu cầu
+    REJECTED,    // Shop từ chối
+    COMPLETED    // Hoàn tất hoàn trả
 }

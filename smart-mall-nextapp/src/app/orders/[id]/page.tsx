@@ -12,7 +12,6 @@ import {
   Space,
   Avatar,
   Tag,
-  message,
   Spin,
   Result,
   Modal,
@@ -37,6 +36,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
+import { useAntdApp } from "@/hooks/useAntdApp";
 import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
 import { orderService, addressApiService, orderTrackingApiService } from "@/services";
 import orderReturnRequestApiService, { OrderReturnRequestDto, OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
@@ -258,6 +258,7 @@ export default function OrderDetailPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const { session, status, user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { message } = useAntdApp();
 
   const orderId = params.id as string;
 
@@ -1343,7 +1344,19 @@ export default function OrderDetailPage() {
           <Form.Item
             label={<span className="text-gray-700 font-medium">Evidence Photos (Required)</span>}
             name="photos"
-            rules={[{ required: true, message: 'Please upload at least one photo as evidence!' }]}
+            valuePropName="fileList"
+            rules={[
+              { 
+                required: true, 
+                message: 'Please upload at least one photo as evidence!',
+                validator: (_, value) => {
+                  if (returnImages.length === 0) {
+                    return Promise.reject(new Error('Please upload at least one photo as evidence!'));
+                  }
+                  return Promise.resolve();
+                }
+              }
+            ]}
           >
             <Upload
               listType="picture-card"
@@ -1362,12 +1375,35 @@ export default function OrderDetailPage() {
                   return false;
                 }
 
-                setReturnImages(prev => [...prev, file]);
+                const newImages = [...returnImages, file];
+                setReturnImages(newImages);
+                
+                // Update form field to trigger validation
+                returnRequestForm.setFieldsValue({ 
+                  photos: newImages.map((f, index) => ({
+                    uid: `${f.name}-${index}`,
+                    name: f.name,
+                    status: 'done',
+                    url: URL.createObjectURL(f)
+                  }))
+                });
+                
                 return false; // Prevent auto upload
               }}
               onRemove={(file) => {
                 const fileName = file.name || '';
-                setReturnImages(prev => prev.filter(item => item.name !== fileName));
+                const newImages = returnImages.filter(item => item.name !== fileName);
+                setReturnImages(newImages);
+                
+                // Update form field to trigger validation
+                returnRequestForm.setFieldsValue({ 
+                  photos: newImages.map((f, index) => ({
+                    uid: `${f.name}-${index}`,
+                    name: f.name,
+                    status: 'done',
+                    url: URL.createObjectURL(f)
+                  }))
+                });
               }}
               fileList={returnImages.map((file, index) => ({
                 uid: `${file.name}-${index}`,
@@ -1426,7 +1462,6 @@ export default function OrderDetailPage() {
               type="primary" 
               htmlType="submit"
               className="flex-1 h-12 bg-gradient-to-r from-red-500 to-pink-600 border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-              disabled={returnImages.length === 0}
             >
               🔄 Submit Return Request
             </Button>

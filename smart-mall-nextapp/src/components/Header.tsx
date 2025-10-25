@@ -467,7 +467,7 @@ export default function Header() {
                         <span className="font-medium group-hover:text-green-700">My Orders</span>
                       </button>
                       <button 
-                        onClick={() => handleNavigate('/shop')}
+                        onClick={() => handleNavigate('/shop-management')}
                         className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group"
                       >
                         <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">

@@ -14,6 +14,7 @@ interface OrderTabsProps {
     shipping: number;
     delivered: number;
     cancelled: number;
+    returnRequest: number;
   };
   title?: string;
   orderCount?: number;
@@ -89,6 +90,14 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
               </Badge>
             } 
             key="cancelled" 
+          />
+          <TabPane 
+            tab={
+              <Badge count={orderCounts.returnRequest} showZero size="small">
+                <span className="text-sm">Return Request</span>
+              </Badge>
+            } 
+            key="return-request" 
           />
         </Tabs>
       </div>

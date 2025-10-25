@@ -10,7 +10,9 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import OrderTabs from "./components/OrderTabs";
 import OrderList from "./components/OrderList";
+import ReturnRequestList from "./components/ReturnRequestList";
 import orderService, { type Order as ApiOrder } from "@/services/OrderService";
+import orderReturnRequestApiService, { OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
 import type { Order } from "@/types/order";
 import { getCloudinaryUrl } from "@/config/config";
 
@@ -80,6 +82,7 @@ function transformApiOrderToLocal(apiOrder: ApiOrder): Order {
 
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [returnRequests, setReturnRequests] = useState<OrderReturnResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,6 +119,21 @@ export default function MyOrdersPage() {
     }
   };
 
+  // Function to load return requests
+  const loadReturnRequests = async () => {
+    const currentUserId = userProfile?.id || user?.id;
+    if (!currentUserId || status !== "authenticated") return;
+    
+    try {
+      const returnRequestsResponse = await orderReturnRequestApiService.getReturnRequestsByUser(currentUserId);
+      setReturnRequests(returnRequestsResponse);
+      console.log('Return requests loaded:', returnRequestsResponse);
+    } catch (error: any) {
+      console.error("Failed to load return requests:", error);
+      // Don't show error message as return requests might not exist for all users
+    }
+  };
+
   // Redirect if not authenticated
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -124,7 +142,7 @@ export default function MyOrdersPage() {
   }, [status, router]);
 
   useEffect(() => {
-    const loadOrders = async () => {
+    const loadData = async () => {
       if (status !== "authenticated") return;
       
       const currentUserId = userProfile?.id || user?.id;
@@ -138,10 +156,15 @@ export default function MyOrdersPage() {
       
       setLoading(true);
       try {
+        // Load orders
         const response = await orderService.getUserOrders(currentUserId);
         const transformedOrders = response.content.map(transformApiOrderToLocal);
         setOrders(transformedOrders);
         setTotalPages(response.totalPages);
+        
+        // Load return requests
+        await loadReturnRequests();
+        
         setHasLoaded(true);
       } catch (error: any) {
         console.error("Failed to load orders:", error);
@@ -153,7 +176,7 @@ export default function MyOrdersPage() {
 
     // Only load when we have authentication status and user info
     if (status === "authenticated" && (userProfile?.id || user?.id)) {
-      loadOrders();
+      loadData();
     } else if (status === "unauthenticated") {
       setLoading(false);
     }
@@ -170,7 +193,7 @@ export default function MyOrdersPage() {
       shipping: ["SHIPPING"],
       delivered: ["DELIVERED"],
       cancelled: ["CANCELLED"],
-      returned: ["RETURN_REQUESTED", "RETURNED"]
+      "return-request": ["RETURN_REQUESTED", "RETURNED"]
     };
     
     const matchingStatuses = statusMap[activeTab] || [];
@@ -185,7 +208,8 @@ export default function MyOrdersPage() {
       confirmed: 0,
       shipping: 0,
       delivered: 0,
-      cancelled: 0
+      cancelled: 0,
+      returnRequest: 0
     };
 
     orders.forEach(order => {
@@ -196,7 +220,7 @@ export default function MyOrdersPage() {
       else if (status === "SHIPPING") counts.shipping++;
       else if (status === "DELIVERED") counts.delivered++;
       else if (status === "CANCELLED") counts.cancelled++;
-      // Note: RETURN_REQUESTED and RETURNED can be added to a separate tab if needed
+      else if (status === "RETURN_REQUESTED" || status === "RETURNED") counts.returnRequest++;
     });
 
     return counts;
@@ -271,20 +295,31 @@ export default function MyOrdersPage() {
         <OrderTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          orderCounts={getOrderCounts()}
+          orderCounts={{
+            ...getOrderCounts(),
+            returnRequest: returnRequests.length
+          }}
           title="My Orders"
-          orderCount={orders.length}
+          orderCount={activeTab === "return-request" ? returnRequests.length : orders.length}
         />
 
         <div className="max-w-6xl mx-auto px-4 pt-6">
-          <OrderList
-            orders={filteredOrders}
-            loading={loading}
-            onCancelOrder={handleCancelOrder}
-            onViewOrder={handleViewOrder}
-            onReorder={handleReorder}
-            onReview={handleReview}
-          />
+          {activeTab === "return-request" ? (
+            <ReturnRequestList
+              returnRequests={returnRequests}
+              loading={loading}
+              onViewOrder={handleViewOrder}
+            />
+          ) : (
+            <OrderList
+              orders={filteredOrders}
+              loading={loading}
+              onCancelOrder={handleCancelOrder}
+              onViewOrder={handleViewOrder}
+              onReorder={handleReorder}
+              onReview={handleReview}
+            />
+          )}
 
           {/* Pagination Controls - Hidden for now since backend doesn't support pagination */}
           {false && totalPages > 1 && (
