@@ -140,13 +140,43 @@ public class ProductService {
     public ProductResponseDto getProductById(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+        
+        if (product.getIsDeleted()) {
+            throw new RuntimeException("Product has been deleted");
+        }
+        
         return convertToDto(product);
     }
 
-    // Get all products
+    // Get product by ID including deleted
+    public ProductResponseDto getProductByIdIncludingDeleted(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+        return convertToDto(product);
+    }
+
+    // Get all products (excluding soft deleted)
     public List<ProductResponseDto> getAllProducts() {
         List<Product> products = productRepository.findAll();
         return products.stream()
+                .filter(product -> !product.getIsDeleted())
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    // Get all products including soft deleted
+    public List<ProductResponseDto> getAllProductsIncludingDeleted() {
+        List<Product> products = productRepository.findAll();
+        return products.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    // Get all soft deleted products
+    public List<ProductResponseDto> getAllDeletedProducts() {
+        List<Product> products = productRepository.findAll();
+        return products.stream()
+                .filter(Product::getIsDeleted)
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -155,6 +185,7 @@ public class ProductService {
     public List<ProductResponseDto> getProductsByCategory(UUID categoryId) {
         List<Product> products = productRepository.findByCategoryId(categoryId);
         return products.stream()
+                .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -163,6 +194,7 @@ public class ProductService {
     public List<ProductResponseDto> getProductsByShop(UUID shopId) {
         List<Product> products = productRepository.findByShopId(shopId);
         return products.stream()
+                .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -171,6 +203,7 @@ public class ProductService {
     public List<ProductResponseDto> getProductsByStatus(Status status) {
         List<Product> products = productRepository.findByStatus(status);
         return products.stream()
+                .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -179,6 +212,7 @@ public class ProductService {
     public List<ProductResponseDto> searchProductsByName(String name) {
         List<Product> products = productRepository.findByNameContaining(name);
         return products.stream()
+                .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -187,6 +221,7 @@ public class ProductService {
     public List<ProductResponseDto> searchProducts(String name, String brand, UUID categoryId, UUID shopId, Status status) {
         List<Product> products = productRepository.findProductsByMultipleCriteria(name, brand, categoryId, shopId, status);
         return products.stream()
+                .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -267,7 +302,37 @@ public class ProductService {
         return updateProduct(id, updateProductDto, null);
     }
 
-    // Delete product
+    // Soft delete product
+    @Transactional
+    public void softDeleteProduct(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+        
+        if (product.getIsDeleted()) {
+            throw new RuntimeException("Product has already been deleted");
+        }
+        
+        product.setIsDeleted(true);
+        product.setStatus(Status.INACTIVE);
+        productRepository.save(product);
+    }
+
+    // Restore soft deleted product
+    @Transactional
+    public void restoreProduct(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+        
+        if (!product.getIsDeleted()) {
+            throw new RuntimeException("Product is not deleted");
+        }
+        
+        product.setIsDeleted(false);
+        product.setStatus(Status.ACTIVE);
+        productRepository.save(product);
+    }
+
+    // Hard delete product (permanent delete)
     @Transactional
     public void deleteProduct(UUID id) {
         Product product = productRepository.findById(id)
@@ -327,6 +392,7 @@ public class ProductService {
                 .brand(product.getBrand())
                 .images(product.getImages())
                 .status(product.getStatus())
+                .isDeleted(product.getIsDeleted())
                 .variants(variantDtos)
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())

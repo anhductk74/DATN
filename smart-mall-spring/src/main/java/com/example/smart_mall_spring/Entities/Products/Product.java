@@ -29,6 +29,7 @@ public class Product extends BaseEntity {
     private Shop shop;
 
     private String name;
+    @Column(columnDefinition = "TEXT")
     private String description;
     private String brand;
 
@@ -39,6 +40,9 @@ public class Product extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     private Status status;
+
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductVariant> variants;

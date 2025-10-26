@@ -51,27 +51,27 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       label: "Order Management",
       children: [
         {
-          key: "/shop/orders",
+          key: "/shop-management/orders",
           label: "All Orders",
         },
         {
-          key: "/shop/orders/pending",
+          key: "/shop-management/orders/pending",
           label: "Pending Orders",
         },
         {
-          key: "/shop/orders/processing",
+          key: "/shop-management/orders/processing",
           label: "Processing",
         },
         {
-          key: "/shop/orders/shipped",
+          key: "/shop-management/orders/shipped",
           label: "Shipped",
         },
         {
-          key: "/shop/orders/delivered",
+          key: "/shop-management/orders/delivered",
           label: "Delivered",
         },
         {
-          key: "/shop/orders/cancelled",
+          key: "/shop-management/orders/cancelled",
           label: "Cancelled",
         },
       ],
@@ -82,19 +82,19 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       label: "Product Management",
       children: [
         {
-          key: "/shop/products/all",
+          key: "/shop-management/products/all",
           label: "All Products",
         },
         {
-          key: "/shop/products/add",
+          key: "/shop-management/products/add",
           label: "Add Product",
         },
         {
-          key: "/shop/products/categories",
+          key: "/shop-management/products/categories",
           label: "Categories",
         },
         {
-          key: "/shop/products/inventory",
+          key: "/shop-management/products/inventory",
           label: "Inventory",
         },
       ],
@@ -105,17 +105,17 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       label: "Shop Management",
       children: [
         {
-          key: "/shop/profile",
+          key: "/shop-management/profile",
           icon: <UserOutlined />,
           label: "Shop Profile",
         },
         {
-          key: "/shop/complaints",
+          key: "/shop-management/complaints",
           icon: <FileTextOutlined />,
           label: "Complaint Management",
         },
         {
-          key: "/shop/reviews",
+          key: "/shop-management/reviews",
           icon: <StarOutlined />,
           label: "Reviews & Ratings",
         },
@@ -127,12 +127,12 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       label: "Customer Care",
       children: [
         {
-          key: "/shop/messages",
+          key: "/shop-management/messages",
           icon: <MessageOutlined />,
           label: "Messages",
         },
         {
-          key: "/shop/support",
+          key: "/shop-management/support",
           icon: <CustomerServiceOutlined />,
           label: "Support Tickets",
         },
@@ -144,15 +144,15 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       label: "Analytics",
       children: [
         {
-          key: "/shop/analytics/sales",
+          key: "/shop-management/analytics/sales",
           label: "Sales Report",
         },
         {
-          key: "/shop/analytics/products",
+          key: "/shop-management/analytics/products",
           label: "Product Analytics",
         },
         {
-          key: "/shop/analytics/customers",
+          key: "/shop-management/analytics/customers",
           label: "Customer Analytics",
         },
       ],
@@ -168,13 +168,13 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       key: 'profile',
       icon: <UserOutlined />,
       label: 'Shop Profile',
-      onClick: () => router.push('/shop/profile'),
+      onClick: () => router.push('/shop-management/profile'),
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
       label: 'Settings',
-      onClick: () => router.push('/shop/settings'),
+      onClick: () => router.push('/shop-management/settings'),
     },
     {
       type: 'divider',

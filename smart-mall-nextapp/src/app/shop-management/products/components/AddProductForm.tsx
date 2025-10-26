@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
 import { 
   Form, 
   Input, 
@@ -15,7 +15,8 @@ import {
   Space,
   Table,
   Modal,
-  message
+  message,
+  Spin
 } from "antd";
 import { 
   PlusOutlined, 
@@ -23,8 +24,11 @@ import {
   DeleteOutlined,
   MinusCircleOutlined
 } from "@ant-design/icons";
+import { useSession } from "next-auth/react";
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { CreateProductData, ProductVariant, ProductAttribute } from "@/services/ProductService";
+import categoryService from "@/services/CategoryService";
+import type { Category } from "@/services/CategoryService";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -35,28 +39,72 @@ interface AddProductFormProps {
   onSubmit: (data: CreateProductData, images: File[]) => void;
   loading?: boolean;
   showAsModal?: boolean; // New prop to control modal behavior
+  shopId?: string; // Shop ID to associate product with
 }
 
-export default function AddProductForm({ visible, onCancel, onSubmit, loading = false, showAsModal = true }: AddProductFormProps) {
+export interface AddProductFormRef {
+  resetForm: () => void;
+}
+
+const AddProductForm = forwardRef<AddProductFormRef, AddProductFormProps>(({ visible, onCancel, onSubmit, loading = false, showAsModal = true, shopId }, ref) => {
+  const { data: session } = useSession();
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [variants, setVariants] = useState<Omit<ProductVariant, 'id'>[]>([]);
   const [isVariantModalVisible, setIsVariantModalVisible] = useState(false);
   const [editingVariantIndex, setEditingVariantIndex] = useState<number | null>(null);
   const [variantForm] = Form.useForm();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+  const [categoryForm] = Form.useForm();
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
 
-  // Mock categories and shops - in real app, these would come from API
-  const categories = [
-    { id: "cat1", name: "Smartphones" },
-    { id: "cat2", name: "Laptops" },
-    { id: "cat3", name: "Audio" },
-    { id: "cat4", name: "Accessories" }
-  ];
+  // Expose reset method to parent
+  useImperativeHandle(ref, () => ({
+    resetForm: handleReset
+  }));
 
-  const shops = [
-    { id: "shop1", name: "TechWorld Electronics" },
-    { id: "shop2", name: "Digital Store" }
-  ];
+  // Fetch categories on component mount
+  useEffect(() => {
+    if (visible) {
+      fetchCategories();
+    }
+  }, [visible]);
+
+  const fetchCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const categoriesData = await categoryService.getAllCategories();
+      setCategories(categoriesData);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      message.error('Failed to load categories');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const handleCreateCategory = async (values: any) => {
+    setCategorySubmitting(true);
+    try {
+      await categoryService.createCategory({
+        name: values.name,
+        description: values.description,
+        parentId: values.parentId || null
+      });
+      message.success('Category created successfully!');
+      setIsCategoryModalVisible(false);
+      categoryForm.resetFields();
+      // Refresh categories list
+      await fetchCategories();
+    } catch (error: any) {
+      console.error('Error creating category:', error);
+      message.error(error.response?.data?.message || 'Failed to create category');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
 
   const handleFinish = (values: any) => {
     if (variants.length === 0) {
@@ -64,8 +112,14 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
       return;
     }
 
+    if (!shopId) {
+      message.error('Shop ID is missing. Please try again.');
+      return;
+    }
+
     const productData: CreateProductData = {
       ...values,
+      shopId: shopId, // Use shopId from props
       variants: variants
     };
 
@@ -74,8 +128,8 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
     console.log('Product Data:', productData);
     console.log('Images:', images);
     
+    // Don't reset here, let parent handle it after success
     onSubmit(productData, images);
-    handleReset();
   };
 
   const handleReset = () => {
@@ -97,6 +151,31 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
     setEditingVariantIndex(index);
     setIsVariantModalVisible(true);
     variantForm.setFieldsValue(variants[index]);
+  };
+
+  // Auto-generate SKU from attributes
+  const generateSKU = (attributes: ProductAttribute[]) => {
+    if (!attributes || attributes.length === 0) {
+      return '';
+    }
+    
+    const attrValues = attributes
+      .map(attr => attr.attributeValue?.toUpperCase().replace(/\s/g, '-'))
+      .filter(Boolean)
+      .join('-');
+    
+    return attrValues;
+  };
+
+  // Watch for attribute changes to update SKU
+  const handleAttributeChange = () => {
+    const attributes = variantForm.getFieldValue('attributes') || [];
+    const validAttributes = attributes.filter((attr: any) => attr?.attributeName && attr?.attributeValue);
+    
+    if (validAttributes.length > 0) {
+      const generatedSKU = generateSKU(validAttributes);
+      variantForm.setFieldsValue({ sku: generatedSKU });
+    }
   };
 
   const handleVariantSubmit = (values: any) => {
@@ -135,7 +214,7 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
       title: 'Price',
       dataIndex: 'price',
       key: 'price',
-      render: (price: number) => `$${price}`,
+      render: (price: number) => `$${price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
     },
     {
       title: 'Stock',
@@ -221,7 +300,26 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
               label="Category"
               rules={[{ required: true, message: 'Please select category' }]}
             >
-              <Select placeholder="Select category">
+              <Select 
+                placeholder="Select category" 
+                loading={categoriesLoading}
+                dropdownRender={(menu) => (
+                  <>
+                    {menu}
+                    <Divider style={{ margin: '8px 0' }} />
+                    <div style={{ padding: '8px' }}>
+                      <Button
+                        type="link"
+                        icon={<PlusOutlined />}
+                        onClick={() => setIsCategoryModalVisible(true)}
+                        style={{ width: '100%' }}
+                      >
+                        Add New Category
+                      </Button>
+                    </div>
+                  </>
+                )}
+              >
                 {categories.map(category => (
                   <Option key={category.id} value={category.id}>
                     {category.name}
@@ -231,19 +329,12 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item
-              name="shopId"
-              label="Shop"
-              rules={[{ required: true, message: 'Please select shop' }]}
-            >
-              <Select placeholder="Select shop">
-                {shops.map(shop => (
-                  <Option key={shop.id} value={shop.id}>
-                    {shop.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+            <div className="mt-2">
+              <div className="text-sm font-medium mb-1">Shop</div>
+              <div className="text-sm text-gray-500">
+                {shopId ? `Product will be added to your shop (ID: ${shopId.substring(0, 8)}...)` : 'Loading shop information...'}
+              </div>
+            </div>
           </Col>
         </Row>
 
@@ -295,11 +386,11 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
       >
         {variants.length > 0 ? (
           <Table
-            dataSource={variants}
+            dataSource={variants.map((variant, index) => ({ ...variant, key: `variant-${index}` }))}
             columns={variantColumns}
             pagination={false}
             size="small"
-            rowKey={(record, index) => index?.toString() || '0'}
+            rowKey="key"
           />
         ) : (
           <div className="text-center text-gray-500 py-4">
@@ -352,8 +443,13 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
               name="sku"
               label="SKU"
               rules={[{ required: true, message: 'Please enter SKU' }]}
+              extra="SKU will be auto-generated from attributes below"
             >
-              <Input placeholder="Enter SKU" />
+              <Input 
+                placeholder="Will be auto-generated from attributes" 
+                disabled
+                style={{ cursor: 'default', backgroundColor: '#f5f5f5' }}
+              />
             </Form.Item>
 
             <Row gutter={16}>
@@ -368,6 +464,8 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
                     min={0}
                     step={0.01}
                     placeholder="0.00"
+                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
                   />
                 </Form.Item>
               </Col>
@@ -386,22 +484,13 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
               </Col>
             </Row>
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="weight" label="Weight (grams)">
-                  <InputNumber
-                    style={{ width: '100%' }}
-                    min={0}
-                    placeholder="0"
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="dimensions" label="Dimensions">
-                  <Input placeholder="L x W x H (cm)" />
-                </Form.Item>
-              </Col>
-            </Row>
+            <Form.Item name="weight" label="Weight (grams)">
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                placeholder="0"
+              />
+            </Form.Item>
 
             <Divider>Product Attributes</Divider>
 
@@ -416,7 +505,10 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
                           name={[name, 'attributeName']}
                           rules={[{ required: true, message: 'Missing attribute name' }]}
                         >
-                          <Input placeholder="Attribute name (e.g., Color)" />
+                          <Input 
+                            placeholder="Attribute name (e.g., Color)"
+                            onChange={handleAttributeChange}
+                          />
                         </Form.Item>
                       </Col>
                       <Col span={10}>
@@ -425,11 +517,17 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
                           name={[name, 'attributeValue']}
                           rules={[{ required: true, message: 'Missing attribute value' }]}
                         >
-                          <Input placeholder="Attribute value (e.g., Red)" />
+                          <Input 
+                            placeholder="Attribute value (e.g., Red)"
+                            onChange={handleAttributeChange}
+                          />
                         </Form.Item>
                       </Col>
                       <Col span={4}>
-                        <MinusCircleOutlined onClick={() => remove(name)} />
+                        <MinusCircleOutlined onClick={() => {
+                          remove(name);
+                          handleAttributeChange();
+                        }} />
                       </Col>
                     </Row>
                   ))}
@@ -492,8 +590,13 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
             name="sku"
             label="SKU"
             rules={[{ required: true, message: 'Please enter SKU' }]}
+            extra="SKU will be auto-generated from attributes below"
           >
-            <Input placeholder="Enter SKU" />
+            <Input 
+              placeholder="Will be auto-generated from attributes" 
+              disabled
+              style={{ cursor: 'default', backgroundColor: '#f5f5f5' }}
+            />
           </Form.Item>
 
           <Row gutter={16}>
@@ -508,6 +611,8 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
                   min={0}
                   step={0.01}
                   placeholder="0.00"
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
                 />
               </Form.Item>
             </Col>
@@ -526,22 +631,13 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="weight" label="Weight (grams)">
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  placeholder="0"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="dimensions" label="Dimensions">
-                <Input placeholder="L x W x H (cm)" />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item name="weight" label="Weight (grams)">
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              placeholder="0"
+            />
+          </Form.Item>
 
           <Divider>Product Attributes</Divider>
 
@@ -556,7 +652,10 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
                         name={[name, 'attributeName']}
                         rules={[{ required: true, message: 'Missing attribute name' }]}
                       >
-                        <Input placeholder="Attribute name (e.g., Color)" />
+                        <Input 
+                          placeholder="Attribute name (e.g., Color)"
+                          onChange={handleAttributeChange}
+                        />
                       </Form.Item>
                     </Col>
                     <Col span={10}>
@@ -565,11 +664,17 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
                         name={[name, 'attributeValue']}
                         rules={[{ required: true, message: 'Missing attribute value' }]}
                       >
-                        <Input placeholder="Attribute value (e.g., Red)" />
+                        <Input 
+                          placeholder="Attribute value (e.g., Red)"
+                          onChange={handleAttributeChange}
+                        />
                       </Form.Item>
                     </Col>
                     <Col span={4}>
-                      <MinusCircleOutlined onClick={() => remove(name)} />
+                      <MinusCircleOutlined onClick={() => {
+                        remove(name);
+                        handleAttributeChange();
+                      }} />
                     </Col>
                   </Row>
                 ))}
@@ -583,6 +688,57 @@ export default function AddProductForm({ visible, onCancel, onSubmit, loading = 
           </Form.List>
         </Form>
       </Modal>
+
+      {/* Add Category Modal */}
+      <Modal
+        title="Add New Category"
+        open={isCategoryModalVisible}
+        onCancel={() => {
+          setIsCategoryModalVisible(false);
+          categoryForm.resetFields();
+        }}
+        onOk={() => categoryForm.submit()}
+        confirmLoading={categorySubmitting}
+        okText="Create"
+      >
+        <Form
+          form={categoryForm}
+          layout="vertical"
+          onFinish={handleCreateCategory}
+        >
+          <Form.Item
+            name="name"
+            label="Category Name"
+            rules={[{ required: true, message: 'Please enter category name' }]}
+          >
+            <Input placeholder="Enter category name" />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Description"
+          >
+            <TextArea rows={3} placeholder="Enter category description (optional)" />
+          </Form.Item>
+
+          <Form.Item
+            name="parentId"
+            label="Parent Category"
+          >
+            <Select placeholder="Select parent category (optional)" allowClear>
+              {categories.map(category => (
+                <Option key={category.id} value={category.id}>
+                  {category.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </>
   );
-}
+});
+
+AddProductForm.displayName = 'AddProductForm';
+
+export default AddProductForm;

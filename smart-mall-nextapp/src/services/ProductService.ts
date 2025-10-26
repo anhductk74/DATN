@@ -23,6 +23,7 @@ export interface Product {
   brand: string;
   images?: string[];
   status: "ACTIVE" | "INACTIVE" | "OUT_OF_STOCK";
+  isDeleted?: boolean; // Soft delete flag
   variants: ProductVariant[];
   categoryId: string;
   shopId: string;
@@ -185,9 +186,37 @@ class ProductService {
     return response.data.data;
   }
 
-  // Delete product
+  // Soft delete product (mark as deleted)
+  async softDeleteProduct(id: string): Promise<void> {
+    await apiClient.delete(`/products/${id}/soft`);
+  }
+
+  // Restore deleted product
+  async restoreProduct(id: string): Promise<void> {
+    await apiClient.put(`/products/${id}/restore`);
+  }
+
+  // Hard delete product (permanent deletion)
   async deleteProduct(id: string): Promise<void> {
     await apiClient.delete(`/products/${id}`);
+  }
+
+  // Get all products including deleted ones
+  async getAllProductsIncludingDeleted(): Promise<Product[]> {
+    const response = await apiClient.get('/products/all/including-deleted');
+    return response.data.data;
+  }
+
+  // Get only deleted products
+  async getDeletedProducts(): Promise<Product[]> {
+    const response = await apiClient.get('/products/deleted');
+    return response.data.data;
+  }
+
+  // Get product by ID including deleted
+  async getProductByIdIncludingDeleted(id: string): Promise<Product> {
+    const response = await apiClient.get(`/products/${id}/including-deleted`);
+    return response.data.data;
   }
 
   // Get product count by shop

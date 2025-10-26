@@ -25,6 +25,7 @@ public class ProductResponseDto {
     private String brand;
     private List<String> images;
     private Status status;
+    private Boolean isDeleted;
     private List<ProductVariantResponseDto> variants;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

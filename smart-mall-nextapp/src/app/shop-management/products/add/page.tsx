@@ -6,6 +6,7 @@ import { Card, Button, message } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import AddProductForm from "../components/AddProductForm";
 import type { CreateProductData } from "@/services/ProductService";
+import productService from "@/services/ProductService";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -14,24 +15,19 @@ export default function AddProductPage() {
   const handleSubmit = async (productData: CreateProductData, images: File[]) => {
     setIsSubmitting(true);
     try {
-      console.log('Creating product:', productData, images);
-      // Here you would call the productService.createProduct(productData, images)
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await productService.createProduct(productData, images);
       message.success('Product created successfully!');
-      router.push('/shop/products/all');
-    } catch (error) {
+      router.push('/shop-management/products/all');
+    } catch (error: any) {
       console.error('Error creating product:', error);
-      message.error('Failed to create product. Please try again.');
+      message.error(error.response?.data?.message || 'Failed to create product. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleCancel = () => {
-    router.push('/shop/products/all');
+    router.push('/shop-management/products/all');
   };
 
   return (
