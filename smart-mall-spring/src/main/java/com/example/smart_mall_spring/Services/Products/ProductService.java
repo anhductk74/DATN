@@ -360,11 +360,6 @@ public class ProductService {
     // Create product variants
     private void createProductVariants(Product product, List<CreateProductVariantDto> variantDtos) {
         for (CreateProductVariantDto variantDto : variantDtos) {
-            // Check SKU uniqueness
-            if (variantDto.getSku() != null && productVariantRepository.existsBySku(variantDto.getSku())) {
-                throw new RuntimeException("SKU already exists: " + variantDto.getSku());
-            }
-
             ProductVariant variant = new ProductVariant();
             variant.setProduct(product);
             variant.setSku(variantDto.getSku());
@@ -479,12 +474,6 @@ public class ProductService {
                     // Check if variant belongs to this product
                     if (!existingVariant.getProduct().getId().equals(product.getId())) {
                         throw new RuntimeException("Variant does not belong to this product");
-                    }
-
-                    // Check SKU uniqueness (excluding current variant)
-                    if (variantDto.getSku() != null && 
-                        productVariantRepository.existsBySkuAndIdNot(variantDto.getSku(), variantDto.getId())) {
-                        throw new RuntimeException("SKU already exists: " + variantDto.getSku());
                     }
 
                     // Update variant fields
