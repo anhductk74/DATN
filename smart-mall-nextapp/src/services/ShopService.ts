@@ -13,6 +13,7 @@ export interface Shop {
   name: string;
   description: string;
   numberPhone: string;
+  cccd?: string;
   avatar?: string;
   ownerId: string;
   ownerName: string;
@@ -23,6 +24,7 @@ export interface CreateShopData {
   name: string;
   description: string;
   phoneNumber: string;
+  cccd?: string;
   ownerId: string;
   address: ShopAddress;
 }
@@ -31,6 +33,7 @@ export interface UpdateShopData {
   name: string;
   description: string;
   phoneNumber: string;
+  cccd?: string;
   address: ShopAddress;
 }
 

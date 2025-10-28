@@ -14,6 +14,7 @@ import java.util.UUID;
 public class ShopResponseDto {
     private UUID id;
     private String name;
+    private String cccd;
     private String description;
     private String numberPhone;
     private String avatar;

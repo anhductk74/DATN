@@ -49,6 +49,8 @@ public class ShopService {
         Shop shop = new Shop();
         if(createShopDto.getName() != null)
             shop.setName(createShopDto.getName());
+        if(createShopDto.getCccd() != null)
+            shop.setCccd(createShopDto.getCccd());
         if(createShopDto.getDescription() != null)
             shop.setDescription(createShopDto.getDescription());
         if(createShopDto.getPhoneNumber() != null)
@@ -94,6 +96,7 @@ public class ShopService {
         return ShopResponseDto.builder()
                 .id(shop.getId())
                 .name(shop.getName())
+                .cccd(shop.getCccd())
                 .description(shop.getDescription())
                 .numberPhone(shop.getPhoneNumber())
                 .avatar(shop.getAvatar())
@@ -154,6 +157,9 @@ public class ShopService {
         // Update fields if provided
         if (updateShopDto.getName() != null) {
             shop.setName(updateShopDto.getName());
+        }
+        if (updateShopDto.getCccd() != null) {
+            shop.setCccd(updateShopDto.getCccd());
         }
         if (updateShopDto.getDescription() != null) {
             shop.setDescription(updateShopDto.getDescription());

@@ -16,6 +16,10 @@ import lombok.NoArgsConstructor;
 public class Shop extends BaseEntity {
     @Column(nullable = false)
     private String name;
+    
+    @Column(length = 12)
+    private String cccd;
+    
     private String description;
     private String phoneNumber;
     private String avatar;
