@@ -72,19 +72,8 @@ export class IntegratedOrderService {
 
       const order = await orderApiService.createOrder(orderRequest);
 
-      // 3. Apply vouchers if provided
-      if (request.voucherIds && request.voucherIds.length > 0) {
-        try {
-          for (const voucherId of request.voucherIds) {
-            await orderVoucherApiService.applyVoucher({
-              orderId: order.id,
-              voucherId: voucherId
-            });
-          }
-        } catch (error) {
-          console.warn('Failed to apply vouchers:', error);
-        }
-      }
+      // Note: Vouchers are already applied by the backend when creating the order
+      // No need to apply them again here to avoid duplicates
 
       // 4. Create shipping fee record
       try {

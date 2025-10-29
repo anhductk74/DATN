@@ -16,7 +16,8 @@ import {
   CustomerServiceOutlined,
   QuestionCircleOutlined,
   LogoutOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  ProductOutlined
 } from "@ant-design/icons";
 import { Drawer, List, Button, Divider, Badge, InputNumber } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
@@ -227,7 +228,7 @@ export default function Header() {
                   {/* Notification Popup */}
                   {showNotificationPopup && (
                     <div 
-                      className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50"
+                      className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[100]"
                       onMouseEnter={() => setShowNotificationPopup(true)}
                       onMouseLeave={() => setShowNotificationPopup(false)}
                     >
@@ -325,47 +326,83 @@ export default function Header() {
                     className="relative p-3 text-gray-600 hover:text-green-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 hover:shadow-md group"
                   >
                     <ShoppingCartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg">{cart.totalCount}</span>
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full min-w-[24px] h-6 px-1 flex items-center justify-center font-semibold shadow-lg">
+                      {cart.totalCount > 99 ? '99+' : cart.totalCount}
+                    </span>
                   </button>
 
                   {showCartPopup && (
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 p-3 z-50" onMouseEnter={() => setShowCartPopup(true)} onMouseLeave={() => setShowCartPopup(false)}>
-                      <div className="text-sm font-semibold mb-2">Cart ({cart.totalCount})</div>
-                      <div className="max-h-60 overflow-auto">
+                    <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[100]" onMouseEnter={() => setShowCartPopup(true)} onMouseLeave={() => setShowCartPopup(false)}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-semibold text-gray-800">Shopping Cart</div>
+                        <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                          {cart.totalCount} {cart.totalCount === 1 ? 'item' : 'items'}
+                        </div>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto pr-1">
                         {cart.items.length === 0 ? (
-                          <div className="text-sm text-gray-500 py-6 text-center">Your cart is empty</div>
+                          <div className="text-sm text-gray-500 py-8 text-center">
+                            <ShoppingCartOutlined className="text-3xl mb-2 text-gray-300" />
+                            <div>Your cart is empty</div>
+                          </div>
                         ) : (
-                          <List dataSource={cart.items} renderItem={(item: CartItem) => (
-                            <List.Item className="p-2">
-                              <div className="flex items-center w-full">
-                                <div className="w-12 h-12 bg-gray-100 mr-3 flex-shrink-0">
+                          <div className="space-y-3">
+                            {cart.items.map((item: CartItem, index: number) => (
+                              <div key={item.cartItemId || index} className="flex items-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                                <div className="w-12 h-12 bg-gray-100 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
                                   {item.image ? (
-                                    <Image src={getCloudinaryUrl(item.image)} alt={item.title} width={48} height={48} className="w-full h-full object-cover" />
+                                    <Image 
+                                      src={getCloudinaryUrl(item.image)} 
+                                      alt={item.title} 
+                                      width={48} 
+                                      height={48} 
+                                      className="w-full h-full object-cover" 
+                                    />
                                   ) : (
-                                    <div className="w-full h-full bg-gray-200" />
+                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                      <ProductOutlined className="text-gray-400 text-lg" />
+                                    </div>
                                   )}
                                 </div>
-                                <div className="flex-1">
-                                  <div className="text-sm font-medium truncate">{item.title}</div>
-                                  <div className="text-xs text-gray-500">{item.shopName || ''}</div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-gray-900 truncate pr-2" title={item.title}>
+                                    {item.title}
+                                  </div>
+                                  <div className="text-xs text-gray-500 truncate" title={item.shopName}>
+                                    {item.shopName || 'Unknown Shop'}
+                                  </div>
+                                  <div className="flex items-center justify-between mt-1">
+                                    <span className="text-xs text-gray-400">Qty: {item.quantity}</span>
+                                    <span className="text-sm font-semibold text-green-600">
+                                      {item.price.toLocaleString()}đ
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="ml-3 text-sm font-semibold text-red-600">{item.price.toLocaleString()}đ</div>
                               </div>
-                            </List.Item>
-                          )} />
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <Divider />
-                      <div className="flex items-center justify-between">
+                      <Divider className="my-3" />
+                      <div className="flex items-center justify-between mb-3">
                         <div>
-                          <div className="text-sm text-gray-500">Total</div>
-                          <div className="text-lg font-bold">{cart.totalPrice.toLocaleString()}đ</div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide">Total Amount</div>
+                          <div className="text-lg font-bold text-gray-900">{cart.totalPrice.toLocaleString()}đ</div>
                         </div>
-                        <div className="space-x-2">
-                          <Button size="small" onClick={() => handleNavigate('/cart')}>
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="small" 
+                            onClick={() => handleNavigate('/cart')}
+                            className="border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800"
+                          >
                             View Cart
                           </Button>
-                          <Button size="small" type="primary" onClick={() => handleNavigate('/checkout')}>
+                          <Button 
+                            size="small" 
+                            type="primary" 
+                            onClick={() => handleNavigate('/checkout')}
+                            className="bg-gradient-to-r from-green-500 to-blue-500 border-0 hover:from-green-600 hover:to-blue-600"
+                          >
                             Checkout
                           </Button>
                         </div>
@@ -466,15 +503,17 @@ export default function Header() {
                         </div>
                         <span className="font-medium group-hover:text-green-700">My Orders</span>
                       </button>
-                      <button 
-                        onClick={() => handleNavigate('/shop-management')}
+                      <a 
+                        href="/shop-management"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group"
                       >
                         <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <HeartOutlined className="text-white text-sm" />
                         </div>
-                        <span className="font-medium group-hover:text-pink-700">My Shop</span>
-                      </button>
+                        <span className="font-medium text-black group-hover:text-black">My Shop</span>
+                      </a>
                       <button onClick={() => handleNavigate('/support', false)} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 rounded-2xl transition-all duration-200 group">
                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
                           <CustomerServiceOutlined className="text-white text-sm" />
@@ -611,7 +650,11 @@ export default function Header() {
                 <button onClick={() => handleNavigate('/cart')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <ShoppingCartOutlined className="mr-3 text-gray-400" />
                   Cart
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">5</span>
+                  {cart.totalCount > 0 && (
+                    <span className="ml-auto bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold">
+                      {cart.totalCount > 99 ? '99+' : cart.totalCount}
+                    </span>
+                  )}
                 </button>
                 <button onClick={() => handleNavigate('/support', false)} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <CustomerServiceOutlined className="mr-3 text-gray-400" />

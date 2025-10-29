@@ -6,6 +6,7 @@ import com.example.smart_mall_spring.Dtos.Orders.OrderResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.OrderSummaryDto;
 import com.example.smart_mall_spring.Dtos.Orders.UpdateOrderStatusDto;
 import com.example.smart_mall_spring.Entities.Orders.*;
+import com.example.smart_mall_spring.Enum.StatusOrder;
 import com.example.smart_mall_spring.Services.Order.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -56,5 +57,15 @@ public class OrderController {
                                          @RequestParam(required = false) String reason) {
         orderService.cancelOrderByUser(orderId, userId, reason);
         return ResponseEntity.ok("Order cancelled successfully");
+    }
+    @GetMapping("/shop/{shopId}")
+    public ResponseEntity<?> getOrdersByShopWithFilters(
+            @PathVariable UUID shopId,
+            @RequestParam(required = false) StatusOrder status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        var orders = orderService.getOrdersByShopWithFilters(shopId, status, page, size);
+        return ResponseEntity.ok(orders);
     }
 }

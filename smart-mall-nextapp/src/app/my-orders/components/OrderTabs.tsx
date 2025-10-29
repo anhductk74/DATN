@@ -22,7 +22,7 @@ interface OrderTabsProps {
 
 export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, orderCount }: OrderTabsProps) {
   return (
-    <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+    <div className="sticky top-16 z-40 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-6xl mx-auto px-4">
         {title && (
           <div className="flex items-center justify-between py-3 border-b border-gray-50">

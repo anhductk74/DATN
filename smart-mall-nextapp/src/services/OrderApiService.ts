@@ -34,6 +34,15 @@ export interface OrderResponseDto {
   statusHistories?: OrderStatusHistoryDto[];
   shippingFees?: ShippingFeeResponseDto[];
   payment?: PaymentResponseDto;
+  shippingAddress?: {
+    fullName: string;
+    phone: string;
+    address: string;
+    ward: string;
+    district: string;
+    province: string;
+    isDefault: boolean;
+  };
 }
 
 export interface OrderItemResponseDto {
@@ -149,5 +158,29 @@ export const orderApiService = {
   async updateOrderStatus(data: UpdateOrderStatusDto): Promise<string> {
     const response = await apiClient.put<string>('/orders/status', data);
     return response.data;
-  }
+  },
+
+  // Get orders by shop with filters and pagination
+  async getOrdersByShopWithFilters(
+    shopId: string,
+    status?: OrderStatus,
+    page: number = 0,
+    size: number = 10
+  ): Promise<{
+    content: OrderResponseDto[];
+    totalElements: number;
+    totalPages: number;
+    currentPage: number;
+    pageSize: number;
+  }> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString(),
+    });
+    if (status) {
+      params.append('status', status);
+    }
+    const response = await apiClient.get(`/orders/shop/${shopId}?${params}`);
+    return response.data;
+  },
 };

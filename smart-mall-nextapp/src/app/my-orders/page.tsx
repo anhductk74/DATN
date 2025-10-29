@@ -13,6 +13,7 @@ import OrderList from "./components/OrderList";
 import ReturnRequestList from "./components/ReturnRequestList";
 import orderService, { type Order as ApiOrder } from "@/services/OrderService";
 import orderReturnRequestApiService, { OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
+import { orderApiService, type OrderResponseDto } from "@/services/OrderApiService";
 import type { Order } from "@/types/order";
 import { getCloudinaryUrl } from "@/config/config";
 
@@ -80,9 +81,14 @@ function transformApiOrderToLocal(apiOrder: ApiOrder): Order {
   };
 }
 
+// Extended type for return requests with order details
+interface ReturnRequestWithOrderDetails extends OrderReturnResponseDto {
+  orderDetails?: OrderResponseDto;
+}
+
 export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [returnRequests, setReturnRequests] = useState<OrderReturnResponseDto[]>([]);
+  const [returnRequests, setReturnRequests] = useState<ReturnRequestWithOrderDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -119,15 +125,37 @@ export default function MyOrdersPage() {
     }
   };
 
-  // Function to load return requests
+  // Function to load return requests with order details
   const loadReturnRequests = async () => {
     const currentUserId = userProfile?.id || user?.id;
     if (!currentUserId || status !== "authenticated") return;
     
     try {
+      // Get return requests for this user
       const returnRequestsResponse = await orderReturnRequestApiService.getReturnRequestsByUser(currentUserId);
-      setReturnRequests(returnRequestsResponse);
-      console.log('Return requests loaded:', returnRequestsResponse);
+      
+      // For each return request, fetch the corresponding order details
+      const returnRequestsWithOrderDetails = await Promise.all(
+        returnRequestsResponse.map(async (returnRequest) => {
+          try {
+            // Get order details using the orderId
+            const orderDetails = await orderApiService.getOrderById(returnRequest.orderId);
+            
+            // Add order details to the return request
+            return {
+              ...returnRequest,
+              orderDetails: orderDetails
+            };
+          } catch (orderError) {
+            console.error(`Failed to load order details for order ${returnRequest.orderId}:`, orderError);
+            // Return the return request without order details if order fetch fails
+            return returnRequest;
+          }
+        })
+      );
+      
+      setReturnRequests(returnRequestsWithOrderDetails);
+      console.log('Return requests with order details loaded:', returnRequestsWithOrderDetails);
     } catch (error: any) {
       console.error("Failed to load return requests:", error);
       // Don't show error message as return requests might not exist for all users

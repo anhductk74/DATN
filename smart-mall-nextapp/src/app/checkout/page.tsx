@@ -220,21 +220,6 @@ export default function CheckoutPage() {
 
     setLoading(true);
     try {
-      // Log data for debugging
-      console.log('Items data:', items);
-      console.log('User data:', { userProfile, user, currentUserId });
-      
-      // Check if items have real shopId
-      items.forEach((item, index) => {
-        console.log(`Item ${index}:`, {
-          title: item.title,
-          shopId: item.shopId,
-          shopName: item.shopName,
-          variantId: item.variantId,
-          cartItemId: item.cartItemId
-        });
-      });
-
       // Group items by shopId to create separate orders for each shop
       const itemsByShop = items.reduce((groups: { [shopId: string]: typeof items }, item) => {
         const shopId = item.shopId || "unknown-shop";
@@ -245,31 +230,69 @@ export default function CheckoutPage() {
         return groups;
       }, {});
 
-      console.log('Items grouped by shop:', itemsByShop);
-
       // Create orders for each shop
       const orderResults = [];
       let allOrdersSucceeded = true;
       let failedShops: string[] = [];
+      
+      // Track which vouchers have been used to prevent duplication
+      const usedVouchers = new Set<string>();
+      const shopEntries = Object.entries(itemsByShop);
 
-      for (const [shopId, shopItems] of Object.entries(itemsByShop)) {
-        // Calculate shipping fee per shop (for now, use the selected shipping for each)
-        const shopShippingFee = Math.round(finalShippingFee / Object.keys(itemsByShop).length);
+      for (let shopIndex = 0; shopIndex < shopEntries.length; shopIndex++) {
+        const [shopId, shopItems] = shopEntries[shopIndex];
+        const isFirstShop = shopIndex === 0;
         
-        // Filter vouchers applicable to this shop
+        // Calculate shipping fee per shop (for now, use the selected shipping for each)
+        const shopShippingFee = Math.round(finalShippingFee / shopEntries.length);
+        
+        // Filter vouchers applicable to this shop, avoiding duplication
         const applicableVouchers = selectedVouchers.filter(voucherId => {
+          // Skip if voucher already used
+          if (usedVouchers.has(voucherId)) {
+            return false;
+          }
+          
           const voucher = availableVouchers.find(v => v.id === voucherId);
-          return !voucher?.shopId || voucher.shopId === shopId;
+          if (!voucher) return false;
+          
+          // System vouchers and shipping vouchers: only apply to first shop
+          if (voucher.type === 'SYSTEM' || voucher.type === 'SHIPPING') {
+            if (isFirstShop) {
+              usedVouchers.add(voucherId);
+              return true;
+            }
+            return false;
+          }
+          
+          // Shop-specific vouchers: only apply if shopId matches
+          if (voucher.shopId && voucher.shopId === shopId) {
+            usedVouchers.add(voucherId);
+            return true;
+          }
+          
+          // If no shopId specified and it's a shop voucher, apply to first matching shop
+          if (!voucher.shopId && voucher.type === 'SHOP' && isFirstShop) {
+            usedVouchers.add(voucherId);
+            return true;
+          }
+          
+          return false;
         });
 
         // Use shopId directly from cart items (should be real shopId from product API now)
         const actualShopId = shopId;
         
         console.log('Processing shop for order:', {
+          shopIndex,
+          isFirstShop,
           originalShopId: shopId,
           isRealShopId: !shopId.startsWith('shop-') && shopId !== 'unknown-shop',
           shopName: shopItems[0]?.shopName,
-          itemCount: shopItems.length
+          itemCount: shopItems.length,
+          selectedVouchers,
+          applicableVouchers,
+          usedVouchers: Array.from(usedVouchers)
         });
 
         // Map UI payment method to backend PaymentMethod enum
@@ -327,6 +350,7 @@ export default function CheckoutPage() {
         }
 
         console.log(`Creating order for shop ${shopId}:`);
+        console.log('Final applicable vouchers for this shop:', applicableVouchers);
         console.log('Order data:', JSON.stringify(orderData, null, 2));
         console.log('Shop items:', shopItems);
 

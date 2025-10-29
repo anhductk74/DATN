@@ -30,7 +30,6 @@ export enum ReturnStatus {
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
 }
 
 // API Service

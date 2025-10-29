@@ -15,6 +15,10 @@ import com.example.smart_mall_spring.Enum.*;
 import com.example.smart_mall_spring.Repositories.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -96,13 +100,16 @@ public class OrderService {
         order.setShippingFees(new ArrayList<>());
         order.getShippingFees().add(shippingFee);
 
-        // 5️ Áp dụng voucher
+        // 5. Áp dụng voucher (KHÔNG save lại order giữa chừng)
         double totalDiscount = 0.0;
         List<OrderVoucherResponseDto> appliedVouchers = new ArrayList<>();
         List<OrderVoucher> orderVouchers = new ArrayList<>();
 
         if (dto.getVoucherIds() != null && !dto.getVoucherIds().isEmpty()) {
-            for (UUID voucherId : dto.getVoucherIds()) {
+            // Dùng Set để loại trùng nếu client gửi trùng ID
+            Set<UUID> uniqueVoucherIds = new HashSet<>(dto.getVoucherIds());
+
+            for (UUID voucherId : uniqueVoucherIds) {
                 Voucher voucher = voucherRepository.findById(voucherId)
                         .orElseThrow(() -> new RuntimeException("Voucher not found"));
 
@@ -289,7 +296,30 @@ public class OrderService {
 
         return true;
     }
+    public Page<OrderResponseDto> getOrdersByShopWithFilters(
+            UUID shopId,
+            StatusOrder status,
+            int page,
+            int size
+    ) {
+        Page<Order> orders = getOrdersEntityByShop(shopId, status, page, size);
 
+        return orders.map(order -> {
+            double subtotal = order.getItems().stream().mapToDouble(OrderItem::getSubtotal).sum();
+            double shippingFee = order.getShippingFees().stream()
+                    .mapToDouble(ShippingFee::getFeeAmount).sum();
+            double discount = order.getVouchers().stream()
+                    .mapToDouble(OrderVoucher::getDiscountAmount).sum();
+            return mapToOrderResponseDto(order, subtotal, shippingFee, discount, null);
+        });
+    }
+    private Page<Order> getOrdersEntityByShop(UUID shopId, StatusOrder status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        if (status != null) {
+            return orderRepository.findByShopIdAndStatus(shopId, status, pageable);
+        }
+        return orderRepository.findByShopId(shopId, pageable);
+    }
 
 
     /**

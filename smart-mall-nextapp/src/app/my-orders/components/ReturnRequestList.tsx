@@ -1,13 +1,20 @@
 import { Empty, Spin, Card, Typography, Button, Tag, Space } from "antd";
 import { useRouter } from "next/navigation";
 import { OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
+import { OrderResponseDto } from "@/services/OrderApiService";
+import { getCloudinaryUrl } from "@/config/config";
 import Image from "next/image";
-import { ArrowRightOutlined, CalendarOutlined, FileTextOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, CalendarOutlined, FileTextOutlined, ShopOutlined, DollarOutlined } from "@ant-design/icons";
 
 const { Text, Title } = Typography;
 
+// Extended type for return requests with order details
+interface ReturnRequestWithOrderDetails extends OrderReturnResponseDto {
+  orderDetails?: OrderResponseDto;
+}
+
 interface ReturnRequestListProps {
-  returnRequests: OrderReturnResponseDto[];
+  returnRequests: ReturnRequestWithOrderDetails[];
   loading: boolean;
   onViewOrder: (orderId: string) => void;
 }
@@ -120,7 +127,7 @@ export default function ReturnRequestList({
           <div className="space-y-3">
             {/* Order Info */}
             <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <Text className="text-sm text-gray-600">Order ID: {request.orderId}</Text>
                 <Button 
                   size="small"
@@ -131,6 +138,56 @@ export default function ReturnRequestList({
                   View Order
                 </Button>
               </div>
+              
+              {/* Order Details if available */}
+              {request.orderDetails && (
+                <div className="space-y-2 pt-2 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ShopOutlined className="text-gray-500" />
+                      <Text className="text-sm text-gray-700">{request.orderDetails.shopName}</Text>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <DollarOutlined className="text-gray-500" />
+                      <Text className="text-sm font-medium text-gray-700">
+                        {request.orderDetails.finalAmount.toLocaleString()}đ
+                      </Text>
+                    </div>
+                  </div>
+                  
+                  {/* Order Items Preview */}
+                  {request.orderDetails.items && request.orderDetails.items.length > 0 && (
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Text className="text-xs text-gray-500">Items:</Text>
+                      <div className="flex space-x-1">
+                        {request.orderDetails.items.slice(0, 3).map((item, index) => (
+                          <div key={item.id} className="flex-shrink-0">
+                            {item.productImage ? (
+                              <Image
+                                src={getCloudinaryUrl(item.productImage)}
+                                alt={item.productName}
+                                width={24}
+                                height={24}
+                                className="rounded object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=24&h=24&fit=crop&crop=center';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center">
+                                <span className="text-xs text-gray-400">?</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {request.orderDetails.items.length > 3 && (
+                          <Text className="text-xs text-gray-400">+{request.orderDetails.items.length - 3} more</Text>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Reason */}
@@ -149,7 +206,7 @@ export default function ReturnRequestList({
                   {request.imageUrls.map((imageUrl, index) => (
                     <div key={index} className="flex-shrink-0">
                       <Image
-                        src={imageUrl}
+                        src={getCloudinaryUrl(imageUrl)}
                         alt={`Evidence ${index + 1}`}
                         width={80}
                         height={80}
