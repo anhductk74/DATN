@@ -9,6 +9,7 @@ export { default as cartService } from './CartService';
 export { default as orderService } from './OrderService';
 export { default as reviewService } from './ReviewService';
 export { default as addressService } from './AddressService';
+export { locationService } from './LocationService';
 
 // New API services based on backend controllers
 export { orderApiService } from './OrderApiService';
@@ -34,6 +35,7 @@ export type * from '@/types/common';
 export type { Shop, ShopAddress, CreateShopData, UpdateShopData } from './ShopService';
 export type { Product, ProductVariant, ProductAttribute, CreateProductData, UpdateProductData } from './ProductService';
 export type { Category, CreateCategoryData, UpdateCategoryData } from './CategoryService';
+export type { Province, District, Ward } from './LocationService';
 
 // Export types from new API services
 export type { 
@@ -83,6 +85,7 @@ import cartService from './CartService';
 import orderService from './OrderService';
 import reviewService from './ReviewService';
 import addressService from './AddressService';
+import { locationService } from './LocationService';
 
 // Import new API services for the services object
 import { orderApiService } from './OrderApiService';
@@ -105,6 +108,7 @@ export const services = {
   order: orderService,
   review: reviewService,
   address: addressService,
+  location: locationService,
   
   // New API services
   orderApi: orderApiService,

@@ -55,7 +55,9 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
           label: "All Orders",
         },
         {
+
           key: "/shop-management/orders/pending-orders",
+
           label: "Pending Orders",
         },
         {
@@ -63,8 +65,10 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
           label: "Processing",
         },
         {
+
           key: "/shop-management/orders/shipping",
           label: "Shipping",
+
         },
         {
           key: "/shop-management/orders/delivered",
@@ -168,13 +172,13 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
       key: 'profile',
       icon: <UserOutlined />,
       label: 'Shop Profile',
-      onClick: () => router.push('/shop/profile'),
+      onClick: () => router.push('/shop-management/profile'),
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
       label: 'Settings',
-      onClick: () => router.push('/shop/settings'),
+      onClick: () => router.push('/shop-management/settings'),
     },
     {
       type: 'divider',

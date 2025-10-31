@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { 
   Card, 
   Table, 
@@ -17,7 +18,8 @@ import {
   Statistic,
   InputNumber,
   Progress,
-  Alert
+  Alert,
+  Spin
 } from "antd";
 import { 
   PlusOutlined, 
@@ -28,6 +30,9 @@ import {
   TruckOutlined,
   ShoppingOutlined
 } from "@ant-design/icons";
+import productService, { Product, ProductVariant } from "@/services/ProductService";
+import shopService from "@/services/ShopService";
+import categoryService, { Category } from "@/services/CategoryService";
 
 const { Option } = Select;
 
@@ -48,91 +53,139 @@ interface InventoryItem {
   status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERSTOCK';
   cost: number;
   retailPrice: number;
+  categoryName?: string;
+  brand?: string;
 }
 
-// Mock data
-const mockInventory: InventoryItem[] = [
-  {
-    id: "inv1",
-    productId: "prod1",
-    productName: "iPhone 15 Pro",
-    variantSku: "IP15P-256-BLU",
-    currentStock: 45,
-    reservedStock: 5,
-    availableStock: 40,
-    reorderPoint: 20,
-    maxStock: 100,
-    location: "Warehouse A - Section 1",
-    lastRestocked: "2024-01-15",
-    averageSalesPerDay: 3.2,
-    daysUntilStockout: 14,
-    status: "IN_STOCK",
-    cost: 800,
-    retailPrice: 1099
-  },
-  {
-    id: "inv2",
-    productId: "prod2",
-    productName: "Samsung Galaxy S24",
-    variantSku: "SGS24-128-WHT",
-    currentStock: 12,
-    reservedStock: 2,
-    availableStock: 10,
-    reorderPoint: 15,
-    maxStock: 80,
-    location: "Warehouse A - Section 2",
-    lastRestocked: "2024-01-10",
-    averageSalesPerDay: 2.1,
-    daysUntilStockout: 6,
-    status: "LOW_STOCK",
-    cost: 650,
-    retailPrice: 899
-  },
-  {
-    id: "inv3",
-    productId: "prod3",
-    productName: "MacBook Pro 14",
-    variantSku: "MBP14-512-SLV",
-    currentStock: 0,
-    reservedStock: 0,
-    availableStock: 0,
-    reorderPoint: 5,
-    maxStock: 30,
-    location: "Warehouse B - Section 1",
-    lastRestocked: "2024-01-05",
-    averageSalesPerDay: 1.5,
-    daysUntilStockout: 0,
-    status: "OUT_OF_STOCK",
-    cost: 1800,
-    retailPrice: 2399
-  },
-  {
-    id: "inv4",
-    productId: "prod4",
-    productName: "AirPods Pro",
-    variantSku: "APP-WHT",
-    currentStock: 150,
-    reservedStock: 10,
-    availableStock: 140,
-    reorderPoint: 30,
-    maxStock: 120,
-    location: "Warehouse A - Section 3",
-    lastRestocked: "2024-01-20",
-    averageSalesPerDay: 5.2,
-    daysUntilStockout: 29,
-    status: "OVERSTOCK",
-    cost: 180,
-    retailPrice: 249
-  }
-];
-
 export default function InventoryPage() {
-  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
+  const { data: session } = useSession();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form] = Form.useForm();
+
+  // Fetch shop ID first
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchShopId();
+    }
+  }, [session]);
+
+  const fetchShopId = async () => {
+    if (!session?.user?.id) {
+      message.warning('Please login to view inventory');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await shopService.getShopsByOwner(session.user.id);
+      const shops = response.data;
+      
+      if (shops && shops.length > 0) {
+        setShopId(shops[0].id);
+      } else {
+        message.warning('No shop found for this account. Please create a shop first.');
+        setLoading(false);
+      }
+    } catch (error: any) {
+      console.error('Error fetching shop:', error);
+      message.error(error.response?.data?.message || 'Failed to load shop information');
+      setLoading(false);
+    }
+  };
+
+  // Fetch inventory when shopId is available
+  useEffect(() => {
+    if (shopId) {
+      fetchInventory();
+    }
+  }, [shopId]);
+
+  const fetchInventory = async () => {
+    if (!shopId) return;
+
+    setLoading(true);
+    try {
+      // Fetch products and categories in parallel
+      const [products, categoriesData] = await Promise.all([
+        productService.getProductsByShop(shopId),
+        categoryService.getAllCategories()
+      ]);
+      
+      setCategories(categoriesData);
+      
+      // Create category lookup map for better performance
+      const categoryMap = new Map(
+        categoriesData.map(cat => [cat.id, cat.name])
+      );
+      
+      console.log('Category map:', Object.fromEntries(categoryMap));
+      
+      // Convert products to inventory items
+      const inventoryItems: InventoryItem[] = [];
+      
+      products.forEach((product: Product) => {
+        // Get category name from map
+        const categoryName = categoryMap.get(product.categoryId || product.category?.id || '');
+        
+        console.log(`Product: ${product.name}, CategoryId: ${product.categoryId}, Category Name: ${categoryName}`);
+        
+        product.variants?.forEach((variant: ProductVariant) => {
+          // Calculate status based on stock
+          let status: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERSTOCK' = 'IN_STOCK';
+          const reorderPoint = 20; // Default reorder point
+          const maxStock = 100; // Default max stock
+          
+          if (variant.stock === 0) {
+            status = 'OUT_OF_STOCK';
+          } else if (variant.stock <= reorderPoint) {
+            status = 'LOW_STOCK';
+          } else if (variant.stock > maxStock) {
+            status = 'OVERSTOCK';
+          }
+
+          const averageSalesPerDay = 2.5; // Mock value - should come from analytics
+          const daysUntilStockout = variant.stock > 0 
+            ? Math.floor(variant.stock / averageSalesPerDay) 
+            : 0;
+
+          inventoryItems.push({
+            id: variant.id || `${product.id}-${variant.sku}`,
+            productId: product.id || '',
+            productName: product.name,
+            variantSku: variant.sku,
+            currentStock: variant.stock,
+            reservedStock: 0, // Mock value - should come from orders
+            availableStock: variant.stock,
+            reorderPoint,
+            maxStock,
+            location: "Main Warehouse", // Mock value
+            lastRestocked: product.updatedAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+            averageSalesPerDay,
+            daysUntilStockout,
+            status,
+            cost: variant.price * 0.7, // Mock cost (70% of retail)
+            retailPrice: variant.price,
+            categoryName: categoryName,
+            brand: product.brand
+          });
+        });
+      });
+
+      setInventory(inventoryItems);
+    } catch (error: any) {
+      console.error('Error fetching inventory:', error);
+      message.error('Failed to load inventory');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Statistics
   const totalItems = inventory.length;
@@ -160,8 +213,10 @@ export default function InventoryPage() {
     });
   };
 
-  const handleModalSubmit = (values: any) => {
-    if (editingItem) {
+  const handleModalSubmit = async (values: any) => {
+    if (!editingItem) return;
+
+    try {
       const updatedItem = {
         ...editingItem,
         ...values,
@@ -180,14 +235,21 @@ export default function InventoryPage() {
         updatedItem.status = 'IN_STOCK';
       }
 
+      // Update local state
       setInventory(inventory.map(item => 
         item.id === editingItem.id ? updatedItem : item
       ));
+
       message.success('Stock updated successfully');
+      
+      // Close modal and reset form
+      setIsModalVisible(false);
+      setEditingItem(null);
+      form.resetFields();
+    } catch (error: any) {
+      console.error('Error updating stock:', error);
+      message.error('Failed to update stock');
     }
-    
-    setIsModalVisible(false);
-    form.resetFields();
   };
 
   const getStatusColor = (status: string) => {
@@ -304,6 +366,14 @@ export default function InventoryPage() {
     item.status === 'LOW_STOCK' || item.status === 'OUT_OF_STOCK'
   );
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spin size="large" tip="Loading inventory..." />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Alerts */}
@@ -415,6 +485,7 @@ export default function InventoryPage() {
         open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false);
+          setEditingItem(null);
           form.resetFields();
         }}
         onOk={() => form.submit()}
@@ -426,9 +497,16 @@ export default function InventoryPage() {
           onFinish={handleModalSubmit}
         >
           {editingItem && (
-            <div className="mb-4 p-3 bg-gray-50 rounded">
-              <div className="font-medium">{editingItem.productName}</div>
-              <div className="text-sm text-gray-500">{editingItem.variantSku}</div>
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="font-semibold text-lg">{editingItem.productName}</div>
+              <div className="text-sm text-gray-600">SKU: {editingItem.variantSku}</div>
+              {editingItem.categoryName && (
+                <div className="text-sm text-gray-600">Category: <span className="font-medium">{editingItem.categoryName}</span></div>
+              )}
+              {editingItem.brand && (
+                <div className="text-sm text-gray-600">Brand: <span className="font-medium">{editingItem.brand}</span></div>
+              )}
+              <div className="text-sm text-blue-600">Current Price: ${editingItem.retailPrice.toLocaleString()}</div>
             </div>
           )}
 

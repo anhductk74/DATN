@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Card, 
   Table, 
@@ -15,104 +15,55 @@ import {
   Tag,
   Row,
   Col,
-  Statistic
+  Statistic,
+  Spin
 } from "antd";
 import { 
   PlusOutlined, 
   EditOutlined, 
   DeleteOutlined, 
   SearchOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  ExclamationCircleOutlined
 } from "@ant-design/icons";
+import categoryService from "@/services/CategoryService";
+import type { Category, CreateCategoryData, UpdateCategoryData } from "@/services/CategoryService";
 
 const { TextArea } = Input;
 const { Option } = Select;
 
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  parentId?: string;
-  status: 'ACTIVE' | 'INACTIVE';
-  productCount: number;
-  imageUrl?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Mock data
-const mockCategories: Category[] = [
-  {
-    id: "cat1",
-    name: "Electronics",
-    description: "Electronic devices and gadgets",
-    status: "ACTIVE",
-    productCount: 145,
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-15"
-  },
-  {
-    id: "cat2",
-    name: "Smartphones",
-    description: "Mobile phones and accessories",
-    parentId: "cat1",
-    status: "ACTIVE",
-    productCount: 89,
-    createdAt: "2024-01-16",
-    updatedAt: "2024-01-16"
-  },
-  {
-    id: "cat3",
-    name: "Laptops",
-    description: "Portable computers and accessories",
-    parentId: "cat1",
-    status: "ACTIVE",
-    productCount: 56,
-    createdAt: "2024-01-17",
-    updatedAt: "2024-01-17"
-  },
-  {
-    id: "cat4",
-    name: "Fashion",
-    description: "Clothing and fashion accessories",
-    status: "ACTIVE",
-    productCount: 234,
-    createdAt: "2024-01-18",
-    updatedAt: "2024-01-18"
-  },
-  {
-    id: "cat5",
-    name: "Men's Clothing",
-    description: "Clothing for men",
-    parentId: "cat4",
-    status: "ACTIVE",
-    productCount: 112,
-    createdAt: "2024-01-19",
-    updatedAt: "2024-01-19"
-  },
-  {
-    id: "cat6",
-    name: "Home & Garden",
-    description: "Home improvement and garden items",
-    status: "INACTIVE",
-    productCount: 67,
-    createdAt: "2024-01-20",
-    updatedAt: "2024-01-20"
-  }
-];
-
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    setLoading(true);
+    try {
+      const categoriesData = await categoryService.getAllCategories();
+      setCategories(categoriesData);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      message.error(error.response?.data?.message || 'Failed to load categories');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Statistics
   const totalCategories = categories.length;
-  const activeCategories = categories.filter(cat => cat.status === 'ACTIVE').length;
-  const totalProducts = categories.reduce((sum, cat) => sum + cat.productCount, 0);
-  const parentCategories = categories.filter(cat => !cat.parentId).length;
+  const activeCategories = categories.length; // API doesn't have status
+  const totalProducts = 0; // Would need separate API call
+  const parentCategories = categories.filter(cat => !cat.parent).length;
 
   // Filter categories based on search
   const filteredCategories = categories.filter(category =>
@@ -121,10 +72,8 @@ export default function CategoriesPage() {
   );
 
   // Get parent category name
-  const getParentCategoryName = (parentId?: string) => {
-    if (!parentId) return '-';
-    const parent = categories.find(cat => cat.id === parentId);
-    return parent ? parent.name : '-';
+  const getParentCategoryName = (category: Category) => {
+    return category.parent ? category.parent.name : '-';
   };
 
   const handleAddCategory = () => {
@@ -136,51 +85,64 @@ export default function CategoriesPage() {
   const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
     setIsModalVisible(true);
-    form.setFieldsValue(category);
+    form.setFieldsValue({
+      name: category.name,
+      description: category.description,
+      parentId: category.parent?.id || null
+    });
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategory = async (categoryId: string) => {
     const categoryToDelete = categories.find(cat => cat.id === categoryId);
-    const hasChildren = categories.some(cat => cat.parentId === categoryId);
+    const hasChildren = categoryToDelete?.subCategories && categoryToDelete.subCategories.length > 0;
     
     if (hasChildren) {
       message.error('Cannot delete category with subcategories. Please delete subcategories first.');
       return;
     }
 
-    if (categoryToDelete && categoryToDelete.productCount > 0) {
-      message.error('Cannot delete category with products. Please move or delete products first.');
-      return;
+    try {
+      await categoryService.deleteCategory(categoryId);
+      message.success('Category deleted successfully');
+      await fetchCategories();
+    } catch (error: any) {
+      console.error('Error deleting category:', error);
+      message.error(error.response?.data?.message || 'Failed to delete category');
     }
-
-    setCategories(categories.filter(cat => cat.id !== categoryId));
-    message.success('Category deleted successfully');
   };
 
-  const handleModalSubmit = (values: any) => {
-    if (editingCategory) {
-      // Update existing category
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, ...values, updatedAt: new Date().toISOString().split('T')[0] }
-          : cat
-      ));
-      message.success('Category updated successfully');
-    } else {
-      // Add new category
-      const newCategory: Category = {
-        id: `cat${Date.now()}`,
-        ...values,
-        productCount: 0,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setCategories([...categories, newCategory]);
-      message.success('Category created successfully');
+  const handleModalSubmit = async (values: any) => {
+    setSubmitting(true);
+    try {
+      if (editingCategory) {
+        // Update existing category
+        const updateData: UpdateCategoryData = {
+          name: values.name,
+          description: values.description,
+          parentId: values.parentId || null
+        };
+        await categoryService.updateCategory(editingCategory.id, updateData);
+        message.success('Category updated successfully');
+      } else {
+        // Add new category
+        const createData: CreateCategoryData = {
+          name: values.name,
+          description: values.description,
+          parentId: values.parentId || null
+        };
+        await categoryService.createCategory(createData);
+        message.success('Category created successfully');
+      }
+      
+      setIsModalVisible(false);
+      form.resetFields();
+      await fetchCategories();
+    } catch (error: any) {
+      console.error('Error saving category:', error);
+      message.error(error.response?.data?.message || 'Failed to save category');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setIsModalVisible(false);
-    form.resetFields();
   };
 
   const columns = [
@@ -200,27 +162,15 @@ export default function CategoriesPage() {
     },
     {
       title: 'Parent Category',
-      dataIndex: 'parentId',
-      key: 'parentId',
-      render: (parentId: string) => getParentCategoryName(parentId),
+      key: 'parentCategory',
+      render: (_: any, record: Category) => getParentCategoryName(record),
     },
     {
-      title: 'Products',
-      dataIndex: 'productCount',
-      key: 'productCount',
-      render: (count: number) => (
-        <Tag color={count > 0 ? 'green' : 'default'}>
-          {count} products
-        </Tag>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>
-          {status}
+      title: 'Subcategories',
+      key: 'subcategories',
+      render: (_: any, record: Category) => (
+        <Tag color={record.subCategories && record.subCategories.length > 0 ? 'blue' : 'default'}>
+          {record.subCategories?.length || 0} subcategories
         </Tag>
       ),
     },
@@ -262,8 +212,9 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Statistics */}
-      <Row gutter={16}>
+      <Spin spinning={loading} tip="Loading categories...">
+        {/* Statistics */}
+        <Row gutter={16}>
         <Col span={6}>
           <Card>
             <Statistic
@@ -343,6 +294,7 @@ export default function CategoriesPage() {
           form.resetFields();
         }}
         onOk={() => form.submit()}
+        confirmLoading={submitting}
         width={600}
       >
         <Form
@@ -372,7 +324,7 @@ export default function CategoriesPage() {
           >
             <Select placeholder="Select parent category (optional)" allowClear>
               {categories
-                .filter(cat => !cat.parentId && cat.id !== editingCategory?.id)
+                .filter(cat => !cat.parent && cat.id !== editingCategory?.id)
                 .map(category => (
                   <Option key={category.id} value={category.id}>
                     {category.name}
@@ -380,20 +332,9 @@ export default function CategoriesPage() {
                 ))}
             </Select>
           </Form.Item>
-
-          <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: 'Please select status' }]}
-            initialValue="ACTIVE"
-          >
-            <Select>
-              <Option value="ACTIVE">Active</Option>
-              <Option value="INACTIVE">Inactive</Option>
-            </Select>
-          </Form.Item>
         </Form>
       </Modal>
+      </Spin>
     </div>
   );
 }

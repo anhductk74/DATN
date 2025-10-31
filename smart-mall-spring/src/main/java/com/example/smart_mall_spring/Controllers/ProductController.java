@@ -65,11 +65,37 @@ public class ProductController {
         }
     }
 
+    // Get product by ID including deleted
+    @GetMapping("/{id}/including-deleted")
+    public ResponseEntity<ApiResponse<ProductResponseDto>> getProductByIdIncludingDeleted(@PathVariable UUID id) {
+        try {
+            ProductResponseDto result = productService.getProductByIdIncludingDeleted(id);
+            return ResponseEntity.ok(ApiResponse.success("Get Product Success!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get product: " + e.getMessage()));
+        }
+    }
+
     // Get all products
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getAllProducts() {
         List<ProductResponseDto> result = productService.getAllProducts();
         return ResponseEntity.ok(ApiResponse.success("Get All Products Success!", result));
+    }
+
+    // Get all products including soft deleted
+    @GetMapping("/all/including-deleted")
+    public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getAllProductsIncludingDeleted() {
+        List<ProductResponseDto> result = productService.getAllProductsIncludingDeleted();
+        return ResponseEntity.ok(ApiResponse.success("Get All Products Including Deleted Success!", result));
+    }
+
+    // Get all soft deleted products
+    @GetMapping("/deleted")
+    public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getAllDeletedProducts() {
+        List<ProductResponseDto> result = productService.getAllDeletedProducts();
+        return ResponseEntity.ok(ApiResponse.success("Get All Deleted Products Success!", result));
     }
 
     // Get products by category
@@ -169,7 +195,31 @@ public class ProductController {
         }
     }
 
-    // Delete product
+    // Soft delete product
+    @DeleteMapping("/{id}/soft")
+    public ResponseEntity<ApiResponse<String>> softDeleteProduct(@PathVariable UUID id) {
+        try {
+            productService.softDeleteProduct(id);
+            return ResponseEntity.ok(ApiResponse.success("Soft Delete Product Success!", "Product has been soft deleted"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to soft delete product: " + e.getMessage()));
+        }
+    }
+
+    // Restore soft deleted product
+    @PutMapping("/{id}/restore")
+    public ResponseEntity<ApiResponse<String>> restoreProduct(@PathVariable UUID id) {
+        try {
+            productService.restoreProduct(id);
+            return ResponseEntity.ok(ApiResponse.success("Restore Product Success!", "Product has been restored"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to restore product: " + e.getMessage()));
+        }
+    }
+
+    // Hard delete product (permanent)
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<String>> deleteProduct(@PathVariable UUID id) {
         try {
