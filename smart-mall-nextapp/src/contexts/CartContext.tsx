@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { message } from "antd";
 import { useSession } from "next-auth/react";
+import { useAntdApp } from "@/hooks/useAntdApp";
 import cartService, { type Cart as ApiCart, type CartItem as ApiCartItem } from "@/services/CartService";
 import productService from "@/services/ProductService";
 
@@ -146,6 +146,7 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const { data: session, status } = useSession();
+  const { message } = useAntdApp();
 
   // Load cart when user is authenticated
   useEffect(() => {

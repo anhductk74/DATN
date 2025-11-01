@@ -1,4 +1,4 @@
-package com.example.smart_mall_spring.Dtos.Products;
+package com.example.smart_mall_spring.Dtos.Products.Review;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

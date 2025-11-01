@@ -8,7 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import productService from "@/services/ProductService";
-import { App } from "antd";
+import { App, Avatar, Modal } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined,
@@ -27,6 +27,7 @@ import {
   ShopOutlined
 } from "@ant-design/icons";
 import { useAuth } from "@/contexts/AuthContext";
+import reviewApiService, { ReviewResponseDto, ReviewStatisticsDto } from "@/services/ReviewApiService";
 
 export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
@@ -36,6 +37,15 @@ export default function ProductDetail() {
   const [activeTab, setActiveTab] = useState("description");
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
+  // Reviews state
+  const [reviews, setReviews] = useState<ReviewResponseDto[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStatisticsDto | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [hasMoreReviews, setHasMoreReviews] = useState(true);
+  // Review image modal state
+  const [selectedReviewImage, setSelectedReviewImage] = useState<string | null>(null);
   const router = useRouter();
   const params = useParams();
   const { status } = useAuth();
@@ -77,6 +87,14 @@ export default function ProductDetail() {
     }
   }, [product, selectedVariant]);
 
+  // Fetch reviews and stats when product loads or tab changes to reviews
+  useEffect(() => {
+    if (productId && (activeTab === 'reviews' || product)) {
+      fetchReviews(0, false);
+      fetchReviewStats();
+    }
+  }, [productId, activeTab, product]);
+
   // Get selected variant details
   const currentVariant = product?.variants?.find(v => v.id === selectedVariant) || product?.variants?.[0];
   const currentPrice = currentVariant?.price || 0;
@@ -90,6 +108,82 @@ export default function ProductDetail() {
       .flatMap(v => v.attributes?.filter(attr => attr.attributeName === attributeName) || [])
       .map(attr => attr.attributeValue);
     return [...new Set(values)];
+  };
+
+  // Fetch reviews for the product
+  const fetchReviews = async (page = 0, append = false) => {
+    if (!productId) return;
+    
+    try {
+      setReviewsLoading(true);
+      const response = await reviewApiService.getReviewsByProduct(productId, page, 5);
+      
+      if (append) {
+        setReviews(prev => [...prev, ...response.content]);
+      } else {
+        setReviews(response.content);
+      }
+      
+      setTotalReviews(response.totalElements);
+      setHasMoreReviews(!response.last);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error('Failed to fetch reviews:', error);
+      message.error('Failed to load reviews');
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  // Fetch review statistics
+  const fetchReviewStats = async () => {
+    if (!productId) return;
+    
+    try {
+      const stats = await reviewApiService.getReviewStatistics(productId);
+      setReviewStats(stats);
+    } catch (error) {
+      console.error('Failed to fetch review statistics:', error);
+    }
+  };
+
+  // Load more reviews
+  const loadMoreReviews = () => {
+    if (hasMoreReviews && !reviewsLoading) {
+      fetchReviews(currentPage + 1, true);
+    }
+  };
+
+  // Refresh reviews (useful after submitting a new review)
+  const refreshReviews = () => {
+    setReviews([]);
+    setCurrentPage(0);
+    fetchReviews(0, false);
+    fetchReviewStats();
+  };
+
+  // Helper function to render star rating with proper coloring
+  const renderStarRating = (rating: number, size: 'sm' | 'md' | 'lg' = 'md') => {
+    const sizeConfig = {
+      sm: { fontSize: '16px' },
+      md: { fontSize: '20px' }, 
+      lg: { fontSize: '24px' }
+    };
+
+    return (
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <StarFilled 
+            key={star} 
+            style={{
+              ...sizeConfig[size],
+              color: star <= Math.floor(rating) ? '#fbbf24' : '#d1d5db',
+              transition: 'color 0.2s'
+            }}
+          />
+        ))}
+      </div>
+    );
   };
 
   const handleAddToCart = async () => {
@@ -138,14 +232,34 @@ export default function ProductDetail() {
 
     try {
       setBuyingNow(true);
-      // Add to cart first
-      await addItem(currentVariant.id, quantity);
-      message.success(`Added ${quantity} x "${product.name}" to cart successfully!`);
+      
+      // Create checkout item format similar to cart
+      const checkoutItem = {
+        id: currentVariant.id,
+        variantId: currentVariant.id,
+        name: product.name,
+        image: product.images && product.images.length > 0 ? product.images[0] : '',
+        price: currentVariant.price,
+        quantity: quantity,
+        variant: currentVariant.attributes?.map(attr => `${attr.attributeName}: ${attr.attributeValue}`).join(', ') || currentVariant.sku,
+        shopId: product.shop?.id || 'unknown-shop',
+        shopName: product.shop?.name || 'Unknown Shop',
+        stock: currentVariant.stock,
+        // Include additional product info for checkout
+        productId: product.id,
+        sku: currentVariant.sku,
+        brand: product.brand,
+        category: product.category?.name
+      };
+
+      // Store checkout items in sessionStorage
+      sessionStorage.setItem('checkout_items', JSON.stringify([checkoutItem]));
+      
       // Navigate to checkout
       router.push("/checkout");
     } catch (error) {
-      console.error('Failed to add to cart:', error);
-      message.error("Failed to add product to cart");
+      console.error('Failed to prepare checkout:', error);
+      message.error("Failed to prepare checkout. Please try again.");
     } finally {
       setBuyingNow(false);
     }
@@ -333,14 +447,28 @@ export default function ProductDetail() {
               <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">{product.name}</h1>
               
               {/* Rating */}
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="flex items-center">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <StarFilled key={star} className="w-5 h-5 text-yellow-400" />
-                  ))}
+              <div className="flex items-center space-x-3 mb-4">
+                {renderStarRating(reviewStats?.averageRating || product.averageRating || 0, 'md')}
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg font-semibold text-yellow-600">
+                    {reviewStats?.averageRating 
+                      ? reviewStats.averageRating.toFixed(1) 
+                      : product.averageRating 
+                        ? product.averageRating.toFixed(1)
+                        : '0.0'
+                    }
+                  </span>
+                  <span className="text-gray-500">•</span>
+                  <span className="text-gray-600">
+                    {reviewStats?.totalReviews || product.reviewCount || 0} reviews
+                  </span>
                 </div>
-                <span className="text-gray-600">({product.reviewCount} reviews)</span>
-                <span className="text-blue-600 hover:underline cursor-pointer">Write a review</span>
+                {/* <button 
+                  onClick={() => setActiveTab('reviews')}
+                  className="text-blue-600 hover:text-blue-700 hover:underline transition-colors ml-2"
+                >
+                  Write a review
+                </button> */}
               </div>
             </div>
 
@@ -548,11 +676,25 @@ export default function ProductDetail() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircleOutlined className="text-green-500" />
-                      <span className="text-gray-700">Rating: {product.averageRating || 'N/A'}/5</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-700">
+                          Rating: {reviewStats?.averageRating 
+                            ? reviewStats.averageRating.toFixed(1) 
+                            : product.averageRating 
+                              ? product.averageRating.toFixed(1)
+                              : 'N/A'
+                          }/5
+                        </span>
+                        {(reviewStats?.averageRating || product.averageRating) && 
+                          renderStarRating(reviewStats?.averageRating || product.averageRating || 0, 'sm')
+                        }
+                      </div>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircleOutlined className="text-green-500" />
-                      <span className="text-gray-700">Reviews: {product.reviewCount || 0}</span>
+                      <span className="text-gray-700">
+                        Reviews: {reviewStats?.totalReviews || product.reviewCount || 0}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -605,34 +747,255 @@ export default function ProductDetail() {
 
             {activeTab === 'reviews' && (
               <div className="space-y-6">
-                <div className="text-center py-12">
-                  <StarFilled className="text-6xl text-yellow-400 mb-4" />
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Customer Reviews</h3>
-                  <p className="text-gray-600 mb-4">
-                    {product.reviewCount ? `${product.reviewCount} reviews` : 'No reviews yet'}
-                  </p>
-                  {product.averageRating && (
-                    <div className="flex items-center justify-center space-x-2 mb-4">
-                      <div className="flex items-center">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <StarFilled 
-                            key={star} 
-                            className={`w-6 h-6 ${
-                              star <= (product.averageRating || 0) ? 'text-yellow-400' : 'text-gray-300'
-                            }`} 
-                          />
+                {/* Review Statistics */}
+                {reviewStats && (
+                  <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-100">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Overall Rating */}
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-yellow-600 mb-2">
+                          {reviewStats.averageRating.toFixed(1)}
+                        </div>
+                        <div className="flex items-center justify-center mb-2">
+                          {renderStarRating(reviewStats.averageRating, 'lg')}
+                        </div>
+                        <div className="text-gray-600">{reviewStats.totalReviews} reviews</div>
+                      </div>
+
+                      {/* Rating Breakdown */}
+                      <div className="space-y-2">
+                        {[5, 4, 3, 2, 1].map((rating) => (
+                          <div key={rating} className="flex items-center space-x-3">
+                            <span className="text-sm text-gray-600 w-8">{rating}★</span>
+                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${reviewStats.totalReviews > 0 
+                                    ? ((reviewStats.ratingCounts[rating] || 0) / reviewStats.totalReviews) * 100 
+                                    : 0}%`
+                                }}
+                              />
+                            </div>
+                            <span className="text-sm text-gray-600 w-8">
+                              {reviewStats.ratingCounts[rating] || 0}
+                            </span>
+                          </div>
                         ))}
                       </div>
-                      <span className="text-lg font-semibold">{product.averageRating}/5</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Reviews List */}
+                <div className="space-y-6">
+                  <h4 className="text-xl font-semibold text-gray-900">Customer Reviews</h4>
+                  
+                  {reviewsLoading && reviews.length === 0 ? (
+                    <div className="text-center py-8">
+                      <LoadingOutlined className="text-2xl text-blue-600 mb-4" />
+                      <p className="text-gray-600">Loading reviews...</p>
+                    </div>
+                  ) : reviews.length > 0 ? (
+                    <div className="space-y-6">
+                      {reviews.map((review) => (
+                        <div key={review.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                          {/* Review Header */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="relative w-10 h-10">
+                                {review.userAvatar ? (
+                                  <div className="relative">
+                                    <Image
+                                      src={`https://res.cloudinary.com${review.userAvatar}`}
+                                      alt={`${review.userName}'s avatar`}
+                                      width={40}
+                                      height={40}
+                                      className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                      style={{ width: 'auto', height: 'auto' }}
+                                      onError={(e) => {
+                                        console.error('Failed to load user avatar:', review.userAvatar);
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        if (target.nextSibling) {
+                                          (target.nextSibling as HTMLElement).style.display = 'flex';
+                                        }
+                                      }}
+                                    />
+                                    {/* Fallback avatar hidden by default, shown on image error */}
+                                    <div 
+                                      className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-sm absolute top-0 left-0"
+                                      style={{ display: 'none' }}
+                                    >
+                                      <span className="text-white font-semibold text-sm">
+                                        {review.userName.charAt(0).toUpperCase()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-sm">
+                                    <span className="text-white font-semibold text-sm">
+                                      {review.userName.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{review.userName}</div>
+                                <div className="text-sm text-gray-500">
+                                  {new Date(review.reviewedAt).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {renderStarRating(review.rating, 'sm')}
+                              <span className="text-sm font-medium text-gray-700">{review.rating}/5</span>
+                            </div>
+                          </div>
+
+                          {/* Review Content */}
+                          <div className="mb-4">
+                            <p className="text-gray-700 leading-relaxed">{review.comment}</p>
+                          </div>
+
+                          {/* Review Media */}
+                          {review.mediaList && review.mediaList.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {review.mediaList.map((media) => (
+                                <div key={media.id} className="relative group">
+                                  {media.mediaType === 'IMAGE' ? (
+                                    <button
+                                      onClick={() => setSelectedReviewImage(`https://res.cloudinary.com${media.mediaUrl}`)}
+                                      className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-300 transition-all duration-200 group"
+                                    >
+                                      <Image
+                                        src={`https://res.cloudinary.com${media.mediaUrl}`}
+                                        alt="Review image"
+                                        fill
+                                        sizes="96px"
+                                        className="object-cover object-center group-hover:scale-110 transition-transform duration-200"
+                                        onLoad={(e) => {
+                                          console.log('Review image loaded:', media.mediaUrl);
+                                        }}
+                                        onError={(e) => {
+                                          console.error('Failed to load review image:', media.mediaUrl);
+                                          const target = e.target as HTMLImageElement;
+                                          const parent = target.parentElement;
+                                          if (parent) {
+                                            parent.innerHTML = `
+                                              <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                                                <div class="text-center">
+                                                  <div class="text-gray-400 text-sm">📷</div>
+                                                </div>
+                                              </div>
+                                            `;
+                                          }
+                                        }}
+                                      />
+                                      {/* Subtle hover overlay */}
+                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
+                                        <div className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                                          🔍
+                                        </div>
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <button className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center border border-gray-200 hover:border-blue-300 hover:bg-gray-200 transition-all duration-200">
+                                      <div className="text-center">
+                                        <div className="text-gray-400 text-lg">🎥</div>
+                                        <div className="text-gray-500 text-xs mt-1">Video</div>
+                                      </div>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Shop Reply */}
+                          {review.shopReply && (
+                            <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <ShopOutlined className="text-blue-600" />
+                                <span className="font-medium text-blue-900">{review.shopReply.shopName}</span>
+                                <span className="text-sm text-blue-600">replied</span>
+                              </div>
+                              <p className="text-blue-800">{review.shopReply.content}</p>
+                              <div className="text-xs text-blue-600 mt-2">
+                                {new Date(review.shopReply.repliedAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Review Status */}
+                          {review.isEdited && (
+                            <div className="text-xs text-gray-500 mt-2">• Edited</div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      {/* Load More Button */}
+                      {hasMoreReviews && (
+                        <div className="text-center">
+                          <button
+                            onClick={loadMoreReviews}
+                            disabled={reviewsLoading}
+                            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200 disabled:opacity-70"
+                          >
+                            {reviewsLoading ? (
+                              <>
+                                <LoadingOutlined className="mr-2" />
+                                Loading...
+                              </>
+                            ) : (
+                              'Load More Reviews'
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <StarFilled style={{ fontSize: '48px', color: '#d1d5db' }} className="mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Reviews Yet</h3>
+                      <p className="text-gray-600 mb-4">Be the first to review this product!</p>
+                      <p className="text-gray-500 text-sm">Share your experience to help other customers</p>
                     </div>
                   )}
-                  <p className="text-gray-600">Detailed reviews feature coming soon!</p>
                 </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Review Image Modal */}
+      <Modal
+        open={!!selectedReviewImage}
+        onCancel={() => setSelectedReviewImage(null)}
+        footer={null}
+        width="90vw"
+        style={{ maxWidth: '800px' }}
+        centered
+        className="review-image-modal"
+      >
+        {selectedReviewImage && (
+          <div className="flex items-center justify-center p-4">
+            <Image
+              src={selectedReviewImage}
+              alt="Review image enlarged"
+              width={600}
+              height={600}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg"
+              style={{ width: 'auto', height: 'auto' }}
+            />
+          </div>
+        )}
+      </Modal>
 
       <Footer />
     </div>

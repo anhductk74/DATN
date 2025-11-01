@@ -8,6 +8,8 @@ export { default as categoryService } from './CategoryService';
 export { default as cartService } from './CartService';
 export { default as orderService } from './OrderService';
 export { default as reviewService } from './ReviewService';
+export { default as reviewApiService } from './ReviewApiService';
+export { default as reviewReplyApiService } from './ReviewReplyApiService';
 export { default as addressService } from './AddressService';
 export { locationService } from './LocationService';
 
@@ -74,6 +76,10 @@ export type {
   VoucherType,
   DiscountType 
 } from './VoucherApiService';
+export type {
+  ReviewReplyResponseDto,
+  ReviewReplyRequestDto
+} from './ReviewReplyApiService';
 
 // Import services for the services object
 import authService from './AuthService';
@@ -84,6 +90,8 @@ import categoryService from './CategoryService';
 import cartService from './CartService';
 import orderService from './OrderService';
 import reviewService from './ReviewService';
+import reviewApiService from './ReviewApiService';
+import reviewReplyApiService from './ReviewReplyApiService';
 import addressService from './AddressService';
 import { locationService } from './LocationService';
 
@@ -107,6 +115,8 @@ export const services = {
   cart: cartService,
   order: orderService,
   review: reviewService,
+  reviewApi: reviewApiService,
+  reviewReply: reviewReplyApiService,
   address: addressService,
   location: locationService,
   

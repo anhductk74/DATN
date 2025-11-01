@@ -17,7 +17,8 @@ import java.util.UUID;
 public class OrderItemResponseDto {
 
     private UUID id;                  // ID của order item
-    private UUID orderId;             // Liên kết với Order
+    private UUID orderId;
+    private UUID productId;// Liên kết với Order
     private ProductVariantDto variant; // Thông tin chi tiết variant
     private String productName;       // Tên sản phẩm
     private String productImage;      // Ảnh sản phẩm

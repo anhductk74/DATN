@@ -30,7 +30,8 @@ import {
   HomeOutlined,
   PlusOutlined,
   StarFilled,
-  CameraOutlined
+  CameraOutlined,
+  VideoCameraOutlined
 } from "@ant-design/icons";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -38,12 +39,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
-import { orderService, addressApiService, orderTrackingApiService } from "@/services";
+import { orderService, addressApiService, orderTrackingApiService, productService } from "@/services";
+import reviewApiService from "@/services/ReviewApiService";
 import orderReturnRequestApiService, { OrderReturnRequestDto, OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
 // Define Order interface for this page
 interface OrderItem {
-  id: string;
+  id: string; // Product ID
+  orderItemId: string; // Order Item ID
   name: string;
   image: string;
   variant: string;
@@ -80,9 +84,7 @@ interface Order {
     changedAt: string;
   }>;
 }
-import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
-import productService from "@/services/ProductService";
 
 const { Title, Text, Paragraph } = Typography;
 const { Step } = Steps;
@@ -214,7 +216,8 @@ const transformApiOrderToLocal = (apiOrder: any): Order => {
       
       
       return {
-        id: item.id.toString(),
+        id: item.variant?.product?.id || item.productId || item.id.toString(), // Use actual product ID
+        orderItemId: item.id.toString(), // Keep order item ID separately
         name: item.productName || item.variant?.product?.name || "Unknown Product",
         image: getImageUrl(rawImageUrl, defaultProductImage),
         variant: item.variant?.attributes?.map((attr: any) => `${attr.name}: ${attr.value}`).join(', ') || "",
@@ -251,6 +254,12 @@ export default function OrderDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackForm] = Form.useForm();
+  const [selectedProductForReview, setSelectedProductForReview] = useState<OrderItem | null>(null);
+  const [currentRating, setCurrentRating] = useState<number>(0);
+  const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const [reviewVideos, setReviewVideos] = useState<File[]>([]);
+  const [submitReviewLoading, setSubmitReviewLoading] = useState(false);
+  const [reviewedProducts, setReviewedProducts] = useState<Set<string>>(new Set());
   const [returnRequestModalOpen, setReturnRequestModalOpen] = useState(false);
   const [returnRequestForm] = Form.useForm();
   const [returnImages, setReturnImages] = useState<File[]>([]);
@@ -290,6 +299,20 @@ export default function OrderDetailPage() {
       router.push("/login");
     }
   }, [status, router]);
+
+  // Check reviewed products status
+  const checkReviewedProducts = async (order: Order, userId: string) => {
+    if (order.status !== 'DELIVERED') return;
+    
+    try {
+      const productIds = order.items.map(item => item.id);
+      const reviewedProducts = await reviewApiService.checkMultipleProductsReview(productIds, userId);
+      setReviewedProducts(reviewedProducts);
+    } catch (error) {
+      console.error('Failed to check reviewed products:', error);
+      setReviewedProducts(new Set());
+    }
+  };
 
   useEffect(() => {
     const loadOrderDetail = async () => {
@@ -361,6 +384,11 @@ export default function OrderDetailPage() {
           }
         }
 
+        // Check reviewed products status for delivered orders
+        if (transformedOrder.status === 'DELIVERED') {
+          await checkReviewedProducts(transformedOrder, currentUserId);
+        }
+
         setHasLoaded(true);
 
       } catch (error: any) {
@@ -370,7 +398,7 @@ export default function OrderDetailPage() {
           status: error?.response?.status,
           data: error?.response?.data
         });
-        message.error(error?.response?.data?.message || "Không thể tải chi tiết đơn hàng");
+        message.error(error?.response?.data?.message || "Unable to load order details");
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -386,12 +414,25 @@ export default function OrderDetailPage() {
   }, [orderId, status, userProfile?.id, user?.id, hasLoaded]);
 
   const getOrderSteps = () => {
+    // Check if all products are reviewed (only for delivered orders)
+    const allProductsReviewed = order?.status === "DELIVERED" && 
+      order.items.length > 0 && 
+      order.items.every(item => reviewedProducts.has(item.id));
+
     const steps: Array<{title: string, status: "finish" | "error" | "wait" | "process"}> = [
       { title: "Order Placed", status: "finish" },
       { title: "Confirmed", status: order?.status === "PENDING" ? "wait" : "finish" },
       { title: "Shipping", status: ["SHIPPING", "DELIVERED"].includes(order?.status || "") ? "finish" : "wait" },
       { title: "Delivered", status: order?.status === "DELIVERED" ? "finish" : "wait" }
     ];
+
+    // Add Review step only for delivered orders
+    if (order?.status === "DELIVERED") {
+      steps.push({
+        title: "Review",
+        status: allProductsReviewed ? "finish" : "wait"
+      });
+    }
 
     if (order?.status === "CANCELLED") {
       return [
@@ -415,10 +456,10 @@ export default function OrderDetailPage() {
     if (!order) return;
     
     Modal.confirm({
-      title: "Hủy đơn hàng",
-      content: "Bạn có chắc chắn muốn hủy đơn hàng này?",
-      okText: "Hủy đơn hàng",
-      cancelText: "Không",
+      title: "Cancel Order",
+      content: "Are you sure you want to cancel this order?",
+      okText: "Cancel Order",
+      cancelText: "No",
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
@@ -432,10 +473,10 @@ export default function OrderDetailPage() {
             cancelReason: 'Cancelled by customer'
           } : null);
           
-          message.success("Đã hủy đơn hàng thành công");
+          message.success("Order cancelled successfully");
         } catch (error: any) {
           console.error("Failed to cancel order:", error);
-          message.error(error?.response?.data?.message || "Không thể hủy đơn hàng");
+          message.error(error?.response?.data?.message || "Unable to cancel order");
         }
       }
     });
@@ -463,17 +504,141 @@ export default function OrderDetailPage() {
     return daysDifference <= 3;
   };
 
+  // Get review progress for display
+  const getReviewProgress = () => {
+    if (!order || order.status !== 'DELIVERED') return null;
+    
+    const totalProducts = order.items.length;
+    const reviewedCount = order.items.filter(item => reviewedProducts.has(item.id)).length;
+    
+    return {
+      total: totalProducts,
+      reviewed: reviewedCount,
+      percentage: totalProducts > 0 ? Math.round((reviewedCount / totalProducts) * 100) : 0,
+      completed: reviewedCount === totalProducts && totalProducts > 0
+    };
+  };
+
+  // Handle opening review modal for a specific product
+  const handleOpenReviewModal = (product: OrderItem) => {
+    setSelectedProductForReview(product);
+    setFeedbackModalOpen(true);
+    feedbackForm.resetFields();
+    setCurrentRating(0);
+    setReviewImages([]);
+    setReviewVideos([]);
+  };
+
+  // Handle review submission
   const handleSubmitFeedback = async (values: any) => {
+    if (!order || !selectedProductForReview) return;
+    
+    const currentUserId = userProfile?.id || user?.id;
+    if (!currentUserId) {
+      message.error("User information not found");
+      return;
+    }
+
+    // Prevent double submission
+    if (submitReviewLoading) return;
+
+    setSubmitReviewLoading(true);
     try {
-      // Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare review data
+      const reviewData = {
+        userId: currentUserId,
+        productId: selectedProductForReview.id,
+        orderId: order.id,
+        rating: values.rating || currentRating,
+        comment: values.comment || ""
+      };
+
+      // Check if we have images or videos to upload
+      if (reviewImages.length > 0 || reviewVideos.length > 0) {
+        await reviewApiService.createReviewWithMedia(
+          reviewData,
+          reviewImages.length > 0 ? reviewImages : undefined,
+          reviewVideos.length > 0 ? reviewVideos : undefined
+        );
+      } else {
+        await reviewApiService.createReview(reviewData);
+      }
       
-      message.success("Feedback submitted successfully!");
+      message.success("Review submitted successfully!");
+      
+      // Add product to reviewed list
+      setReviewedProducts(prev => new Set([...prev, selectedProductForReview.id]));
+      
       setFeedbackModalOpen(false);
       feedbackForm.resetFields();
-    } catch (error) {
-      message.error("Failed to submit feedback");
+      setCurrentRating(0);
+      setSelectedProductForReview(null);
+      setReviewImages([]);
+      setReviewVideos([]);
+    } catch (error: any) {
+      const errorMessage = error?.message || 
+                          error?.response?.data?.messages?.[0] || 
+                          error?.response?.data?.message || 
+                          "Unable to submit review. Please try again.";
+      
+      message.error(errorMessage);
+    } finally {
+      setSubmitReviewLoading(false);
     }
+  };
+
+  // Handle image upload for review
+  const handleImageUpload = (file: File) => {
+    if (reviewImages.length >= 5) {
+      message.error("Maximum 5 images allowed");
+      return false;
+    }
+    
+    const isValidType = file.type.startsWith('image/');
+    if (!isValidType) {
+      message.error("Only image files are allowed!");
+      return false;
+    }
+    
+    const isValidSize = file.size / 1024 / 1024 < 5; // Max 5MB
+    if (!isValidSize) {
+      message.error("Image size must not exceed 5MB!");
+      return false;
+    }
+
+    setReviewImages(prev => [...prev, file]);
+    return false; // Prevent auto upload
+  };
+
+  // Handle video upload for review
+  const handleVideoUpload = (file: File) => {
+    if (reviewVideos.length >= 2) {
+      message.error("Maximum 2 videos allowed");
+      return false;
+    }
+    
+    const isValidType = file.type.startsWith('video/');
+    if (!isValidType) {
+      message.error("Only video files are allowed!");
+      return false;
+    }
+    
+    const isValidSize = file.size / 1024 / 1024 < 50; // Max 50MB
+    if (!isValidSize) {
+      message.error("Video size must not exceed 50MB!");
+      return false;
+    }
+
+    setReviewVideos(prev => [...prev, file]);
+    return false; // Prevent auto upload
+  };
+
+  const removeReviewImage = (fileToRemove: File) => {
+    setReviewImages(prev => prev.filter(file => file !== fileToRemove));
+  };
+
+  const removeReviewVideo = (fileToRemove: File) => {
+    setReviewVideos(prev => prev.filter(file => file !== fileToRemove));
   };
 
   const handleSubmitReturnRequest = async (values: any) => {
@@ -490,7 +655,7 @@ export default function OrderDetailPage() {
         returnImages
       );
       
-      message.success("Yêu cầu hoàn trả đã được gửi thành công!");
+      message.success("Return request submitted successfully!");
       setReturnRequestModalOpen(false);
       returnRequestForm.resetFields();
       setReturnImages([]);
@@ -503,7 +668,7 @@ export default function OrderDetailPage() {
       
     } catch (error: any) {
       console.error("Failed to submit return request:", error);
-      message.error(error?.response?.data?.message || "Không thể gửi yêu cầu hoàn trả");
+      message.error(error?.response?.data?.message || "Unable to submit return request");
     }
   };
 
@@ -584,18 +749,31 @@ export default function OrderDetailPage() {
             {/* Order Progress */}
             <Card title="Order Progress" className="shadow-sm">
               <div className="relative px-4 py-6">
-                {/* Progress Line Background */}
-                <div className="absolute top-12 left-16 right-16 h-1 bg-gray-300 rounded-full"></div>
+                {/* Progress Line Background - only show for delivered orders with review step */}
+                <div className={`absolute top-12 h-1 bg-gray-300 rounded-full ${
+                  order?.status === "DELIVERED" ? 'left-16 right-16' : 'left-16 right-32'
+                }`}></div>
                 
                 {/* Progress Line Active */}
                 <div 
-                  className="absolute top-12 left-16 h-1 bg-green-500 rounded-full transition-all duration-500"
+                  className="absolute top-12 h-1 bg-green-500 rounded-full transition-all duration-500"
                   style={{
-                    width: order?.status === "PENDING" ? "0%" :
-                           ["CONFIRMED", "PAID"].includes(order?.status || "") ? "25%" :
-                           order?.status === "SHIPPING" ? "50%" :
-                           order?.status === "DELIVERED" ? "75%" :
-                           ["SHIPPING", "DELIVERED"].includes(order?.status || "") ? "50%" : "25%"
+                    left: '64px', // Start from Order Placed circle
+                    right: (() => {
+                      // For delivered orders, calculate based on review completion
+                      if (order?.status === "DELIVERED") {
+                        const allProductsReviewed = order.items.length > 0 && 
+                          order.items.every(item => reviewedProducts.has(item.id));
+                        return allProductsReviewed ? '64px' : 'calc(20% + 64px)'; // Full line or to Delivered
+                      }
+                      
+                      // For other statuses, use percentage based calculation
+                      if (order?.status === "PENDING") return 'calc(100% - 128px)';
+                      if (["CONFIRMED", "PAID"].includes(order?.status || "")) return 'calc(75% + 32px)';
+                      if (order?.status === "SHIPPING") return 'calc(50% + 48px)';
+                      
+                      return 'calc(75% + 32px)';
+                    })()
                   }}
                 ></div>
 
@@ -661,16 +839,31 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
 
-                  {/* Review */}
-                  <div className="flex flex-col items-center text-center">
-                    <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 border-gray-300 text-gray-400`}>
-                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.953a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.286 3.953c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.175 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.286-3.953a1 1 0 00-.364-1.118L2.05 9.38c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.953z" />
-                      </svg>
+                  {/* Review - Only show for delivered orders */}
+                  {order?.status === "DELIVERED" && (
+                    <div className="flex flex-col items-center text-center">
+                      <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 ${
+                        (() => {
+                          const progress = getReviewProgress();
+                          return progress?.completed 
+                            ? 'border-green-500 text-green-500' 
+                            : 'border-gray-300 text-gray-400';
+                        })()
+                      }`}>
+                        <StarFilled className="text-lg" />
+                      </div>
+                      <div className="text-sm font-medium text-gray-900 mt-3">Review</div>
+                      <div className="text-xs text-gray-500">
+                        {(() => {
+                          const progress = getReviewProgress();
+                          if (!progress) return '';
+                          return progress.completed 
+                            ? 'Completed' 
+                            : `${progress.reviewed}/${progress.total} reviewed`;
+                        })()}
+                      </div>
                     </div>
-                    <div className="text-sm font-medium text-gray-900 mt-3">Review</div>
-                    <div className="text-xs text-gray-500"></div>
-                  </div>
+                  )}
                 </div>
               </div>
               
@@ -742,6 +935,30 @@ export default function OrderDetailPage() {
                       <Text strong className="text-lg text-red-600">
                         ₫{formatVND(item.price)}
                       </Text>
+                      {/* Review button for delivered orders */}
+                      {order.status === 'DELIVERED' && (
+                        <div className="mt-2">
+                          {reviewedProducts.has(item.id) ? (
+                            <Button
+                              size="small"
+                              icon={<StarFilled />}
+                              disabled
+                              className="bg-gray-300 text-gray-500 border-0 rounded-lg cursor-not-allowed"
+                            >
+                              Reviewed
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              icon={<StarFilled />}
+                              onClick={() => handleOpenReviewModal(item)}
+                              className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white border-0 rounded-lg hover:shadow-md transition-all duration-300 font-medium"
+                            >
+                              Review
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -990,12 +1207,7 @@ export default function OrderDetailPage() {
                     >
                       Write Review
                     </Button> */}
-                    <Button 
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white border-0 rounded-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold shadow-lg py-3"
-                      onClick={() => setFeedbackModalOpen(true)}
-                    >
-                      💬 Send Feedback
-                    </Button>
+
                     <Button className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white border-0 rounded-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold shadow-lg py-3">
                       Order Again
                     </Button>
@@ -1037,16 +1249,16 @@ export default function OrderDetailPage() {
       
       <Footer />
 
-      {/* Feedback Modal */}
+      {/* Review Modal */}
       <Modal
         title={
           <div className="flex items-center space-x-3 pb-4 border-b">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <MessageOutlined className="text-white text-xl" />
+            <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center">
+              <StarFilled className="text-white text-xl" />
             </div>
             <div>
-              <div className="text-lg font-semibold text-gray-800">Send Feedback</div>
-              <div className="text-sm text-gray-500">Help us improve your shopping experience</div>
+              <div className="text-lg font-semibold text-gray-800">Product Review</div>
+              <div className="text-sm text-gray-500">{selectedProductForReview?.name}</div>
             </div>
           </div>
         }
@@ -1062,131 +1274,154 @@ export default function OrderDetailPage() {
           onFinish={handleSubmitFeedback}
           className="mt-6"
         >
-          {/* Order Summary */}
-          <div className="bg-gray-50 p-4 rounded-lg mb-6">
-            <div className="flex items-center space-x-3 mb-3">
-              <Avatar 
-                src={order?.shopAvatar && order?.shopAvatar.trim() !== '' ? order?.shopAvatar : null} 
-                size="small" 
-                icon={<ShopOutlined />} 
-              />
-              <Text strong className="text-gray-800">{order?.shopName}</Text>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {order?.items.map(item => (
-                <div key={item.id} className="flex items-center space-x-3 bg-white p-3 rounded-lg">
-                  <Image
-                    src={item.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=50&h=50&fit=crop&crop=center'}
-                    alt={item.name}
-                    width={50}
-                    height={50}
-                    className="rounded-lg object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=50&h=50&fit=crop&crop=center';
-                    }}
-                  />
-                  <div className="flex-1">
-                    <Text className="text-sm font-medium text-gray-800">{item.name}</Text>
-                    <div className="text-xs text-gray-500">{item.variant}</div>
-                  </div>
+          {/* Product Info */}
+          {selectedProductForReview && (
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <div className="flex items-center space-x-3">
+                <Image
+                  src={selectedProductForReview.image || 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=60&h=60&fit=crop&crop=center'}
+                  alt={selectedProductForReview.name}
+                  width={60}
+                  height={60}
+                  className="rounded-lg object-cover"
+                />
+                <div className="flex-1">
+                  <Text strong className="text-gray-800">{selectedProductForReview.name}</Text>
+                  <div className="text-sm text-gray-500 mt-1">{selectedProductForReview.variant}</div>
+                  <div className="text-sm text-gray-500">Quantity: {selectedProductForReview.quantity}</div>
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Rating */}
           <Form.Item
-            label={<span className="text-gray-700 font-medium">Overall Experience</span>}
+            label={<span className="text-gray-700 font-medium">Your Rating</span>}
             name="rating"
-            rules={[{ required: true, message: 'Please rate your experience!' }]}
+            rules={[
+              {
+                validator: () => {
+                  if (currentRating > 0) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('Please select a rating!'));
+                }
+              }
+            ]}
           >
             <div className="text-center py-4">
               <Rate 
-                allowHalf 
                 style={{ fontSize: '32px' }}
                 character={<StarFilled />}
+                value={currentRating}
                 onChange={(value) => {
+                  setCurrentRating(value);
+                  feedbackForm.setFieldsValue({ rating: value });
+                  
                   const ratingTexts = {
                     0: '',
-                    1: 'Terrible',
-                    2: 'Dissatisfied', 
-                    3: 'Normal',
+                    1: 'Very Bad',
+                    2: 'Unsatisfied', 
+                    3: 'Average',
                     4: 'Satisfied',
                     5: 'Excellent'
                   };
-                  const currentRating = Math.ceil(value || 0);
-                  const ratingText = ratingTexts[currentRating as keyof typeof ratingTexts] || '';
+                  const ratingText = ratingTexts[(value || 0) as keyof typeof ratingTexts] || '';
                   
                   // Update rating text display
                   const ratingTextElement = document.querySelector('.rating-text');
                   if (ratingTextElement) {
                     ratingTextElement.textContent = ratingText;
                     ratingTextElement.className = `rating-text mt-2 text-sm font-medium ${
-                      currentRating <= 2 ? 'text-red-500' :
-                      currentRating === 3 ? 'text-yellow-500' :
+                      (value || 0) <= 2 ? 'text-red-500' :
+                      (value || 0) === 3 ? 'text-yellow-500' :
                       'text-green-500'
                     }`;
                   }
                 }}
               />
-              <div className="rating-text mt-2 text-gray-500 text-sm">Tap to rate your experience</div>
+              <div className="rating-text mt-2 text-gray-500 text-sm">Click to rate</div>
             </div>
           </Form.Item>
 
-          {/* Feedback Categories */}
+          {/* Review Comment */}
           <Form.Item
-            label={<span className="text-gray-700 font-medium">What would you like to feedback about?</span>}
-            name="categories"
-          >
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {[
-                { key: 'product', label: '📦 Product Quality', color: 'blue' },
-                { key: 'delivery', label: '🚚 Delivery Speed', color: 'green' },
-                { key: 'packaging', label: '📋 Packaging', color: 'orange' },
-                { key: 'service', label: '🤝 Customer Service', color: 'purple' },
-                { key: 'price', label: '💰 Price Value', color: 'red' },
-                { key: 'website', label: '💻 Website/App', color: 'cyan' }
-              ].map(category => (
-                <Button
-                  key={category.key}
-                  className={`h-auto py-3 px-2 text-xs border-gray-300 hover:border-${category.color}-400 hover:text-${category.color}-600 hover:bg-${category.color}-50 rounded-lg transition-all duration-200`}
-                >
-                  {category.label}
-                </Button>
-              ))}
-            </div>
-          </Form.Item>
-
-          {/* Feedback Text */}
-          <Form.Item
-            label={<span className="text-gray-700 font-medium">Your Feedback</span>}
-            name="feedback"
-            rules={[{ required: true, message: 'Please share your feedback!' }]}
+            label={<span className="text-gray-700 font-medium">Your Comment</span>}
+            name="comment"
           >
             <Input.TextArea
               rows={4}
-              placeholder="Tell us about your experience... What did you like? What could be improved?"
+              placeholder="Share your experience about this product..."
               className="resize-none"
             />
           </Form.Item>
 
-          {/* Photo Upload */}
+          {/* Image Upload */}
           <Form.Item
-            label={<span className="text-gray-700 font-medium">Add Photos (Optional)</span>}
-            name="photos"
+            label={<span className="text-gray-700 font-medium">Add Images (Optional)</span>}
           >
-            <Upload
-              listType="picture-card"
-              maxCount={3}
-              beforeUpload={() => false}
-            >
-              <div className="text-center">
-                <CameraOutlined className="text-2xl text-gray-400 mb-2" />
-                <div className="text-sm text-gray-500">Add Photo</div>
+            <div className="space-y-2">
+              <Upload
+                listType="picture-card"
+                fileList={reviewImages.map((file, index) => ({
+                  uid: index.toString(),
+                  name: file.name,
+                  status: 'done' as const,
+                  url: URL.createObjectURL(file)
+                }))}
+                beforeUpload={handleImageUpload}
+                onRemove={(file) => {
+                  const index = parseInt(file.uid);
+                  if (!isNaN(index) && reviewImages[index]) {
+                    removeReviewImage(reviewImages[index]);
+                  }
+                }}
+              >
+                {reviewImages.length < 5 && (
+                  <div className="text-center">
+                    <CameraOutlined className="text-2xl text-gray-400 mb-2" />
+                    <div className="text-sm text-gray-500">Add Image</div>
+                  </div>
+                )}
+              </Upload>
+              <div className="text-xs text-gray-400">
+                📸 Maximum 5 images, max 5MB each
               </div>
-            </Upload>
-            <div className="text-xs text-gray-400 mt-2">
-              📸 Add up to 3 photos to help us understand your feedback better
+            </div>
+          </Form.Item>
+
+          {/* Video Upload */}
+          <Form.Item
+            label={<span className="text-gray-700 font-medium">Add Videos (Optional)</span>}
+          >
+            <div className="space-y-2">
+              <Upload
+                listType="picture-card"
+                fileList={reviewVideos.map((file, index) => ({
+                  uid: index.toString(),
+                  name: file.name,
+                  status: 'done' as const,
+                  url: URL.createObjectURL(file)
+                }))}
+                beforeUpload={handleVideoUpload}
+                onRemove={(file) => {
+                  const index = parseInt(file.uid);
+                  if (!isNaN(index) && reviewVideos[index]) {
+                    removeReviewVideo(reviewVideos[index]);
+                  }
+                }}
+                accept="video/*"
+              >
+                {reviewVideos.length < 2 && (
+                  <div className="text-center">
+                    <VideoCameraOutlined className="text-2xl text-gray-400 mb-2" />
+                    <div className="text-sm text-gray-500">Add Video</div>
+                  </div>
+                )}
+              </Upload>
+              <div className="text-xs text-gray-400">
+                🎥 Maximum 2 videos, max 50MB each
+              </div>
             </div>
           </Form.Item>
 
@@ -1203,7 +1438,7 @@ export default function OrderDetailPage() {
               htmlType="submit"
               className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 border-0 font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
             >
-              🚀 Submit Feedback
+              ⭐ Submit Review
             </Button>
           </div>
         </Form>

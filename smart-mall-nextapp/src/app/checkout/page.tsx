@@ -77,12 +77,6 @@ const paymentMethods = [
     description: "Pay securely with VNPay gateway"
   },
   {
-    id: "card",
-    name: "Credit Card",
-    icon: <CreditCardOutlined />,
-    description: "Visa, Mastercard, JCB"
-  },
-  {
     id: "bank",
     name: "Bank Transfer",
     icon: <BankOutlined />,
@@ -283,17 +277,7 @@ export default function CheckoutPage() {
         // Use shopId directly from cart items (should be real shopId from product API now)
         const actualShopId = shopId;
         
-        console.log('Processing shop for order:', {
-          shopIndex,
-          isFirstShop,
-          originalShopId: shopId,
-          isRealShopId: !shopId.startsWith('shop-') && shopId !== 'unknown-shop',
-          shopName: shopItems[0]?.shopName,
-          itemCount: shopItems.length,
-          selectedVouchers,
-          applicableVouchers,
-          usedVouchers: Array.from(usedVouchers)
-        });
+
 
         // Map UI payment method to backend PaymentMethod enum
         const paymentMethodMapping: { [key: string]: string } = {
@@ -349,10 +333,7 @@ export default function CheckoutPage() {
           continue;
         }
 
-        console.log(`Creating order for shop ${shopId}:`);
-        console.log('Final applicable vouchers for this shop:', applicableVouchers);
-        console.log('Order data:', JSON.stringify(orderData, null, 2));
-        console.log('Shop items:', shopItems);
+
 
         try {
           // Create order using integratedOrderService
@@ -360,7 +341,7 @@ export default function CheckoutPage() {
 
           if (result.success && result.order) {
             orderResults.push({ shopId, success: true, order: result.order });
-            console.log(`Order created successfully for shop ${shopId}:`, result.order.id);
+
           } else {
             orderResults.push({ shopId, success: false, errors: result.errors });
             allOrdersSucceeded = false;

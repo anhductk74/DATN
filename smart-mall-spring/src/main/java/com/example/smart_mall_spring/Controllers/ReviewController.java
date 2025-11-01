@@ -1,119 +1,125 @@
 package com.example.smart_mall_spring.Controllers;
 
-import com.example.smart_mall_spring.Config.CustomUserDetails;
-import com.example.smart_mall_spring.Dtos.Products.CreateReviewDto;
-import com.example.smart_mall_spring.Dtos.Products.ReviewResponseDto;
-import com.example.smart_mall_spring.Dtos.Products.UpdateReviewDto;
-import com.example.smart_mall_spring.Exception.ApiResponse;
+import com.example.smart_mall_spring.Dtos.Products.Review.*;
 import com.example.smart_mall_spring.Services.Products.ReviewService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.validation.Valid;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
-
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/reviews")
-@Tag(name = "Review", description = "Product review management APIs")
+@RequiredArgsConstructor
 public class ReviewController {
 
-    @Autowired
-    private ReviewService reviewService;
+    private final ReviewService reviewService;
 
-    @PostMapping
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Create review", description = "Create a new review for a product")
-    public ResponseEntity<ApiResponse<ReviewResponseDto>> createReview(@Valid @RequestBody CreateReviewDto createReviewDto) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
 
-        ReviewResponseDto review = reviewService.createReview(userId, createReviewDto);
-        return ResponseEntity.ok(ApiResponse.success("Review created successfully", review));
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ReviewResponseDto> createReview(
+            @RequestParam("userId") String userId,
+            @RequestParam("productId") String productId,
+            @RequestParam(value = "orderId", required = false) String orderId,
+            @RequestParam("rating") Integer rating,
+            @RequestParam("comment") String comment,
+            @RequestParam(value = "imageUrls", required = false) MultipartFile[] imageFiles, // nhận mảng file
+            @RequestParam(value = "videoUrls", required = false) MultipartFile[] videoFiles
+    ) {
+        ReviewRequestDto dto = new ReviewRequestDto();
+        dto.setUserId(userId);
+        dto.setProductId(productId);
+        dto.setOrderId(orderId);
+        dto.setRating(rating);
+        dto.setComment(comment);
+
+        ReviewResponseDto response = reviewService.createReviewWithMedia(dto, imageFiles, videoFiles);
+        return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/{reviewId}")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Update review", description = "Update an existing review")
-    public ResponseEntity<ApiResponse<ReviewResponseDto>> updateReview(
-            @PathVariable UUID reviewId,
-            @Valid @RequestBody UpdateReviewDto updateReviewDto) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
 
-        updateReviewDto.setReviewId(reviewId);
-        ReviewResponseDto review = reviewService.updateReview(userId, updateReviewDto);
-        return ResponseEntity.ok(ApiResponse.success("Review updated successfully", review));
+    @GetMapping("/product/{productId}")
+    public ResponseEntity<Page<ReviewResponseDto>> getReviewsByProduct(
+            @PathVariable UUID productId,
+            Pageable pageable
+    ) {
+        Page<ReviewResponseDto> result = reviewService.getReviewsByProduct(productId, pageable);
+        return ResponseEntity.ok(result);
+    }
+
+
+
+    @GetMapping("/{reviewId}")
+    public ResponseEntity<ReviewResponseDto> getReviewById(@PathVariable UUID reviewId) {
+        return ResponseEntity.ok(reviewService.getReviewById(reviewId));
     }
 
     @DeleteMapping("/{reviewId}")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Delete review", description = "Delete a review")
-    public ResponseEntity<ApiResponse<String>> deleteReview(@PathVariable UUID reviewId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
-
-        reviewService.deleteReview(userId, reviewId);
-        return ResponseEntity.ok(ApiResponse.success("Review deleted successfully", null));
+    public ResponseEntity<Void> deleteReview(@PathVariable UUID reviewId) {
+        reviewService.deleteReview(reviewId);
+        return ResponseEntity.noContent().build();
     }
-
-    @GetMapping("/product/{productId}")
-    @Operation(summary = "Get reviews by product", description = "Get all reviews for a specific product with pagination")
-    public ResponseEntity<ApiResponse<Page<ReviewResponseDto>>> getReviewsByProduct(
-            @PathVariable UUID productId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        
-        Pageable pageable = PageRequest.of(page, size);
-        Page<ReviewResponseDto> reviews = reviewService.getReviewsByProductId(productId, pageable);
-        return ResponseEntity.ok(ApiResponse.success("Reviews retrieved successfully", reviews));
-    }
-
-    @GetMapping("/user/my-reviews")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    @Operation(summary = "Get user reviews", description = "Get all reviews by the current user with pagination")
-    public ResponseEntity<ApiResponse<Page<ReviewResponseDto>>> getUserReviews(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        UUID userId = userDetails.getUser().getId();
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<ReviewResponseDto> reviews = reviewService.getReviewsByUserId(userId, pageable);
-        return ResponseEntity.ok(ApiResponse.success("User reviews retrieved successfully", reviews));
-    }
-
-    @GetMapping("/{reviewId}")
-    @Operation(summary = "Get review by ID", description = "Get a specific review by its ID")
-    public ResponseEntity<ApiResponse<ReviewResponseDto>> getReviewById(@PathVariable UUID reviewId) {
-        ReviewResponseDto review = reviewService.getReviewById(reviewId);
-        return ResponseEntity.ok(ApiResponse.success("Review retrieved successfully", review));
-    }
-
     @GetMapping("/product/{productId}/statistics")
-    @Operation(summary = "Get product review statistics", description = "Get review statistics for a product")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getProductReviewStatistics(@PathVariable UUID productId) {
-        Double averageRating = reviewService.getAverageRatingByProductId(productId);
-        Long reviewCount = reviewService.getReviewCountByProductId(productId);
-        
-        Map<String, Object> statistics = new HashMap<>();
-        statistics.put("averageRating", averageRating != null ? averageRating : 0.0);
-        statistics.put("reviewCount", reviewCount);
-        
-        return ResponseEntity.ok(ApiResponse.success("Review statistics retrieved successfully", statistics));
+    public ResponseEntity<ReviewStatisticsDto> getReviewStatistics(@PathVariable UUID productId) {
+        ReviewStatisticsDto stats = reviewService.getReviewStatistics(productId);
+        return ResponseEntity.ok(stats);
     }
+    @GetMapping("/user/{userId}/product/{productId}")
+    public ResponseEntity<ReviewResponseDto> checkUserReview(
+            @PathVariable UUID userId,
+            @PathVariable UUID productId
+    ) {
+        ReviewResponseDto review = reviewService.findByUserAndProduct(userId, productId);
+        if (review == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(review);
+    }
+
+
+    /**  Kiểm tra review của user với product */
+//    @GetMapping("/user/{userId}/product/{productId}")
+//    public ResponseEntity<ReviewResponseDto> findByUserAndProduct(
+//            @PathVariable UUID userId,
+//            @PathVariable UUID productId
+//    ) {
+//        return ResponseEntity.ok(reviewService.findByUserAndProduct(userId, productId));
+//    }
+
+    /**  Lấy danh sách review của shop (có filter, sort, paginate) */
+    @GetMapping("/shop/{shopId}")
+    public ResponseEntity<Page<ReviewResponseDto>> getReviewsForShop(
+            @PathVariable UUID shopId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) Boolean hasReply,
+            @RequestParam(required = false) UUID productId,
+            @RequestParam(defaultValue = "reviewedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDirection
+    ) {
+        return ResponseEntity.ok(reviewService.getReviewsByShop(
+                shopId, page, size, rating, hasReply, productId, sortBy, sortDirection
+        ));
+    }
+    /**  Lấy thống kê review tổng hợp của shop */
+    @GetMapping("/shop/{shopId}/statistics")
+    public ResponseEntity<ShopReviewStatisticsDto> getShopReviewStatistics(@PathVariable UUID shopId) {
+        return ResponseEntity.ok(reviewService.getShopReviewStatistics(shopId));
+    }
+
+    /**  Lấy danh sách sản phẩm của shop kèm thống kê review */
+    @GetMapping("/shop/{shopId}/products-summary")
+    public ResponseEntity<List<ProductReviewSummaryDto>> getShopProductsWithReviewSummary(
+            @PathVariable UUID shopId
+    ) {
+        return ResponseEntity.ok(reviewService.getShopProductsWithReviewSummary(shopId));
+    }
+
 }

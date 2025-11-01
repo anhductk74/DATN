@@ -212,6 +212,7 @@ public class OrderService {
                     .map(item -> OrderItemResponseDto.builder()
                             .id(item.getId())
                             .orderId(order.getId())
+                            .productId(item.getVariant().getProduct().getId())
                             .productName(item.getVariant().getProduct().getName())
                             .productImage(
                                     item.getVariant().getProduct().getImages() != null &&
@@ -373,6 +374,7 @@ public class OrderService {
                         .map(item -> OrderItemResponseDto.builder()
                                 .id(item.getId())
                                 .orderId(order.getId())
+                                .productId(item.getVariant().getProduct().getId())
                                 .variant(item.getVariant().toDto())
                                 .productName(item.getVariant().getProduct().getName())
                                 .productImage(
