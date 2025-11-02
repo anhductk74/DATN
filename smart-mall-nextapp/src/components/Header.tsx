@@ -504,7 +504,7 @@ export default function Header() {
                         <span className="font-medium group-hover:text-green-700">My Orders</span>
                       </button>
                       <a 
-                        href="/shop-management"
+                        href="/shop-management/dashboard"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group"

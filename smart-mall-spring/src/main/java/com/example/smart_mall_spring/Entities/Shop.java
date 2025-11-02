@@ -24,6 +24,9 @@ public class Shop extends BaseEntity {
     private String phoneNumber;
     private String avatar;
 
+    @Column(name = "view_count", nullable = false)
+    private Long viewCount = 0L;
+
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "address_id", referencedColumnName = "id")
     private Address address;

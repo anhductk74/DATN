@@ -108,7 +108,7 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
   // Menu items with English labels
   const menuItems = [
     {
-      key: "/shop-management",
+      key: "/shop-management/dashboard",
       icon: <DashboardOutlined />,
       label: "Dashboard",
     },
