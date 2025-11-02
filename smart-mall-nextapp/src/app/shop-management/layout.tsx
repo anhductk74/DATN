@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Layout, Menu, Avatar, Dropdown, Button, Badge } from "antd";
+import { useState, useEffect } from "react";
+import { Layout, Menu, Avatar, Dropdown, Button, Badge, App } from "antd";
 import {
   ShopOutlined,
   DashboardOutlined,
@@ -18,12 +18,14 @@ import {
   StarOutlined,
   MessageOutlined,
   BarChartOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import type { MenuProps } from "antd";
 import Link from "next/link";
+import { shopService, Shop } from "@/services";
 
 const { Sider, Header, Content } = Layout;
 
@@ -31,12 +33,77 @@ interface ShopLayoutProps {
   children: React.ReactNode;
 }
 
-export default function ShopLayout({ children }: ShopLayoutProps) {
+function ShopLayoutContent({ children }: ShopLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
   const { userProfile } = useUserProfile();
+  const { message } = App.useApp();
+  
+  // Shop state
+  const [userShop, setUserShop] = useState<Shop | null>(null);
+  const [loadingShop, setLoadingShop] = useState(true);
+  const [hasChecked, setHasChecked] = useState(false);
+
+  // Check if user has a shop
+  useEffect(() => {
+    const checkUserShop = async () => {
+      if (!userProfile?.id) {
+        setLoadingShop(false);
+        setHasChecked(true);
+        return;
+      }
+
+      try {
+        const response = await shopService.getShopsByOwner(userProfile.id);
+        if (response.data && response.data.length > 0) {
+          setUserShop(response.data[0]);
+        } else {
+          setUserShop(null);
+          // Redirect immediately if not on create page
+          if (!pathname.includes('/create')) {
+            router.replace('/shop-management/create');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch shop:', error);
+        setUserShop(null);
+        if (!pathname.includes('/create')) {
+          router.replace('/shop-management/create');
+        }
+      } finally {
+        setLoadingShop(false);
+        setHasChecked(true);
+      }
+    };
+
+    checkUserShop();
+  }, [userProfile?.id, pathname, router]);
+
+  // If loading or not checked yet, show loading state
+  if (loadingShop || !hasChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-center">
+          <LoadingOutlined className="text-5xl text-blue-500 mb-4" />
+          <p className="text-gray-600">Loading shop information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If on create page, let it render
+  if (pathname.includes('/create')) {
+    return <div className="min-h-screen bg-gray-50">{children}</div>;
+  }
+
+  // If no shop (should have redirected already, but show nothing to prevent flash)
+  if (!userShop) {
+    return null;
+  }
+
+  // User has shop - render management layout
 
   // Menu items with English labels
   const menuItems = [
@@ -210,10 +277,11 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
           zIndex: 100,
           boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
           background: '#fff',
+          overflow: 'hidden',
         }}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center h-16 border-b border-gray-200">
+        <div className="flex items-center justify-center h-16 border-b border-gray-200 flex-shrink-0">
           {!collapsed ? (
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
@@ -228,24 +296,33 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
           )}
         </div>
 
-        {/* Menu */}
-        <Menu
-          mode="inline"
-          selectedKeys={[pathname]}
-          style={{ 
-            borderRight: 0, 
-            background: 'transparent',
-            fontSize: '14px',
+        {/* Menu with custom scrollbar */}
+        <div 
+          style={{
+            height: 'calc(100vh - 64px)',
+            overflowY: 'auto',
+            overflowX: 'hidden',
           }}
-          items={menuItems.map(item => ({
-            ...item,
-            onClick: item.children ? undefined : () => handleMenuClick(item.key),
-            children: item.children?.map(child => ({
-              ...child,
-              onClick: () => handleMenuClick(child.key),
-            })),
-          }))}
-        />
+          className="scrollbar-hide"
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[pathname]}
+            style={{ 
+              borderRight: 0, 
+              background: 'transparent',
+              fontSize: '14px',
+            }}
+            items={menuItems.map(item => ({
+              ...item,
+              onClick: item.children ? undefined : () => handleMenuClick(item.key),
+              children: item.children?.map(child => ({
+                ...child,
+                onClick: () => handleMenuClick(child.key),
+              })),
+            }))}
+          />
+        </div>
       </Sider>
 
       {/* Main Layout */}
@@ -331,5 +408,13 @@ export default function ShopLayout({ children }: ShopLayoutProps) {
         </Content>
       </Layout>
     </Layout>
+  );
+}
+
+export default function ShopLayout({ children }: ShopLayoutProps) {
+  return (
+    <App>
+      <ShopLayoutContent>{children}</ShopLayoutContent>
+    </App>
   );
 }
