@@ -749,35 +749,41 @@ export default function OrderDetailPage() {
             {/* Order Progress */}
             <Card title="Order Progress" className="shadow-sm">
               <div className="relative px-4 py-6">
-                {/* Progress Line Background - only show for delivered orders with review step */}
-                <div className={`absolute top-12 h-1 bg-gray-300 rounded-full ${
-                  order?.status === "DELIVERED" ? 'left-16 right-16' : 'left-16 right-32'
-                }`}></div>
-                
-                {/* Progress Line Active */}
-                <div 
-                  className="absolute top-12 h-1 bg-green-500 rounded-full transition-all duration-500"
-                  style={{
-                    left: '64px', // Start from Order Placed circle
-                    right: (() => {
-                      // For delivered orders, calculate based on review completion
-                      if (order?.status === "DELIVERED") {
-                        const allProductsReviewed = order.items.length > 0 && 
-                          order.items.every(item => reviewedProducts.has(item.id));
-                        return allProductsReviewed ? '64px' : 'calc(20% + 64px)'; // Full line or to Delivered
-                      }
-                      
-                      // For other statuses, use percentage based calculation
-                      if (order?.status === "PENDING") return 'calc(100% - 128px)';
-                      if (["CONFIRMED", "PAID"].includes(order?.status || "")) return 'calc(75% + 32px)';
-                      if (order?.status === "SHIPPING") return 'calc(50% + 48px)';
-                      
-                      return 'calc(75% + 32px)';
-                    })()
-                  }}
-                ></div>
+                {(() => {
+                  // Calculate steps and their positions
+                  const hasReviewStep = order?.status === "DELIVERED";
+                  const totalSteps = hasReviewStep ? 5 : 4;
+                  
+                  // Calculate current progress step (0-based index)
+                  let currentStep = 0;
+                  if (order?.status === "PENDING") currentStep = 0;
+                  else if (["CONFIRMED", "PAID"].includes(order?.status || "")) currentStep = 1;
+                  else if (order?.status === "SHIPPING") currentStep = 2;
+                  else if (order?.status === "DELIVERED") {
+                    const progress = getReviewProgress();
+                    currentStep = progress?.completed ? 4 : 3;
+                  }
 
-                <div className="flex justify-between items-start relative">
+                  return (
+                    <>
+                      {/* Progress Line Background */}
+                      <div className="absolute top-12 left-16 right-16 h-1 bg-gray-300 rounded-full"></div>
+                      
+                      {/* Progress Line Active */}
+                      <div 
+                        className="absolute top-12 left-16 h-1 bg-green-500 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.max(0, (currentStep / Math.max(totalSteps - 1, 1)) * 100)}%`,
+                          maxWidth: 'calc(100% - 128px)'
+                        }}
+                      ></div>
+                    </>
+                  );
+                })()}
+
+                <div className={`flex items-start relative ${
+                  order?.status === "DELIVERED" ? 'justify-between' : 'justify-between'
+                }`}>
                   {/* Order Placed */}
                   <div className="flex flex-col items-center text-center">
                     <div className="w-12 h-12 rounded-full border-2 border-green-500 bg-white flex items-center justify-center text-green-500 z-10">
@@ -839,7 +845,7 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
 
-                  {/* Review - Only show for delivered orders */}
+                  {/* Review - Always show for delivered orders */}
                   {order?.status === "DELIVERED" && (
                     <div className="flex flex-col items-center text-center">
                       <div className={`w-12 h-12 rounded-full border-2 bg-white flex items-center justify-center z-10 ${

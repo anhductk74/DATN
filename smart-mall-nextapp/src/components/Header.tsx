@@ -34,6 +34,7 @@ export default function Header() {
   const [showCartPopup, setShowCartPopup] = useState(false);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [cartHideTimeout, setCartHideTimeout] = useState<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const { signOut, user } = useAuth();
   const { message } = useAntdApp();
@@ -112,6 +113,22 @@ export default function Header() {
     return undefined;
   };
   
+  // Cart popup hover handlers
+  const handleCartMouseEnter = () => {
+    if (cartHideTimeout) {
+      clearTimeout(cartHideTimeout);
+      setCartHideTimeout(null);
+    }
+    setShowCartPopup(true);
+  };
+
+  const handleCartMouseLeave = () => {
+    const timeout = setTimeout(() => {
+      setShowCartPopup(false);
+    }, 300); // 300ms delay before hiding
+    setCartHideTimeout(timeout);
+  };
+
   // Debug: Log current user data
 
   const handleLogoutClick = async () => {
@@ -161,6 +178,11 @@ export default function Header() {
       }
       if (!target.closest('.cart-popup-container')) {
         setShowCartPopup(false);
+        // Clear cart timeout if clicking outside
+        if (cartHideTimeout) {
+          clearTimeout(cartHideTimeout);
+          setCartHideTimeout(null);
+        }
       }
       if (!target.closest('.notification-popup-container')) {
         setShowNotificationPopup(false);
@@ -168,8 +190,14 @@ export default function Header() {
     };
 
     document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+      // Cleanup timeout on unmount
+      if (cartHideTimeout) {
+        clearTimeout(cartHideTimeout);
+      }
+    };
+  }, [cartHideTimeout]);
 
   
 
@@ -315,14 +343,17 @@ export default function Header() {
                 </button>
                 
                 {/* Cart (hover to preview, click to open /cart) */}
-                <div className="relative cart-popup-container">
+                <div 
+                  className="relative cart-popup-container"
+                  onMouseEnter={handleCartMouseEnter}
+                  onMouseLeave={handleCartMouseLeave}
+                  style={{ paddingBottom: showCartPopup ? '20px' : '0' }} // Extend hover area when popup is shown
+                >
                   <button
                     role="button"
                     tabIndex={0}
                     onClick={() => handleNavigate('/cart')}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/cart'); }}
-                    onMouseEnter={() => setShowCartPopup(true)}
-                    onMouseLeave={() => setShowCartPopup(false)}
                     className="relative p-3 text-gray-600 hover:text-green-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 hover:shadow-md group"
                   >
                     <ShoppingCartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -332,7 +363,10 @@ export default function Header() {
                   </button>
 
                   {showCartPopup && (
-                    <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[100]" onMouseEnter={() => setShowCartPopup(true)} onMouseLeave={() => setShowCartPopup(false)}>
+                    <div 
+                      className="absolute right-0 top-full w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[100]"
+                      style={{ marginTop: '4px' }} // Small gap for visual separation
+                    >
                       <div className="flex items-center justify-between mb-3">
                         <div className="text-sm font-semibold text-gray-800">Shopping Cart</div>
                         <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
