@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Repositories;
 
 import com.example.smart_mall_spring.Entities.Shop;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -24,4 +25,9 @@ public interface ShopRepository extends JpaRepository<Shop, UUID> {
     
     // Đếm số shop của một user
     long countByOwnerId(UUID ownerId);
+    
+    // Tăng view count cho shop
+    @Modifying
+    @Query("UPDATE Shop s SET s.viewCount = s.viewCount + 1 WHERE s.id = :shopId")
+    void incrementViewCount(@Param("shopId") UUID shopId);
 }

@@ -6,6 +6,7 @@ import com.example.smart_mall_spring.Dtos.Products.UpdateProductDto;
 import com.example.smart_mall_spring.Enum.Status;
 import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Products.ProductService;
+import com.example.smart_mall_spring.Services.Shop.ShopService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,9 +21,13 @@ public class ProductController {
 
     @Autowired
     private final ProductService productService;
+    
+    @Autowired
+    private final ShopService shopService;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, ShopService shopService) {
         this.productService = productService;
+        this.shopService = shopService;
     }
 
     // Create product with images
@@ -58,6 +63,17 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponseDto>> getProductById(@PathVariable UUID id) {
         try {
             ProductResponseDto result = productService.getProductById(id);
+            
+            // Tự động tăng view count của shop khi xem sản phẩm chi tiết
+            if (result.getShop() != null && result.getShop().getId() != null) {
+                try {
+                    shopService.incrementViewCount(result.getShop().getId());
+                } catch (Exception e) {
+                    // Không ngừng process nếu việc tăng view count thất bại
+                    System.err.println("Failed to increment shop view count: " + e.getMessage());
+                }
+            }
+            
             return ResponseEntity.ok(ApiResponse.success("Get Product Success!", result));
         } catch (Exception e) {
             return ResponseEntity.badRequest()

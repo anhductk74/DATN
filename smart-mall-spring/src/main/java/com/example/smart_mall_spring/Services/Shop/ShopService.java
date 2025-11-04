@@ -11,9 +11,13 @@ import com.example.smart_mall_spring.Repositories.AddressRespository;
 import com.example.smart_mall_spring.Repositories.ShopRepository;
 import com.example.smart_mall_spring.Repositories.UserRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
+import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -100,6 +104,7 @@ public class ShopService {
                 .description(shop.getDescription())
                 .numberPhone(shop.getPhoneNumber())
                 .avatar(shop.getAvatar())
+                .viewCount(shop.getViewCount() != null ? shop.getViewCount() : 0L)
                 .ownerId(shop.getOwner() != null ? shop.getOwner().getId() : null)
                 .ownerName(shop.getOwner() != null ? shop.getOwner().getProfile().getFullName() : null)
                 .address(shop.getAddress() != null ? convertAddressToDto(shop.getAddress()) : null)
@@ -271,5 +276,46 @@ public class ShopService {
     // Get shop count by owner
     public long getShopCountByOwner(UUID ownerId) {
         return shopRes.countByOwnerId(ownerId);
+    }
+    
+    // Get current authenticated user ID (returns null if not authenticated)
+    private UUID getCurrentUserId() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() 
+                && authentication.getPrincipal() instanceof CustomUserDetails) {
+                CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+                return userDetails.getUser().getId();
+            }
+        } catch (Exception e) {
+            // User is not authenticated or error occurred
+            System.err.println("Error getting current user: " + e.getMessage());
+        }
+        return null;
+    }
+    
+    // Increment shop view count (only if current user is not the shop owner)
+    @Transactional
+    public void incrementViewCount(UUID shopId) {
+        // Verify shop exists
+        Shop shop = shopRes.findById(shopId)
+                .orElseThrow(() -> new RuntimeException("Shop not found with id: " + shopId));
+        
+        // Get current user ID
+        UUID currentUserId = getCurrentUserId();
+        
+        // Only increment if current user is not the shop owner
+        if (currentUserId == null || !currentUserId.equals(shop.getOwner() != null ? shop.getOwner().getId() : null)) {
+            shopRes.incrementViewCount(shopId);
+        } else {
+            System.out.println("Shop owner viewing their own shop - view count not incremented");
+        }
+    }
+    
+    // Get shop view count
+    public Long getShopViewCount(UUID shopId) {
+        Shop shop = shopRes.findById(shopId)
+                .orElseThrow(() -> new RuntimeException("Shop not found with id: " + shopId));
+        return shop.getViewCount();
     }
 }

@@ -38,6 +38,13 @@ public class ShopController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ShopResponseDto>> getShopById(@PathVariable UUID id) {
+        // Tự động tăng view count khi xem shop
+        try {
+            shopService.incrementViewCount(id);
+        } catch (Exception e) {
+            // Không ngừng process nếu việc tăng view count thất bại
+            System.err.println("Failed to increment view count: " + e.getMessage());
+        }
         return ResponseEntity.ok(ApiResponse.success("Get Shop Success!", shopService.getShopById(id)));
     }
 
@@ -101,5 +108,29 @@ public class ShopController {
     public ResponseEntity<ApiResponse<Long>> getShopCountByOwner(@PathVariable UUID ownerId) {
         long count = shopService.getShopCountByOwner(ownerId);
         return ResponseEntity.ok(ApiResponse.success("Get Shop Count by Owner Success!", count));
+    }
+    
+    // Increment shop view count
+    @PostMapping("/{id}/view")
+    public ResponseEntity<ApiResponse<String>> incrementShopViewCount(@PathVariable UUID id) {
+        try {
+            shopService.incrementViewCount(id);
+            return ResponseEntity.ok(ApiResponse.success("View Count Incremented!", "Shop view count has been increased"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to increment view count: " + e.getMessage()));
+        }
+    }
+    
+    // Get shop view count
+    @GetMapping("/{id}/view-count")
+    public ResponseEntity<ApiResponse<Long>> getShopViewCount(@PathVariable UUID id) {
+        try {
+            Long viewCount = shopService.getShopViewCount(id);
+            return ResponseEntity.ok(ApiResponse.success("Get Shop View Count Success!", viewCount));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get view count: " + e.getMessage()));
+        }
     }
 }

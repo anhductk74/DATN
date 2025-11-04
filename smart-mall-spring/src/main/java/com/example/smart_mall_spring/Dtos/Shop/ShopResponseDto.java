@@ -20,6 +20,7 @@ public class ShopResponseDto {
     private String avatar;
     private UUID ownerId;
     private String ownerName; // Tên của owner để hiển thị
+    private Long viewCount; // Số lượt xem shop
 
     private CreateAddressDto address;
 }
