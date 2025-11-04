@@ -34,7 +34,6 @@ export default function Home() {
       }
     } catch (error) {
       message.error('An error occurred. Please try again!');
-      console.error('Login error:', error);
     } finally {
       setLoading(false);
     }

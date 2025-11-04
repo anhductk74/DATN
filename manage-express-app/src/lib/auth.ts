@@ -63,7 +63,6 @@ export const authOptions: NextAuthOptions = {
           
           return null;
         } catch (error) {
-          console.error("Login error:", error);
           return null;
         }
       }
