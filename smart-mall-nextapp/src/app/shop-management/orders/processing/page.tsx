@@ -13,7 +13,6 @@ import {
   Col, 
   Statistic, 
   Modal, 
-  message,
   Badge,
   Steps,
   Timeline,
@@ -36,6 +35,7 @@ import { shopService, type Shop } from "@/services/ShopService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
+import { useAntdApp } from "@/hooks/useAntdApp";
 
 const { Search } = Input;
 const { RangePicker } = DatePicker;
@@ -44,6 +44,7 @@ const { Step } = Steps;
 export default function ProcessingOrdersPage() {
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { message } = useAntdApp();
   const [searchText, setSearchText] = useState('');
   const [orders, setOrders] = useState<OrderResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +100,6 @@ export default function ProcessingOrdersPage() {
         const shop = response.data[0]; // Get first shop of the user
         setCurrentShop(shop);
         setCurrentShopId(shop.id);
-        message.success(`Loaded shop: ${shop.name}`);
       } else {
         message.warning('No shop found for this user. Please create a shop first.');
         setCurrentShop(null);
@@ -154,12 +154,7 @@ export default function ProcessingOrdersPage() {
         total: allOrders.length
       }));
       
-      // Show appropriate message based on results
-      if (paginatedOrders.length > 0) {
-        message.success(`Loaded ${paginatedOrders.length} processing orders`);
-      } else {
-        message.info('No processing orders found for your shop');
-      }
+      // Orders loaded successfully - no need to show message for normal operation
       
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load processing orders from server';

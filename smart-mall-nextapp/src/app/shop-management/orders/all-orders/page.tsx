@@ -17,7 +17,6 @@ import {
   Descriptions, 
   Image,
   Badge,
-  message,
   Dropdown,
   MenuProps
 } from "antd";
@@ -39,6 +38,7 @@ import { orderApiService, OrderStatus, PaymentMethod, type OrderResponseDto, typ
 import { shopService, type Shop } from "@/services/ShopService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
+import { useAntdApp } from "@/hooks/useAntdApp";
 import { getCloudinaryUrl } from "@/config/config";
 
 const { Search } = Input;
@@ -48,6 +48,7 @@ const { RangePicker } = DatePicker;
 export default function AllOrdersPage() {
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { message } = useAntdApp();
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [orders, setOrders] = useState<OrderResponseDto[]>([]);
@@ -162,7 +163,6 @@ export default function AllOrdersPage() {
         const shop = response.data[0]; // Get first shop of the user
         setCurrentShop(shop);
         setCurrentShopId(shop.id);
-        message.success(`Loaded shop: ${shop.name}`);
         
         // Load orders immediately after setting shop
         await loadOrdersWithShopId(shop.id);
@@ -199,14 +199,7 @@ export default function AllOrdersPage() {
         total: response.totalElements || 0
       }));
       
-      // Show appropriate message based on results
-      if (response.content && response.content.length > 0) {
-        message.success(`Loaded ${response.content.length} orders`);
-      } else if (statusFilter === 'All') {
-        message.info('No orders found for your shop');
-      } else {
-        message.info(`No orders found with status: ${statusFilter}`);
-      }
+      // Orders loaded successfully - no need to show message for normal operation
       
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load orders from server';

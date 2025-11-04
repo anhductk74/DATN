@@ -168,6 +168,7 @@ public class ReviewService {
             ReviewReplyResponseDto replyDto = new ReviewReplyResponseDto(
                     reply.getId().toString(),
                     reply.getShop().getId().toString(),
+                    reply.getReview().getId(),
                     reply.getShop().getName(),
                     reply.getReplyContent(),
                     reply.getRepliedAt()

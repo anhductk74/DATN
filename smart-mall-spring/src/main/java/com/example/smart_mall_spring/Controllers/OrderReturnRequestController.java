@@ -64,4 +64,16 @@ public class OrderReturnRequestController {
             @RequestParam ReturnStatus status) {
         return ResponseEntity.ok(returnRequestService.updateReturnStatus(requestId, status));
     }
+
+    @GetMapping("/shop/{shopId}")
+    public ResponseEntity<List<OrderReturnResponseDto>> getReturnRequestsByShop(@PathVariable UUID shopId) {
+        return ResponseEntity.ok(returnRequestService.getReturnRequestsByShop(shopId));
+    }
+
+    @PutMapping("/{requestId}/shop-status")
+    public ResponseEntity<OrderReturnResponseDto> updateReturnStatusByShop(
+            @PathVariable UUID requestId,
+            @RequestParam ReturnStatus status) {
+        return ResponseEntity.ok(returnRequestService.updateReturnStatusByShop(requestId, status));
+    }
 }

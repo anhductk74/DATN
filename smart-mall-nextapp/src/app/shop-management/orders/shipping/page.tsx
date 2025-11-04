@@ -108,7 +108,6 @@ export default function ShippingOrdersPage() {
         const shop = response.data[0]; // Get first shop of the user
         setCurrentShop(shop);
         setCurrentShopId(shop.id);
-        message.success(`Loaded shop: ${shop.name}`);
       } else {
         message.warning('No shop found for this user. Please create a shop first.');
         setCurrentShop(null);
@@ -163,12 +162,7 @@ export default function ShippingOrdersPage() {
       });
       setShippingInfo(mockShippingInfo);
       
-      // Show appropriate message based on results
-      if (shippingOrders.length > 0) {
-        message.success(`Loaded ${shippingOrders.length} shipping orders`);
-      } else {
-        message.info('No shipping orders found for your shop');
-      }
+      // Orders loaded successfully - no need to show message for normal operation
       
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load shipping orders from server';

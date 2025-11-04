@@ -13,7 +13,6 @@ import {
   Col, 
   Statistic, 
   Modal, 
-  message,
   Badge,
   Alert,
   Descriptions,
@@ -34,14 +33,15 @@ import { shopService, type Shop } from "@/services/ShopService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
+import { useAntdApp } from "@/hooks/useAntdApp";
 
 const { Search } = Input;
 const { RangePicker } = DatePicker;
-const { confirm } = Modal;
 
 export default function PendingOrdersPage() {
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { message, modal } = useAntdApp();
   const [searchText, setSearchText] = useState('');
   const [orders, setOrders] = useState<OrderResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +97,6 @@ export default function PendingOrdersPage() {
         const shop = response.data[0]; // Get first shop of the user
         setCurrentShop(shop);
         setCurrentShopId(shop.id);
-        message.success(`Loaded shop: ${shop.name}`);
       } else {
         message.warning('No shop found for this user. Please create a shop first.');
         setCurrentShop(null);
@@ -132,12 +131,7 @@ export default function PendingOrdersPage() {
         total: response.totalElements || 0
       }));
       
-      // Show appropriate message based on results
-      if (response.content && response.content.length > 0) {
-        message.success(`Loaded ${response.content.length} pending orders`);
-      } else {
-        message.info('No pending orders found for your shop');
-      }
+      // Orders loaded successfully - no need to show message for normal operation
       
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load pending orders from server';
@@ -172,7 +166,7 @@ export default function PendingOrdersPage() {
   };
 
   const handleConfirmOrder = (orderId: string) => {
-    confirm({
+    modal.confirm({
       title: 'Confirm Order',
       icon: <ExclamationCircleOutlined />,
       content: 'Are you sure you want to confirm this order? This action cannot be undone.',
@@ -186,7 +180,7 @@ export default function PendingOrdersPage() {
   };
 
   const handleCancelOrder = (orderId: string) => {
-    confirm({
+    modal.confirm({
       title: 'Cancel Order',
       icon: <ExclamationCircleOutlined />,
       content: 'Are you sure you want to cancel this order?',
@@ -468,7 +462,7 @@ export default function PendingOrdersPage() {
                   message.warning('No pending orders to confirm');
                   return;
                 }
-                confirm({
+                modal.confirm({
                   title: `Confirm ${filteredOrders.length} Orders`,
                   icon: <ExclamationCircleOutlined />,
                   content: `Are you sure you want to confirm all ${filteredOrders.length} pending orders?`,
