@@ -2,6 +2,61 @@
 
 Hệ thống xác thực JWT chuẩn với kiến trúc phân tầng rõ ràng.
 
+## Quick Start
+
+### 1. Khởi động ứng dụng
+```bash
+./gradlew bootRun
+```
+
+### 2. Các tài khoản mặc định
+- **Admin**: `admin` / `admin`
+
+### 3. Test API đăng ký
+```bash
+# Đăng ký USER
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user@example.com",
+    "password": "password123",
+    "fullName": "User Name",
+    "phoneNumber": "0123456789"
+  }'
+
+# Đăng ký MANAGER
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "manager@example.com",
+    "password": "password123",
+    "fullName": "Manager Name",
+    "phoneNumber": "0987654321",
+    "role": "MANAGER"
+  }'
+
+# Đăng ký SHIPPER
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "shipper@example.com",
+    "password": "password123",
+    "fullName": "Shipper Name",
+    "phoneNumber": "0111222333",
+    "role": "SHIPPER"
+  }'
+```
+
+### 4. Test API đăng nhập
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user@example.com",
+    "password": "password123"
+  }'
+```
+
 ## Kiến trúc
 
 ### 1. **Controller Layer**
@@ -29,6 +84,25 @@ Hệ thống xác thực JWT chuẩn với kiến trúc phân tầng rõ ràng.
 - `AuthResponseDto`: Response authentication
 - `UserInfoDto`: Thông tin user
 - `RefreshTokenRequestDto`: Request refresh token
+
+### 6. **DTO Validation Rules**
+
+**RegisterRequestDto:**
+- `username`: Required, must be valid email format (trừ "admin")
+- `password`: Required
+- `fullName`: Required
+- `phoneNumber`: Optional
+- `role`: Optional (USER, MANAGER, SHIPPER). Default: USER nếu không truyền
+
+**LoginRequestDto:**
+- `username`: Required
+- `password`: Required
+
+**RefreshTokenRequestDto:**
+- `refreshToken`: Required
+
+**GoogleLoginRequestDto:**
+- `idToken`: Required
 
 ## API Endpoints
 
@@ -108,7 +182,66 @@ Content-Type: application/json
     "username": "newuser@example.com",
     "password": "password123",
     "fullName": "New User",
-    "phoneNumber": "0123456789"
+    "phoneNumber": "0123456789",
+    "role": "USER"
+}
+```
+
+**Roles hợp lệ:**
+- `USER` (mặc định nếu không truyền role)
+- `MANAGER` 
+- `SHIPPER`
+
+**Response:**
+```json
+{
+    "status": 200,
+    "message": "Register successful",
+    "data": {
+        "accessToken": "eyJhb...",
+        "refreshToken": "eyJhb...",
+        "tokenType": "Bearer",
+        "expiresIn": 86400,
+        "userInfo": {
+            "id": "uuid",
+            "username": "newuser@example.com",
+            "fullName": "New User",
+            "phoneNumber": "0123456789",
+            "avatar": null,
+            "isActive": 1,
+            "roles": ["USER"]
+        }
+    }
+}
+```
+
+**Ví dụ đăng ký các role khác:**
+
+**Đăng ký MANAGER:**
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+    "username": "manager@example.com",
+    "password": "manager123",
+    "fullName": "Manager Name",
+    "phoneNumber": "0123456789",
+    "role": "MANAGER"
+}
+```
+
+**Đăng ký SHIPPER:**
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+    "username": "shipper@example.com",
+    "password": "shipper123",
+    "fullName": "Shipper Name",
+    "phoneNumber": "0987654321",
+    "role": "SHIPPER"
 }
 ```
 
@@ -219,6 +352,12 @@ CREATE TABLE roles (
 );
 ```
 
+**Roles mặc định được tạo tự động:**
+- `ADMIN`: Quản trị viên hệ thống
+- `USER`: Người dùng thông thường (mặc định khi đăng ký)
+- `MANAGER`: Quản lý cửa hàng/sản phẩm
+- `SHIPPER`: Người giao hàng
+
 ### User Roles Table
 ```sql
 CREATE TABLE user_roles (
@@ -279,6 +418,54 @@ Tất cả lỗi được xử lý bởi `GlobalExceptionHandler` và trả về
 {
     "status": 400,
     "message": "Error message",
+    "data": null
+}
+```
+
+### Các lỗi thường gặp khi đăng ký:
+
+**1. Username không đúng định dạng email:**
+```json
+{
+    "status": 400,
+    "message": "Username must be a valid email format",
+    "data": null
+}
+```
+
+**2. Username đã tồn tại:**
+```json
+{
+    "status": 400,
+    "message": "Username already exists",
+    "data": null
+}
+```
+
+**3. Role không hợp lệ:**
+```json
+{
+    "status": 400,
+    "message": "Invalid role. Allowed roles: USER, MANAGER, SHIPPER",
+    "data": null
+}
+```
+
+**4. Role không tồn tại trong database:**
+```json
+{
+    "status": 400,
+    "message": "MANAGER role not found",
+    "data": null
+}
+```
+*Lưu ý: Nếu gặp lỗi này, cần khởi động lại ứng dụng để DataInitializer tạo các role.*
+
+**5. Validation errors:**
+```json
+{
+    "status": 400,
+    "message": "Username is required",
     "data": null
 }
 ```

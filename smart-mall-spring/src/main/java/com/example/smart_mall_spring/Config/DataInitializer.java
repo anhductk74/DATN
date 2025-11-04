@@ -43,6 +43,20 @@ public class DataInitializer implements CommandLineRunner {
             roleRepository.save(userRole);
         }
 
+        if (!roleRepository.existsByName("MANAGER")) {
+            Role managerRole = new Role();
+            managerRole.setCode("MANAGER");
+            managerRole.setName("MANAGER");
+            roleRepository.save(managerRole);
+        }
+
+        if (!roleRepository.existsByName("SHIPPER")) {
+            Role shipperRole = new Role();
+            shipperRole.setCode("SHIPPER");
+            shipperRole.setName("SHIPPER");
+            roleRepository.save(shipperRole);
+        }
+
         // Create default admin user only if database is empty
         if (!userRepository.existsByUsername("admin")) {
             // Get roles first
