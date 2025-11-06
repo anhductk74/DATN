@@ -10,6 +10,7 @@ import QueryProvider from "@/components/QueryProvider";
 import ClearLegacyStorage from "@/components/ClearLegacyStorage";
 import ChatWidget from "@/components/ChatWidget";
 import ChatUserSync from "@/components/ChatUserSync";
+import Chatbot from "@/components/Chatbot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,6 +52,7 @@ export default function RootLayout({
                     <ChatUserSync />
                     {children}
                     <ChatWidget />
+                    <Chatbot />
                   </CartProvider>
                 </UserProfileProvider>
               </AuthProvider>
