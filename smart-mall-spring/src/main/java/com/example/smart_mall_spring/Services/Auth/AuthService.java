@@ -108,9 +108,21 @@ public class AuthService {
         profile.setUser(user);
         user.setProfile(profile);
 
-        // Set default USER role for all registered users
-        Role userRole = roleRepository.findByName("USER")
-                .orElseThrow(() -> new CustomException("USER role not found"));
+        // Determine role: USER (default), MANAGER, or SHIPPER
+        final String roleName;
+        if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
+            String requestedRole = request.getRole().trim().toUpperCase();
+            if (requestedRole.equals("MANAGER") || requestedRole.equals("SHIPPER") || requestedRole.equals("USER")) {
+                roleName = requestedRole;
+            } else {
+                throw new CustomException("Invalid role. Allowed roles: USER, MANAGER, SHIPPER");
+            }
+        } else {
+            roleName = "USER"; // Default role
+        }
+        
+        Role userRole = roleRepository.findByName(roleName)
+                .orElseThrow(() -> new CustomException(roleName + " role not found"));
         user.setRoles(Collections.singletonList(userRole));
 
         User savedUser = userRepository.save(user);
