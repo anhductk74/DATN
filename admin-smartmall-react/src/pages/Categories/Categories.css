@@ -1,0 +1,46 @@
+.categories-page {
+  width: 100%;
+}
+
+.categories-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.categories-header h2 {
+  margin: 0;
+}
+
+.categories-filters {
+  margin-bottom: 16px;
+}
+
+.ant-table-wrapper {
+  background: white;
+}
+
+.ant-image {
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .categories-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .categories-filters {
+    width: 100%;
+  }
+
+  .categories-filters .ant-space {
+    width: 100%;
+  }
+
+  .categories-filters .ant-input-search {
+    width: 100% !important;
+  }
+}

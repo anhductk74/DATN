@@ -18,6 +18,10 @@ import com.example.smart_mall_spring.Repositories.VariantAttributeRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -164,6 +168,26 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    // Get all products with pagination (excluding soft deleted)
+    public PagedProductResponseDto getAllProductsWithPagination(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findAllWithPagination(pageable);
+        
+        List<ProductResponseDto> products = productPage.getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        
+        return PagedProductResponseDto.builder()
+                .products(products)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalItems(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+    }
+
     // Get all products including soft deleted
     public List<ProductResponseDto> getAllProductsIncludingDeleted() {
         List<Product> products = productRepository.findAll();
@@ -190,6 +214,26 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    // Get products by category with pagination
+    public PagedProductResponseDto getProductsByCategoryWithPagination(UUID categoryId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findByCategoryIdWithPagination(categoryId, pageable);
+        
+        List<ProductResponseDto> products = productPage.getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        
+        return PagedProductResponseDto.builder()
+                .products(products)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalItems(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+    }
+
     // Get products by shop
     public List<ProductResponseDto> getProductsByShop(UUID shopId) {
         List<Product> products = productRepository.findByShopId(shopId);
@@ -197,6 +241,26 @@ public class ProductService {
                 .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+    }
+
+    // Get products by shop with pagination
+    public PagedProductResponseDto getProductsByShopWithPagination(UUID shopId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findByShopIdWithPagination(shopId, pageable);
+        
+        List<ProductResponseDto> products = productPage.getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        
+        return PagedProductResponseDto.builder()
+                .products(products)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalItems(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
     }
 
     // Get products by status
@@ -208,6 +272,26 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    // Get products by status with pagination
+    public PagedProductResponseDto getProductsByStatusWithPagination(Status status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findByStatusWithPagination(status, pageable);
+        
+        List<ProductResponseDto> products = productPage.getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        
+        return PagedProductResponseDto.builder()
+                .products(products)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalItems(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+    }
+
     // Search products by name
     public List<ProductResponseDto> searchProductsByName(String name) {
         List<Product> products = productRepository.findByNameContaining(name);
@@ -217,6 +301,26 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
+    // Search products by name with pagination
+    public PagedProductResponseDto searchProductsByNameWithPagination(String name, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findByNameContainingWithPagination(name, pageable);
+        
+        List<ProductResponseDto> products = productPage.getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        
+        return PagedProductResponseDto.builder()
+                .products(products)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalItems(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
+    }
+
     // Advanced search
     public List<ProductResponseDto> searchProducts(String name, String brand, UUID categoryId, UUID shopId, Status status) {
         List<Product> products = productRepository.findProductsByMultipleCriteria(name, brand, categoryId, shopId, status);
@@ -224,6 +328,26 @@ public class ProductService {
                 .filter(product -> !product.getIsDeleted())
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+    }
+
+    // Advanced search with pagination
+    public PagedProductResponseDto searchProductsWithPagination(String name, String brand, UUID categoryId, UUID shopId, Status status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Product> productPage = productRepository.findProductsByMultipleCriteriaWithPagination(name, brand, categoryId, shopId, status, pageable);
+        
+        List<ProductResponseDto> products = productPage.getContent().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        
+        return PagedProductResponseDto.builder()
+                .products(products)
+                .currentPage(productPage.getNumber())
+                .totalPages(productPage.getTotalPages())
+                .totalItems(productPage.getTotalElements())
+                .pageSize(productPage.getSize())
+                .hasNext(productPage.hasNext())
+                .hasPrevious(productPage.hasPrevious())
+                .build();
     }
 
     // Update product with images

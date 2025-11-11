@@ -2,6 +2,8 @@ import { createBrowserRouter } from 'react-router';
 import Login from '../pages/Login/Login';
 import Dashboard from '../pages/Dashboard/Dashboard';
 import Logout from '../pages/Logout/Logout';
+import Products from '../pages/Products/Products';
+import Categories from '../pages/Categories/Categories';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminLayout from '../components/AdminLayout/AdminLayout';
 
@@ -25,11 +27,11 @@ export const router = createBrowserRouter([
       // Products routes
       {
         path: 'products',
-        element: <div>Products Page (Coming Soon)</div>,
+        element: <Products />,
       },
       {
         path: 'products/categories',
-        element: <div>Categories Page (Coming Soon)</div>,
+        element: <Categories />,
       },
       {
         path: 'products/brands',

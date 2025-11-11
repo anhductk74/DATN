@@ -1,5 +1,6 @@
 package com.example.smart_mall_spring.Dtos.Categories;
 
+import com.example.smart_mall_spring.Enum.Status;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,8 +18,10 @@ public class CategoryResponseDto {
     private UUID id;
     private String name;
     private String description;
+    private Status status;
     private CategoryResponseDto parent;
     private List<CategoryResponseDto> subCategories;
+    private Long productCount;  // Number of products in this category
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

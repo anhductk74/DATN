@@ -2,6 +2,8 @@ package com.example.smart_mall_spring.Repositories;
 
 import com.example.smart_mall_spring.Entities.Products.Product;
 import com.example.smart_mall_spring.Enum.Status;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -55,4 +57,42 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     
     // Đếm sản phẩm theo category
     long countByCategoryId(UUID categoryId);
+    
+    // Phân trang - Tìm tất cả sản phẩm (chỉ ACTIVE)
+    @Query("SELECT p FROM Product p WHERE p.isDeleted = false AND p.status = 'ACTIVE'")
+    Page<Product> findAllWithPagination(Pageable pageable);
+    
+    // Phân trang - Tìm sản phẩm theo category (chỉ ACTIVE)
+    @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND p.isDeleted = false AND p.status = 'ACTIVE'")
+    Page<Product> findByCategoryIdWithPagination(@Param("categoryId") UUID categoryId, Pageable pageable);
+    
+    // Phân trang - Tìm sản phẩm theo shop (chỉ ACTIVE)
+    @Query("SELECT p FROM Product p WHERE p.shop.id = :shopId AND p.isDeleted = false AND p.status = 'ACTIVE'")
+    Page<Product> findByShopIdWithPagination(@Param("shopId") UUID shopId, Pageable pageable);
+    
+    // Phân trang - Tìm sản phẩm theo status
+    @Query("SELECT p FROM Product p WHERE p.status = :status AND p.isDeleted = false")
+    Page<Product> findByStatusWithPagination(@Param("status") Status status, Pageable pageable);
+    
+    // Phân trang - Tìm kiếm sản phẩm theo tên (chỉ ACTIVE)
+    @Query("SELECT p FROM Product p WHERE p.name LIKE %:name% AND p.isDeleted = false AND p.status = 'ACTIVE'")
+    Page<Product> findByNameContainingWithPagination(@Param("name") String name, Pageable pageable);
+    
+    // Phân trang - Tìm kiếm sản phẩm theo nhiều tiêu chí (chỉ ACTIVE nếu không chỉ định status)
+    @Query("SELECT p FROM Product p WHERE " +
+           "(:name IS NULL OR p.name LIKE %:name%) AND " +
+           "(:brand IS NULL OR p.brand = :brand) AND " +
+           "(:categoryId IS NULL OR p.category.id = :categoryId) AND " +
+           "(:shopId IS NULL OR p.shop.id = :shopId) AND " +
+           "(:status IS NULL OR p.status = :status) AND " +
+           "p.isDeleted = false AND " +
+           "(:status IS NOT NULL OR p.status = 'ACTIVE')")
+    Page<Product> findProductsByMultipleCriteriaWithPagination(
+            @Param("name") String name,
+            @Param("brand") String brand,
+            @Param("categoryId") UUID categoryId,
+            @Param("shopId") UUID shopId,
+            @Param("status") Status status,
+            Pageable pageable
+    );
 }

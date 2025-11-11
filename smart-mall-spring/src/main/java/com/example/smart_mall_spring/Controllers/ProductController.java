@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Controllers;
 
 import com.example.smart_mall_spring.Dtos.Products.CreateProductDto;
+import com.example.smart_mall_spring.Dtos.Products.PagedProductResponseDto;
 import com.example.smart_mall_spring.Dtos.Products.ProductResponseDto;
 import com.example.smart_mall_spring.Dtos.Products.UpdateProductDto;
 import com.example.smart_mall_spring.Enum.Status;
@@ -100,6 +101,15 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success("Get All Products Success!", result));
     }
 
+    // Get all products with pagination (default 20 items per page)
+    @GetMapping
+    public ResponseEntity<ApiResponse<PagedProductResponseDto>> getAllProductsWithPagination(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedProductResponseDto result = productService.getAllProductsWithPagination(page, size);
+        return ResponseEntity.ok(ApiResponse.success("Get Products Success!", result));
+    }
+
     // Get all products including soft deleted
     @GetMapping("/all/including-deleted")
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getAllProductsIncludingDeleted() {
@@ -121,10 +131,30 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success("Get Products by Category Success!", result));
     }
 
+    // Get products by category with pagination
+    @GetMapping("/category/{categoryId}/paged")
+    public ResponseEntity<ApiResponse<PagedProductResponseDto>> getProductsByCategoryWithPagination(
+            @PathVariable UUID categoryId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedProductResponseDto result = productService.getProductsByCategoryWithPagination(categoryId, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Get Products by Category Success!", result));
+    }
+
     // Get products by shop
     @GetMapping("/shop/{shopId}")
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> getProductsByShop(@PathVariable UUID shopId) {
         List<ProductResponseDto> result = productService.getProductsByShop(shopId);
+        return ResponseEntity.ok(ApiResponse.success("Get Products by Shop Success!", result));
+    }
+
+    // Get products by shop with pagination
+    @GetMapping("/shop/{shopId}/paged")
+    public ResponseEntity<ApiResponse<PagedProductResponseDto>> getProductsByShopWithPagination(
+            @PathVariable UUID shopId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedProductResponseDto result = productService.getProductsByShopWithPagination(shopId, page, size);
         return ResponseEntity.ok(ApiResponse.success("Get Products by Shop Success!", result));
     }
 
@@ -135,10 +165,30 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success("Get Products by Status Success!", result));
     }
 
+    // Get products by status with pagination
+    @GetMapping("/status/{status}/paged")
+    public ResponseEntity<ApiResponse<PagedProductResponseDto>> getProductsByStatusWithPagination(
+            @PathVariable Status status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedProductResponseDto result = productService.getProductsByStatusWithPagination(status, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Get Products by Status Success!", result));
+    }
+
     // Search products by name
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<ProductResponseDto>>> searchProductsByName(@RequestParam String name) {
         List<ProductResponseDto> result = productService.searchProductsByName(name);
+        return ResponseEntity.ok(ApiResponse.success("Search Products Success!", result));
+    }
+
+    // Search products by name with pagination
+    @GetMapping("/search/paged")
+    public ResponseEntity<ApiResponse<PagedProductResponseDto>> searchProductsByNameWithPagination(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedProductResponseDto result = productService.searchProductsByNameWithPagination(name, page, size);
         return ResponseEntity.ok(ApiResponse.success("Search Products Success!", result));
     }
 
@@ -152,6 +202,21 @@ public class ProductController {
             @RequestParam(required = false) Status status) {
         
         List<ProductResponseDto> result = productService.searchProducts(name, brand, categoryId, shopId, status);
+        return ResponseEntity.ok(ApiResponse.success("Advanced Search Success!", result));
+    }
+
+    // Advanced search with pagination
+    @GetMapping("/advanced-search/paged")
+    public ResponseEntity<ApiResponse<PagedProductResponseDto>> advancedSearchWithPagination(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String brand,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) UUID shopId,
+            @RequestParam(required = false) Status status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        PagedProductResponseDto result = productService.searchProductsWithPagination(name, brand, categoryId, shopId, status, page, size);
         return ResponseEntity.ok(ApiResponse.success("Advanced Search Success!", result));
     }
 

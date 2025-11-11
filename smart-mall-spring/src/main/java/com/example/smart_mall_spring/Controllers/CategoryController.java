@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Controllers;
 
 import com.example.smart_mall_spring.Dtos.Categories.CategoryResponseDto;
 import com.example.smart_mall_spring.Dtos.Categories.CreateCategoryDto;
+import com.example.smart_mall_spring.Dtos.Categories.PagedCategoryResponseDto;
 import com.example.smart_mall_spring.Dtos.Categories.UpdateCategoryDto;
 import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Categories.CategoryService;
@@ -43,10 +44,28 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success("Get Root Categories Success!", result));
     }
 
+    // Get all root categories with pagination
+    @GetMapping("/root/paged")
+    public ResponseEntity<ApiResponse<PagedCategoryResponseDto>> getAllRootCategoriesWithPagination(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedCategoryResponseDto result = categoryService.getAllRootCategoriesWithPagination(page, size);
+        return ResponseEntity.ok(ApiResponse.success("Get Root Categories Success!", result));
+    }
+
     // Get all categories (flat list)
     @GetMapping("/all")
     public ResponseEntity<ApiResponse<List<CategoryResponseDto>>> getAllCategories() {
         List<CategoryResponseDto> result = categoryService.getAllCategories();
+        return ResponseEntity.ok(ApiResponse.success("Get All Categories Success!", result));
+    }
+
+    // Get all categories with pagination
+    @GetMapping
+    public ResponseEntity<ApiResponse<PagedCategoryResponseDto>> getAllCategoriesWithPagination(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedCategoryResponseDto result = categoryService.getAllCategoriesWithPagination(page, size);
         return ResponseEntity.ok(ApiResponse.success("Get All Categories Success!", result));
     }
 
@@ -66,6 +85,16 @@ public class CategoryController {
     @GetMapping("/{parentId}/subcategories")
     public ResponseEntity<ApiResponse<List<CategoryResponseDto>>> getSubCategories(@PathVariable UUID parentId) {
         List<CategoryResponseDto> result = categoryService.getSubCategories(parentId);
+        return ResponseEntity.ok(ApiResponse.success("Get Subcategories Success!", result));
+    }
+
+    // Get subcategories by parent ID with pagination
+    @GetMapping("/{parentId}/subcategories/paged")
+    public ResponseEntity<ApiResponse<PagedCategoryResponseDto>> getSubCategoriesWithPagination(
+            @PathVariable UUID parentId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedCategoryResponseDto result = categoryService.getSubCategoriesWithPagination(parentId, page, size);
         return ResponseEntity.ok(ApiResponse.success("Get Subcategories Success!", result));
     }
 
@@ -100,6 +129,16 @@ public class CategoryController {
     public ResponseEntity<ApiResponse<List<CategoryResponseDto>>> searchCategories(
             @RequestParam String name) {
         List<CategoryResponseDto> result = categoryService.searchCategories(name);
+        return ResponseEntity.ok(ApiResponse.success("Search Categories Success!", result));
+    }
+
+    // Search categories by name with pagination
+    @GetMapping("/search/paged")
+    public ResponseEntity<ApiResponse<PagedCategoryResponseDto>> searchCategoriesWithPagination(
+            @RequestParam String name,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PagedCategoryResponseDto result = categoryService.searchCategoriesWithPagination(name, page, size);
         return ResponseEntity.ok(ApiResponse.success("Search Categories Success!", result));
     }
 }
