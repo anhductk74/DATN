@@ -14,6 +14,8 @@ import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -133,12 +135,17 @@ public class ShopService {
         return address;
     }
     // Get all shops
-
     public List<ShopResponseDto> getAllShops() {
         List<Shop> shops = shopRes.findAll();
         return shops.stream()
                 .map(this::convertDto)
                 .toList();
+    }
+
+    // Get all shops with pagination
+    public Page<ShopResponseDto> getAllShops(Pageable pageable) {
+        Page<Shop> shopsPage = shopRes.findAll(pageable);
+        return shopsPage.map(this::convertDto);
     }
 
     // Get shop by ID

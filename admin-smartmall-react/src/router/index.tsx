@@ -4,6 +4,14 @@ import Dashboard from '../pages/Dashboard/Dashboard';
 import Logout from '../pages/Logout/Logout';
 import Products from '../pages/Products/Products';
 import Categories from '../pages/Categories/Categories';
+import Brands from '../pages/Brands/Brands';
+import Orders from '../pages/Orders/Orders';
+import PendingOrders from '../pages/Orders/PendingOrders';
+import CompletedOrders from '../pages/Orders/CompletedOrders';
+import Stores from '../pages/Stores/Stores';
+import TopShops from '../pages/Stores/TopShops';
+import Customers from '../pages/Customers/Customers';
+import Users from '../pages/Users/Users';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminLayout from '../components/AdminLayout/AdminLayout';
 
@@ -35,30 +43,34 @@ export const router = createBrowserRouter([
       },
       {
         path: 'products/brands',
-        element: <div>Brands Page (Coming Soon)</div>,
+        element: <Brands />,
       },
       // Orders routes
       {
         path: 'orders',
-        element: <div>Orders Page (Coming Soon)</div>,
+        element: <Orders />,
       },
       {
         path: 'orders/pending',
-        element: <div>Pending Orders (Coming Soon)</div>,
+        element: <PendingOrders />,
       },
       {
         path: 'orders/completed',
-        element: <div>Completed Orders (Coming Soon)</div>,
+        element: <CompletedOrders />,
       },
       // Stores route
       {
         path: 'stores',
-        element: <div>Stores Page (Coming Soon)</div>,
+        element: <Stores />,
+      },
+      {
+        path: 'stores/top',
+        element: <TopShops />,
       },
       // Customers routes
       {
         path: 'customers',
-        element: <div>Customers Page (Coming Soon)</div>,
+        element: <Customers />,
       },
       {
         path: 'customers/reviews',
@@ -67,7 +79,7 @@ export const router = createBrowserRouter([
       // Users route
       {
         path: 'users',
-        element: <div>Users Management (Coming Soon)</div>,
+        element: <Users />,
       },
       // Marketing routes
       {

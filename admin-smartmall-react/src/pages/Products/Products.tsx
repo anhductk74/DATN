@@ -119,6 +119,17 @@ export default function Products() {
 
   const columns: TableProps<Product>['columns'] = [
     {
+      title: 'No.',
+      key: 'index',
+      width: 60,
+      align: 'center',
+      render: (_: unknown, __: Product, index: number) => (
+        <span style={{ fontWeight: 500 }}>
+          {(page * pageSize) + index + 1}
+        </span>
+      ),
+    },
+    {
       title: 'Image',
       dataIndex: 'images',
       key: 'images',

@@ -314,6 +314,34 @@ public class OrderService {
             return mapToOrderResponseDto(order, subtotal, shippingFee, discount, null);
         });
     }
+
+    /**
+     * 📋 Lấy tất cả đơn hàng với pagination và filter theo status
+     */
+    public Page<OrderResponseDto> getAllOrdersWithFilters(
+            StatusOrder status,
+            int page,
+            int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Order> orders;
+        
+        if (status != null) {
+            orders = orderRepository.findByStatus(status, pageable);
+        } else {
+            orders = orderRepository.findAll(pageable);
+        }
+
+        return orders.map(order -> {
+            double subtotal = order.getItems().stream().mapToDouble(OrderItem::getSubtotal).sum();
+            double shippingFee = order.getShippingFees().stream()
+                    .mapToDouble(ShippingFee::getFeeAmount).sum();
+            double discount = order.getVouchers().stream()
+                    .mapToDouble(OrderVoucher::getDiscountAmount).sum();
+            return mapToOrderResponseDto(order, subtotal, shippingFee, discount, null);
+        });
+    }
+
     private Page<Order> getOrdersEntityByShop(UUID shopId, StatusOrder status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         if (status != null) {

@@ -1,0 +1,31 @@
+.brands-container {
+  padding: 24px;
+}
+
+.brands-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.brands-header h2 {
+  margin: 0;
+}
+
+.brands-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.brand-name-link {
+  cursor: pointer;
+  color: #1890ff;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.brand-name-link:hover {
+  color: #40a9ff;
+  text-decoration: underline;
+}

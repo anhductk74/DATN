@@ -166,6 +166,17 @@ export default function Categories() {
 
   const columns: TableProps<Category>['columns'] = [
     {
+      title: 'No.',
+      key: 'index',
+      width: 60,
+      align: 'center',
+      render: (_: unknown, __: Category, index: number) => (
+        <span style={{ fontWeight: 500 }}>
+          {(page * pageSize) + index + 1}
+        </span>
+      ),
+    },
+    {
       title: 'Image',
       dataIndex: 'image',
       key: 'image',

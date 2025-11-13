@@ -31,6 +31,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("SELECT o FROM Order o WHERE o.user.id = :userId AND o.status = :status ORDER BY o.createdAt DESC")
     List<Order> findByUserIdAndStatus(UUID userId, StatusOrder status);
 
+    //  Lấy tất cả đơn hàng theo trạng thái (dành cho admin)
+    @Query("SELECT o FROM Order o WHERE o.status = :status ORDER BY o.createdAt DESC")
+    Page<Order> findByStatus(StatusOrder status, Pageable pageable);
+
     //  Lấy chi tiết đơn hàng
     @Query("SELECT o FROM Order o WHERE o.id = :orderId")
     Optional<Order> findOrderDetail(UUID orderId);

@@ -8,6 +8,10 @@ import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Users.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -117,5 +121,36 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<String>> adminOnly() {
         return ResponseEntity.ok(ApiResponse.success("Admin access granted", "This is admin-only content"));
+    }
+
+    @GetMapping("/admin/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Page<UserInfoDto>>> getAllUsersByRole(
+            @RequestParam(defaultValue = "USER") String role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
+        try {
+            Pageable pageable;
+            
+            if (sort != null && !sort.isEmpty()) {
+                // Parse sort parameter (e.g., "username,asc" or "isActive,desc")
+                String[] sortParams = sort.split(",");
+                String sortField = sortParams[0];
+                Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("desc") 
+                    ? Sort.Direction.DESC 
+                    : Sort.Direction.ASC;
+                pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
+            } else {
+                pageable = PageRequest.of(page, size);
+            }
+            
+            Page<UserInfoDto> usersPage = userService.getUsersByRole(role, pageable);
+            return ResponseEntity.ok(ApiResponse.success("Get users by role success", usersPage));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get users: " + e.getMessage()));
+        }
     }
 }

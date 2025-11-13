@@ -68,4 +68,15 @@ public class OrderController {
         var orders = orderService.getOrdersByShopWithFilters(shopId, status, page, size);
         return ResponseEntity.ok(orders);
     }
+
+    // Lấy tất cả đơn hàng với pagination
+    @GetMapping
+    public ResponseEntity<?> getAllOrders(
+            @RequestParam(required = false) StatusOrder status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        var orders = orderService.getAllOrdersWithFilters(status, page, size);
+        return ResponseEntity.ok(orders);
+    }
 }

@@ -1,0 +1,44 @@
+.customers-container {
+  padding: 24px;
+}
+
+.customers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.customers-header h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customers-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.user-detail-content {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* Badge positioning for active status */
+.ant-badge-dot {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Avatar hover effect */
+.ant-avatar:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s;
+}
+
+/* Table row hover effect */
+.ant-table-tbody > tr:hover {
+  cursor: pointer;
+}

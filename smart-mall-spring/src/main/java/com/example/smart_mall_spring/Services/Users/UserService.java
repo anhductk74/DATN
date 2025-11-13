@@ -8,6 +8,8 @@ import com.example.smart_mall_spring.Repositories.UserRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -212,5 +214,11 @@ public class UserService {
                 .isActive(user.getIsActive())
                 .roles(roleNames)
                 .build();
+    }
+
+    // Get all users by role with pagination (Admin only)
+    public Page<UserInfoDto> getUsersByRole(String roleName, Pageable pageable) {
+        Page<User> usersPage = userRepository.findByRoleName(roleName, pageable);
+        return usersPage.map(this::convertUserToInfoDto);
     }
 }

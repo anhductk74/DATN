@@ -1,0 +1,50 @@
+.stores-container {
+  padding: 24px;
+}
+
+.stores-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.stores-header h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stores-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.shop-detail-content {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* Shop avatar hover effect */
+.ant-avatar:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s;
+}
+
+/* Table row hover effect */
+.ant-table-tbody > tr:hover {
+  cursor: pointer;
+}
+
+/* Custom tag styles */
+.ant-tag {
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* Modal image preview */
+.ant-image-preview-img {
+  max-height: 80vh;
+}
