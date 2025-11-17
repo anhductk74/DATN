@@ -50,6 +50,8 @@ export type {
   ProcessWithdrawalRequest,
   WalletTransactionResponse,
   WalletStatisticsResponse,
+  TemporaryWallet,
+  TemporaryWalletSummary,
 } from './WalletService';
 
 // Export types from new API services

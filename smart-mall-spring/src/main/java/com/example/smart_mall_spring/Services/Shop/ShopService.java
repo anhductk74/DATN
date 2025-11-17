@@ -30,18 +30,11 @@ import java.util.UUID;
 
 @Service
 public class ShopService {
-    @Autowired
     private final ShopRepository shopRes;
-    @Autowired
     private final AddressRespository addressRes;
-    @Autowired
     private final UserRepository userRepository;
-    @Autowired
     private final CloudinaryService cloudinaryService;
-    @Autowired
     private final ObjectMapper objectMapper;
-    @Autowired
-    private WalletService walletService;
 
     public ShopService(ShopRepository shopRes, AddressRespository addressRes,
                        UserRepository userRepository, CloudinaryService cloudinaryService,

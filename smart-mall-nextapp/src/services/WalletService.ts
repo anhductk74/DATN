@@ -90,6 +90,26 @@ export interface WalletStatisticsResponse {
   availableForWithdrawal: number;
 }
 
+// Temporary Wallet Response
+export interface TemporaryWallet {
+  id: string;
+  shopId: string;
+  shopName: string;
+  orderId: string;
+  amount: number;
+  isTransferred: boolean;
+  transferredAt?: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface TemporaryWalletSummary {
+  temporaryWallets: TemporaryWallet[];
+  totalAmount: number;
+  count: number;
+  message: string;
+}
+
 // Page Response
 export interface PageResponse<T> {
   content: T[];
@@ -199,6 +219,15 @@ class WalletService {
    */
   async getStatistics(shopId: string): Promise<ApiResponse<WalletStatisticsResponse>> {
     const response = await apiClient.get(`/wallets/shops/${shopId}/statistics`);
+    return response.data;
+  }
+
+  /**
+   * Get temporary wallet (when main wallet not created yet)
+   * GET /api/wallets/shops/{shopId}/temporary
+   */
+  async getTemporaryWallet(shopId: string): Promise<ApiResponse<TemporaryWalletSummary>> {
+    const response = await apiClient.get(`/wallets/shops/${shopId}/temporary`);
     return response.data;
   }
 }

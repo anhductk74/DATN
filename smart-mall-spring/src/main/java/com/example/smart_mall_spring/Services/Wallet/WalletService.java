@@ -4,12 +4,14 @@ import com.example.smart_mall_spring.Dtos.Wallet.*;
 import com.example.smart_mall_spring.Entities.Orders.Order;
 import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Entities.Wallet.ShopWallet;
+import com.example.smart_mall_spring.Entities.Wallet.TemporaryWallet;
 import com.example.smart_mall_spring.Entities.Wallet.WalletTransaction;
 import com.example.smart_mall_spring.Entities.Wallet.WithdrawalRequest;
 import com.example.smart_mall_spring.Enum.TransactionType;
 import com.example.smart_mall_spring.Enum.WithdrawalStatus;
 import com.example.smart_mall_spring.Repositories.ShopRepository;
 import com.example.smart_mall_spring.Repositories.ShopWalletRepository;
+import com.example.smart_mall_spring.Repositories.TemporaryWalletRepository;
 import com.example.smart_mall_spring.Repositories.WalletTransactionRepository;
 import com.example.smart_mall_spring.Repositories.WithdrawalRequestRepository;
 import jakarta.transaction.Transactional;
@@ -19,7 +21,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,7 @@ public class WalletService {
     private final WithdrawalRequestRepository withdrawalRepository;
     private final WalletTransactionRepository transactionRepository;
     private final ShopRepository shopRepository;
+    private final TemporaryWalletRepository temporaryWalletRepository;
     
     // Tạo ví cho shop với thông tin ngân hàng
     @Transactional
@@ -48,10 +53,16 @@ public class WalletService {
             throw new RuntimeException("Thông tin ngân hàng không được để trống");
         }
         
+        // Lấy tổng số tiền từ ví tạm
+        List<TemporaryWallet> temporaryWallets = temporaryWalletRepository.findByShopIdAndIsTransferredFalse(shopId);
+        Double temporaryAmount = temporaryWallets.stream()
+            .mapToDouble(TemporaryWallet::getAmount)
+            .sum();
+        
         ShopWallet wallet = new ShopWallet();
         wallet.setShop(shop);
-        wallet.setBalance(0.0);
-        wallet.setTotalEarned(0.0);
+        wallet.setBalance(temporaryAmount); // Cộng tiền từ ví tạm
+        wallet.setTotalEarned(temporaryAmount); // Cộng vào tổng thu nhập
         wallet.setTotalWithdrawn(0.0);
         wallet.setPendingAmount(0.0);
         wallet.setBankName(bankInfo.getBankName());
@@ -61,7 +72,42 @@ public class WalletService {
         
         wallet = walletRepository.save(wallet);
         
+        // Chuyển tiền từ ví tạm sang ví chính
+        if (!temporaryWallets.isEmpty()) {
+            transferFromTemporaryWallet(wallet, temporaryWallets);
+        }
+        
         return mapToWalletResponse(wallet);
+    }
+    
+    // Chuyển tiền từ ví tạm sang ví chính
+    @Transactional
+    private void transferFromTemporaryWallet(ShopWallet wallet, List<TemporaryWallet> temporaryWallets) {
+        Double balanceBefore = 0.0; // Ví mới tạo nên balance before = 0
+        
+        for (TemporaryWallet tempWallet : temporaryWallets) {
+            // Tạo transaction cho mỗi đơn hàng từ ví tạm
+            WalletTransaction transaction = new WalletTransaction();
+            transaction.setWallet(wallet);
+            transaction.setType(TransactionType.ORDER_PAYMENT);
+            transaction.setAmount(tempWallet.getAmount());
+            transaction.setBalanceBefore(balanceBefore);
+            balanceBefore += tempWallet.getAmount();
+            transaction.setBalanceAfter(balanceBefore);
+            transaction.setOrder(tempWallet.getOrder());
+            transaction.setDescription("Chuyển từ ví tạm - Đơn hàng #" + tempWallet.getOrder().getId());
+            transaction.setReferenceCode(tempWallet.getOrder().getId().toString());
+            
+            transactionRepository.save(transaction);
+            
+            // Đánh dấu ví tạm đã chuyển
+            tempWallet.setIsTransferred(true);
+            tempWallet.setTransferredAt(LocalDateTime.now());
+            tempWallet.setNote("Đã chuyển vào ví chính");
+            temporaryWalletRepository.save(tempWallet);
+        }
+        
+        System.out.println("Đã chuyển " + temporaryWallets.size() + " giao dịch từ ví tạm sang ví chính cho shop: " + wallet.getShop().getName());
     }
     
     // Lấy thông tin ví
@@ -70,6 +116,20 @@ public class WalletService {
             .orElseThrow(() -> new RuntimeException("Ví không tồn tại"));
         
         return mapToWalletResponse(wallet);
+    }
+    
+    // Lấy thông tin ví tạm của shop
+    public List<TemporaryWalletResponse> getTemporaryWalletByShopId(UUID shopId) {
+        List<TemporaryWallet> tempWallets = temporaryWalletRepository.findByShopIdAndIsTransferredFalse(shopId);
+        
+        return tempWallets.stream()
+            .map(this::mapToTemporaryWalletResponse)
+            .collect(Collectors.toList());
+    }
+    
+    // Lấy tổng số tiền trong ví tạm
+    public Double getTemporaryWalletAmount(UUID shopId) {
+        return temporaryWalletRepository.getTotalTemporaryAmount(shopId);
     }
     
     // Cập nhật thông tin ngân hàng
@@ -90,16 +150,30 @@ public class WalletService {
     // Cập nhật số dư khi đơn hàng hoàn thành
     @Transactional
     public void addOrderPayment(Order order) {
-        // Kiểm tra xem shop đã có ví chưa, nếu chưa thì bỏ qua
         ShopWallet wallet = walletRepository.findByShopId(order.getShop().getId())
             .orElse(null);
         
+        Double amount = order.getFinalAmount();
+        
+        // Nếu shop chưa có ví, lưu vào ví tạm
         if (wallet == null) {
-            System.out.println("Shop chưa tạo ví, bỏ qua cập nhật số dư cho đơn hàng: " + order.getId());
+            // Kiểm tra xem đơn hàng này đã được lưu vào ví tạm chưa
+            if (!temporaryWalletRepository.existsByOrderId(order.getId())) {
+                TemporaryWallet tempWallet = new TemporaryWallet();
+                tempWallet.setShop(order.getShop());
+                tempWallet.setOrder(order);
+                tempWallet.setAmount(amount);
+                tempWallet.setIsTransferred(false);
+                tempWallet.setNote("Đơn hàng hoàn thành khi shop chưa có ví");
+                
+                temporaryWalletRepository.save(tempWallet);
+                
+                System.out.println("Shop chưa có ví, đã lưu vào ví tạm: " + amount + " VNĐ cho đơn hàng: " + order.getId());
+            }
             return;
         }
         
-        Double amount = order.getFinalAmount();
+        // Shop đã có ví, cập nhật bình thường
         Double balanceBefore = wallet.getBalance();
         
         wallet.setBalance(wallet.getBalance() + amount);
@@ -306,6 +380,20 @@ public class WalletService {
             .description(transaction.getDescription())
             .referenceCode(transaction.getReferenceCode())
             .createdAt(transaction.getCreatedAt())
+            .build();
+    }
+    
+    private TemporaryWalletResponse mapToTemporaryWalletResponse(TemporaryWallet tempWallet) {
+        return TemporaryWalletResponse.builder()
+            .id(tempWallet.getId())
+            .shopId(tempWallet.getShop().getId())
+            .shopName(tempWallet.getShop().getName())
+            .orderId(tempWallet.getOrder().getId())
+            .amount(tempWallet.getAmount())
+            .isTransferred(tempWallet.getIsTransferred())
+            .transferredAt(tempWallet.getTransferredAt())
+            .note(tempWallet.getNote())
+            .createdAt(tempWallet.getCreatedAt())
             .build();
     }
 }

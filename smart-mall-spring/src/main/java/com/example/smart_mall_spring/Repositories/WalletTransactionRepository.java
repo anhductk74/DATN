@@ -27,4 +27,7 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
         @Param("startDate") LocalDateTime startDate,
         @Param("endDate") LocalDateTime endDate
     );
+    
+    // Kiểm tra transaction đã tồn tại cho order chưa
+    boolean existsByOrderId(UUID orderId);
 }

@@ -35,6 +35,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("SELECT o FROM Order o WHERE o.status = :status ORDER BY o.createdAt DESC")
     Page<Order> findByStatus(StatusOrder status, Pageable pageable);
 
+    //  Lấy tất cả đơn hàng theo trạng thái (không phân trang)
+    List<Order> findByStatus(StatusOrder status);
+
     //  Lấy chi tiết đơn hàng
     @Query("SELECT o FROM Order o WHERE o.id = :orderId")
     Optional<Order> findOrderDetail(UUID orderId);

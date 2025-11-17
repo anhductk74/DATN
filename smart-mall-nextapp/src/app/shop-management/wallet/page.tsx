@@ -40,6 +40,7 @@ import walletService, {
   CreateWalletRequest,
   UpdateBankInfoRequest,
   CreateWithdrawalRequest,
+  TemporaryWalletSummary,
 } from "@/services/WalletService";
 import shopService from "@/services/ShopService";
 
@@ -113,6 +114,7 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true);
   const [shopId, setShopId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<WalletResponse | null>(null);
+  const [temporaryWallet, setTemporaryWallet] = useState<TemporaryWalletSummary | null>(null);
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalResponse[]>([]);
   const [transactions, setTransactions] = useState<WalletTransactionResponse[]>([]);
   
@@ -126,6 +128,9 @@ export default function WalletPage() {
   const [createWalletModalVisible, setCreateWalletModalVisible] = useState(false);
   const [updateBankModalVisible, setUpdateBankModalVisible] = useState(false);
   const [withdrawalModalVisible, setWithdrawalModalVisible] = useState(false);
+  
+  // Withdrawal state
+  const [useDefaultBank, setUseDefaultBank] = useState(true);
   
   // Forms
   const [createWalletForm] = Form.useForm();
@@ -180,6 +185,7 @@ export default function WalletPage() {
       
       if (walletData && walletData.id) {
         setWallet(walletData);
+        setTemporaryWallet(null); // Clear temporary wallet when main wallet exists
         
         // If wallet exists, fetch withdrawal requests and transactions
         await Promise.all([
@@ -188,11 +194,14 @@ export default function WalletPage() {
         ]);
       } else {
         setWallet(null);
+        // Fetch temporary wallet if main wallet doesn't exist
+        await fetchTemporaryWallet();
       }
     } catch (error: any) {
-      // If wallet doesn't exist (404), it's not an error
+      // If wallet doesn't exist (404), fetch temporary wallet
       if (error.response?.status === 404) {
         setWallet(null);
+        await fetchTemporaryWallet();
       } else {
         message.error(error.response?.data?.message || 'Failed to fetch wallet data');
         console.error('Failed to fetch wallet:', error);
@@ -239,6 +248,27 @@ export default function WalletPage() {
       console.error('Failed to fetch transactions:', error);
       setTransactions([]);
       setTransactionTotal(0);
+    }
+  };
+
+  const fetchTemporaryWallet = async () => {
+    if (!shopId) return;
+    
+    try {
+      const response = await walletService.getTemporaryWallet(shopId);
+      if (response?.data) {
+        setTemporaryWallet(response.data);
+      } else if (response && 'temporaryWallets' in response) {
+        setTemporaryWallet(response as unknown as TemporaryWalletSummary);
+      } else {
+        setTemporaryWallet(null);
+      }
+    } catch (error: any) {
+      // If no temporary wallet (404), that's fine
+      if (error.response?.status !== 404) {
+        console.error('Failed to fetch temporary wallet:', error);
+      }
+      setTemporaryWallet(null);
     }
   };
 
@@ -487,13 +517,90 @@ export default function WalletPage() {
             <WalletOutlined className="text-6xl text-gray-400 mb-4" />
             <Title level={3}>No Wallet Found</Title>
             <Text className="text-gray-500 mb-6 block">
-              You need to create a wallet to manage your shop's finances.
+              You need to create a wallet with your bank information to receive payments from completed orders.
             </Text>
+            
+            {/* Temporary Wallet Information */}
+            {temporaryWallet && temporaryWallet.count > 0 && (
+              <div className="mb-6 max-w-3xl mx-auto">
+                <Alert
+                  message={
+                    <span className="font-semibold text-lg">
+                      💰 You have {formatCurrency(temporaryWallet.totalAmount)} waiting!
+                    </span>
+                  }
+                  description={
+                    <div className="text-left mt-2">
+                      <p className="mb-3">{temporaryWallet.message}</p>
+                      <div className="bg-white p-4 rounded-md border">
+                        <div className="mb-2">
+                          <Text strong>Pending Orders: </Text>
+                          <Text className="text-lg font-semibold text-green-600">
+                            {temporaryWallet.count} {temporaryWallet.count === 1 ? 'order' : 'orders'}
+                          </Text>
+                        </div>
+                        <div className="mb-3">
+                          <Text strong>Total Amount: </Text>
+                          <Text className="text-xl font-bold text-green-600">
+                            {formatCurrency(temporaryWallet.totalAmount)}
+                          </Text>
+                        </div>
+                        <Divider className="my-3" />
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {temporaryWallet.temporaryWallets.map((temp) => (
+                            <div key={temp.id} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded">
+                              <div className="flex-1">
+                                <Text className="text-xs text-gray-500">
+                                  Order ID: {temp.orderId.substring(0, 8)}...
+                                </Text>
+                                <Text className="text-xs text-gray-400 ml-2">
+                                  {new Date(temp.createdAt).toLocaleDateString('vi-VN')}
+                                </Text>
+                              </div>
+                              <Text className="font-semibold text-green-600">
+                                {formatCurrency(temp.amount)}
+                              </Text>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-3 text-sm text-gray-600">
+                        ✅ When you create a wallet, all this money will be automatically transferred to your account!
+                      </div>
+                    </div>
+                  }
+                  type="success"
+                  showIcon
+                  icon={<ExclamationCircleOutlined />}
+                  className="text-left"
+                />
+              </div>
+            )}
+            
+            {/* Instructions */}
             <div className="flex justify-center mb-6">
               <Alert
                 message="Important: Create Wallet with Bank Information"
-                description="You must create a wallet with your bank account details before you can receive payments from completed orders. Orders completed before wallet creation will not be credited."
-                type="warning"
+                description={
+                  <div className="space-y-2">
+                    <p>To receive payments, you must create a wallet with valid bank account details:</p>
+                    <ul className="list-disc list-inside text-left space-y-1">
+                      <li>Bank name (select from Vietnamese banks)</li>
+                      <li>Bank account number</li>
+                      <li>Account holder name (must match your bank account)</li>
+                    </ul>
+                    {temporaryWallet && temporaryWallet.count > 0 ? (
+                      <p className="mt-3 font-semibold text-green-700">
+                        ✨ Creating your wallet will automatically transfer {formatCurrency(temporaryWallet.totalAmount)} from {temporaryWallet.count} completed {temporaryWallet.count === 1 ? 'order' : 'orders'}!
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-amber-700">
+                        ⚠️ Orders completed before wallet creation will NOT be credited. Create your wallet now!
+                      </p>
+                    )}
+                  </div>
+                }
+                type={temporaryWallet && temporaryWallet.count > 0 ? "success" : "warning"}
                 showIcon
                 className="max-w-2xl text-left"
               />
@@ -504,7 +611,10 @@ export default function WalletPage() {
               icon={<PlusOutlined />}
               onClick={() => setCreateWalletModalVisible(true)}
             >
-              Create Wallet
+              {temporaryWallet && temporaryWallet.count > 0 
+                ? `Create Wallet & Receive ${formatCurrency(temporaryWallet.totalAmount)}`
+                : 'Create Wallet'
+              }
             </Button>
           </div>
         </Card>
@@ -519,6 +629,15 @@ export default function WalletPage() {
           }}
           footer={null}
         >
+          {temporaryWallet && temporaryWallet.count > 0 && (
+            <Alert
+              message="Pending Funds Will Be Transferred"
+              description={`You have ${formatCurrency(temporaryWallet.totalAmount)} from ${temporaryWallet.count} completed ${temporaryWallet.count === 1 ? 'order' : 'orders'} waiting. This money will be automatically added to your wallet balance upon creation.`}
+              type="info"
+              showIcon
+              className="mb-4"
+            />
+          )}
           <Form
             form={createWalletForm}
             layout="vertical"
@@ -563,7 +682,10 @@ export default function WalletPage() {
                   Cancel
                 </Button>
                 <Button type="primary" htmlType="submit">
-                  Create Wallet
+                  {temporaryWallet && temporaryWallet.count > 0 
+                    ? 'Create Wallet & Transfer Funds'
+                    : 'Create Wallet'
+                  }
                 </Button>
               </Space>
             </Form.Item>
@@ -657,6 +779,7 @@ export default function WalletPage() {
               type="primary"
               icon={<DollarOutlined />}
               onClick={() => {
+                setUseDefaultBank(true);
                 withdrawalForm.setFieldsValue({
                   bankName: wallet.bankName,
                   bankAccountNumber: wallet.bankAccountNumber,
@@ -822,9 +945,11 @@ export default function WalletPage() {
         open={withdrawalModalVisible}
         onCancel={() => {
           setWithdrawalModalVisible(false);
+          setUseDefaultBank(true);
           withdrawalForm.resetFields();
         }}
         footer={null}
+        width={600}
       >
         <Alert
           message={`Available Balance: ${formatCurrency(wallet.balance)}`}
@@ -840,7 +965,7 @@ export default function WalletPage() {
         >
           <Form.Item
             name="amount"
-            label="Withdrawal Amount (VND)"
+            label="Withdrawal Amount"
             rules={[
               { required: true, message: 'Please enter amount' },
               { 
@@ -860,43 +985,165 @@ export default function WalletPage() {
           >
             <InputNumber
               className="w-full"
-              formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              size="large"
+              formatter={value => {
+                if (!value) return '';
+                return `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+              }}
               parser={value => Number(value?.replace(/,/g, '') || 0)}
-              placeholder="Enter amount"
+              placeholder="0"
+              prefix="₫"
               min={50000}
               max={wallet.balance}
+              step={50000}
+              controls={false}
+              style={{ fontSize: '16px' }}
             />
           </Form.Item>
-          <Form.Item
-            name="bankName"
-            label="Bank Name"
-            rules={[{ required: true, message: 'Please select or enter bank name' }]}
-          >
-            <AutoComplete
-              options={VIETNAMESE_BANKS.map(bank => ({ value: bank }))}
-              placeholder="Select or type bank name"
-              filterOption={(inputValue, option) =>
-                option!.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
-              }
-            />
-          </Form.Item>
-          <Form.Item
-            name="bankAccountNumber"
-            label="Bank Account Number"
-            rules={[
-              { required: true, message: 'Please enter account number' },
-              { pattern: /^\d+$/, message: 'Account number must be numeric' }
-            ]}
-          >
-            <Input placeholder="1234567890" />
-          </Form.Item>
-          <Form.Item
-            name="bankAccountName"
-            label="Account Holder Name"
-            rules={[{ required: true, message: 'Please enter account holder name' }]}
-          >
-            <Input placeholder="NGUYEN VAN A" />
-          </Form.Item>
+          
+          {/* Quick Select Buttons */}
+          <div className="mb-4">
+            <Text className="text-sm text-gray-600 mb-2 block">Chọn nhanh số tiền:</Text>
+            <Space wrap>
+              {[
+                { label: '25%', value: Math.floor(wallet.balance * 0.25) },
+                { label: '50%', value: Math.floor(wallet.balance * 0.5) },
+                { label: '75%', value: Math.floor(wallet.balance * 0.75) },
+                { label: 'Rút hết', value: wallet.balance },
+              ].filter(item => item.value >= 50000).map((item) => (
+                <Button
+                  key={item.label}
+                  size="middle"
+                  type={item.label === 'Rút hết' ? 'primary' : 'default'}
+                  onClick={() => withdrawalForm.setFieldValue('amount', item.value)}
+                >
+                  {item.label} {item.label !== 'Rút hết' && `(${formatCurrency(item.value)})`}
+                </Button>
+              ))}
+            </Space>
+            <Divider className="my-3" />
+            <Text className="text-sm text-gray-600 mb-2 block">Hoặc chọn số tiền cố định:</Text>
+            <Space wrap>
+              {[
+                { label: '500K', value: 500000 },
+                { label: '1 Triệu', value: 1000000 },
+                { label: '5 Triệu', value: 5000000 },
+                { label: '10 Triệu', value: 10000000 },
+                { label: '50 Triệu', value: 50000000 },
+              ].filter(item => item.value <= wallet.balance).map((item) => (
+                <Button
+                  key={item.label}
+                  size="small"
+                  onClick={() => withdrawalForm.setFieldValue('amount', item.value)}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </Space>
+          </div>
+          
+          {/* Bank Account Selection */}
+          <Divider className="my-4" />
+          <div className="mb-4">
+            <Text strong className="block mb-3">Chọn tài khoản nhận tiền:</Text>
+            <Space direction="vertical" className="w-full">
+              <Card
+                className={`cursor-pointer transition-all ${useDefaultBank ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-400'}`}
+                size="small"
+                onClick={() => {
+                  setUseDefaultBank(true);
+                  withdrawalForm.setFieldsValue({
+                    bankName: wallet.bankName,
+                    bankAccountNumber: wallet.bankAccountNumber,
+                    bankAccountName: wallet.bankAccountName,
+                  });
+                }}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-2">
+                      {useDefaultBank && <Tag color="blue" className="mr-2">Đang chọn</Tag>}
+                      <Text strong>Tài khoản mặc định</Text>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div>
+                        <Text className="text-gray-600">Ngân hàng: </Text>
+                        <Text>{wallet.bankName}</Text>
+                      </div>
+                      <div>
+                        <Text className="text-gray-600">Số TK: </Text>
+                        <Text className="font-mono">{wallet.bankAccountNumber}</Text>
+                      </div>
+                      <div>
+                        <Text className="text-gray-600">Chủ TK: </Text>
+                        <Text className="uppercase">{wallet.bankAccountName}</Text>
+                      </div>
+                    </div>
+                  </div>
+                  <BankOutlined className="text-2xl text-blue-500" />
+                </div>
+              </Card>
+              
+              <Card
+                className={`cursor-pointer transition-all ${!useDefaultBank ? 'border-orange-500 bg-orange-50' : 'hover:border-gray-400'}`}
+                size="small"
+                onClick={() => {
+                  setUseDefaultBank(false);
+                  withdrawalForm.setFieldsValue({
+                    bankName: '',
+                    bankAccountNumber: '',
+                    bankAccountName: '',
+                  });
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    {!useDefaultBank && <Tag color="orange" className="mr-2">Đang chọn</Tag>}
+                    <Text strong>Tài khoản khác</Text>
+                    <div className="text-xs text-gray-500 mt-1">Nhập thông tin tài khoản mới</div>
+                  </div>
+                  <EditOutlined className="text-2xl text-orange-500" />
+                </div>
+              </Card>
+            </Space>
+          </div>
+          
+          {/* Bank Info Fields - Only show when using different account */}
+          {!useDefaultBank && (
+            <>
+              <Form.Item
+                name="bankName"
+                label="Bank Name"
+                rules={[{ required: true, message: 'Please select or enter bank name' }]}
+              >
+                <AutoComplete
+                  options={VIETNAMESE_BANKS.map(bank => ({ value: bank }))}
+                  placeholder="Select or type bank name"
+                  filterOption={(inputValue, option) =>
+                    option!.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
+                  }
+                />
+              </Form.Item>
+              <Form.Item
+                name="bankAccountNumber"
+                label="Bank Account Number"
+                rules={[
+                  { required: true, message: 'Please enter account number' },
+                  { pattern: /^\d+$/, message: 'Account number must be numeric' }
+                ]}
+              >
+                <Input placeholder="1234567890" />
+              </Form.Item>
+              <Form.Item
+                name="bankAccountName"
+                label="Account Holder Name"
+                rules={[{ required: true, message: 'Please enter account holder name' }]}
+              >
+                <Input placeholder="NGUYEN VAN A" />
+              </Form.Item>
+            </>
+          )}
+          
           <Form.Item
             name="note"
             label="Note (Optional)"
@@ -910,6 +1157,7 @@ export default function WalletPage() {
             <Space className="w-full justify-end">
               <Button onClick={() => {
                 setWithdrawalModalVisible(false);
+                setUseDefaultBank(true);
                 withdrawalForm.resetFields();
               }}>
                 Cancel

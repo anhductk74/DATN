@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -194,6 +195,29 @@ public class WalletController {
             statistics.put("availableForWithdrawal", wallet.getBalance());
             
             return ResponseEntity.ok(statistics);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        }
+    }
+    
+    /**
+     * Lấy thông tin ví tạm (chưa tạo ví chính)
+     * GET /api/wallets/shops/{shopId}/temporary
+     */
+    @GetMapping("/shops/{shopId}/temporary")
+    @PreAuthorize("hasRole('ADMIN') or @shopService.isShopOwner(#shopId, authentication)")
+    public ResponseEntity<?> getTemporaryWallet(@PathVariable UUID shopId) {
+        try {
+            List<TemporaryWalletResponse> tempWallets = walletService.getTemporaryWalletByShopId(shopId);
+            Double totalAmount = walletService.getTemporaryWalletAmount(shopId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("temporaryWallets", tempWallets);
+            response.put("totalAmount", totalAmount);
+            response.put("count", tempWallets.size());
+            response.put("message", "Đây là tiền từ các đơn hàng đã hoàn thành khi shop chưa có ví. Tạo ví để nhận tiền này.");
+            
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
         }

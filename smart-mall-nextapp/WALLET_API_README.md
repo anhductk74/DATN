@@ -261,6 +261,33 @@ Hệ thống ví điện tử cho phép:
 }
 ```
 
+### 🔟 Xem ví tạm (khi chưa tạo ví chính)
+**GET** `/api/wallets/shops/{shopId}/temporary`
+
+**Quyền truy cập:** Admin hoặc Shop Owner
+
+**Response:**
+```json
+{
+  "temporaryWallets": [
+    {
+      "id": "uuid",
+      "shopId": "uuid",
+      "shopName": "Tên shop",
+      "orderId": "uuid",
+      "amount": 500000,
+      "isTransferred": false,
+      "transferredAt": null,
+      "note": "Đơn hàng hoàn thành khi shop chưa có ví",
+      "createdAt": "2025-11-17T10:00:00"
+    }
+  ],
+  "totalAmount": 1500000,
+  "count": 3,
+  "message": "Đây là tiền từ các đơn hàng đã hoàn thành khi shop chưa có ví. Tạo ví để nhận tiền này."
+}
+```
+
 ## 🔄 Luồng hoạt động
 
 ### 1. Khi tạo shop
@@ -276,7 +303,14 @@ Shop owner gọi POST /api/wallets/shops/{shopId}
 → Cung cấp thông tin ngân hàng cá nhân
 → WalletService.createWallet()
 → Validate thông tin ngân hàng
-→ Tạo ví với balance = 0 và thông tin ngân hàng
+→ Kiểm tra có ví tạm không
+→ Nếu có ví tạm:
+   - Tạo ví với balance = tổng tiền từ ví tạm
+   - Chuyển tất cả tiền từ ví tạm sang ví chính
+   - Tạo transaction cho từng đơn hàng
+   - Đánh dấu ví tạm đã chuyển
+→ Nếu không có ví tạm:
+   - Tạo ví với balance = 0
 ```
 
 ### 3. Khi đơn hàng được tạo
@@ -296,7 +330,9 @@ OrderService.updateOrderStatus(DELIVERED)
    - totalEarned += finalAmount
    - pendingAmount -= finalAmount
    - Tạo WalletTransaction (ORDER_PAYMENT)
-→ Nếu shop chưa có ví: Bỏ qua (log warning)
+→ Nếu shop chưa có ví:
+   - Lưu vào TemporaryWallet
+   - Tiền được bảo toàn, chờ tạo ví
 ```
 
 ### 5. Khi đơn hàng bị hủy
@@ -326,17 +362,23 @@ Admin approve → WalletService.processWithdrawalRequest()
 
 ## ⚠️ Lưu ý quan trọng
 
-### 🔴 Bắt buộc tạo ví trước khi giao dịch
-- Shop owner **PHẢI tự tạo ví** với thông tin ngân hàng trước khi có thể nhận tiền
+### 🔴 Hệ thống Ví Tạm (Temporary Wallet)
 - Khi tạo shop, hệ thống **KHÔNG tự động tạo ví**
 - Nếu shop chưa có ví:
   - Đơn hàng vẫn hoạt động bình thường
-  - Tiền từ đơn hàng **KHÔNG được cộng vào ví** (vì chưa có ví)
-  - Shop sẽ **mất** khoản thu nhập từ các đơn hàng hoàn thành trước khi tạo ví
+  - Tiền từ đơn hàng **ĐƯỢC LƯU VÀO VÍ TẠM** (không bị mất)
+  - Khi shop tạo ví chính, **TẤT CẢ TIỀN TỪ VÍ TẠM** sẽ được chuyển tự động
+- Ví tạm lưu từng đơn hàng hoàn thành khi shop chưa có ví
+
+### ✅ Lợi ích của Ví Tạm
+- **Không mất tiền:** Tiền từ đơn hàng được bảo toàn trong ví tạm
+- **Linh hoạt:** Shop có thể tạo ví bất cứ lúc nào
+- **Tự động chuyển:** Khi tạo ví, tiền tự động chuyển từ ví tạm sang ví chính
+- **Theo dõi được:** Có thể xem chi tiết các giao dịch trong ví tạm
 
 ### 💡 Khuyến nghị
-- Nên tạo ví ngay sau khi tạo shop
-- Kiểm tra xem shop đã có ví chưa trước khi bán hàng
+- Nên tạo ví ngay sau khi tạo shop để quản lý tiền tốt hơn
+- Kiểm tra ví tạm để biết có bao nhiêu tiền đang chờ
 
 ### 📌 Các quy định khác
 1. **Số dư khả dụng = balance** (không bao gồm pendingAmount)
