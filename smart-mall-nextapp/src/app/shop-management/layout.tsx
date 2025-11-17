@@ -19,6 +19,7 @@ import {
   MessageOutlined,
   BarChartOutlined,
   LoadingOutlined,
+  WalletOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -111,6 +112,11 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
       key: "/shop-management/dashboard",
       icon: <DashboardOutlined />,
       label: "Dashboard",
+    },
+    {
+      key: "/shop-management/wallet",
+      icon: <WalletOutlined />,
+      label: "Wallet",
     },
     {
       key: "orders",
@@ -351,6 +357,8 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
               />
               <h1 className="text-xl font-semibold text-gray-800 m-0">
                 {pathname === '/shop-management' ? 'Dashboard' : 
+                 pathname === '/shop-management/dashboard' ? 'Dashboard' :
+                 pathname === '/shop-management/wallet' ? 'Wallet Management' :
                  pathname.includes('/orders') ? 'Order Management' :
                  pathname.includes('/products') ? 'Product Management' :
                  pathname.includes('/profile') ? 'Shop Profile' :

@@ -11,6 +11,7 @@ import com.example.smart_mall_spring.Repositories.AddressRespository;
 import com.example.smart_mall_spring.Repositories.ShopRepository;
 import com.example.smart_mall_spring.Repositories.UserRepository;
 import com.example.smart_mall_spring.Services.CloudinaryService;
+import com.example.smart_mall_spring.Services.Wallet.WalletService;
 import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,8 @@ public class ShopService {
     private final CloudinaryService cloudinaryService;
     @Autowired
     private final ObjectMapper objectMapper;
+    @Autowired
+    private WalletService walletService;
 
     public ShopService(ShopRepository shopRes, AddressRespository addressRes,
                        UserRepository userRepository, CloudinaryService cloudinaryService,
@@ -236,6 +239,21 @@ public class ShopService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to update shop: " + e.getMessage(), e);
         }
+    }
+    
+    // Kiểm tra xem user hiện tại có phải là chủ shop không (dùng cho @PreAuthorize)
+    public boolean isShopOwner(UUID shopId, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails)) {
+            return false;
+        }
+        
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        UUID userId = userDetails.getUser().getId();
+        
+        Optional<Shop> shopOptional = shopRes.findById(shopId);
+        return shopOptional.isPresent() && 
+               shopOptional.get().getOwner() != null && 
+               shopOptional.get().getOwner().getId().equals(userId);
     }
 
     // Delete shop

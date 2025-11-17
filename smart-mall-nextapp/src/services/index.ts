@@ -13,6 +13,7 @@ export { default as reviewReplyApiService } from './ReviewReplyApiService';
 export { default as addressService } from './AddressService';
 export { locationService } from './LocationService';
 export { default as dashboardService } from './DashboardService';
+export { default as walletService } from './WalletService';
 
 // New API services based on backend controllers
 export { orderApiService } from './OrderApiService';
@@ -40,6 +41,16 @@ export type { Product, ProductVariant, ProductAttribute, CreateProductData, Upda
 export type { Category, CreateCategoryData, UpdateCategoryData } from './CategoryService';
 export type { Province, District, Ward } from './LocationService';
 export type { DashboardStats, TopProduct, PerformanceMetrics } from './DashboardService';
+export type {
+  WalletResponse,
+  CreateWalletRequest,
+  UpdateBankInfoRequest,
+  CreateWithdrawalRequest,
+  WithdrawalResponse,
+  ProcessWithdrawalRequest,
+  WalletTransactionResponse,
+  WalletStatisticsResponse,
+} from './WalletService';
 
 // Export types from new API services
 export type { 
@@ -97,6 +108,7 @@ import reviewReplyApiService from './ReviewReplyApiService';
 import addressService from './AddressService';
 import { locationService } from './LocationService';
 import dashboardService from './DashboardService';
+import walletService from './WalletService';
 
 // Import new API services for the services object
 import { orderApiService } from './OrderApiService';
@@ -123,6 +135,7 @@ export const services = {
   address: addressService,
   location: locationService,
   dashboard: dashboardService,
+  wallet: walletService,
   
   // New API services
   orderApi: orderApiService,

@@ -13,6 +13,7 @@ import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Entities.Users.UserAddress;
 import com.example.smart_mall_spring.Enum.*;
 import com.example.smart_mall_spring.Repositories.*;
+import com.example.smart_mall_spring.Services.Wallet.WalletService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,6 +41,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final UserAddressRepository userAddressRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final WalletService walletService;
 
     /**
      * 🛒 Tạo đơn hàng mới
@@ -172,6 +174,13 @@ public class OrderService {
         history.setNote("Order created successfully");
         orderStatusHistoryRepository.save(history);
         orderRepository.save(order);
+        
+        // Thêm số tiền vào pending amount của wallet
+        try {
+            walletService.addPendingAmount(order);
+        } catch (Exception e) {
+            System.err.println("Failed to add pending amount to wallet: " + e.getMessage());
+        }
 
         // 8️ Map dữ liệu trả về
         return mapToOrderResponseDto(order, subtotal, shippingFeeAmount, totalDiscount, appliedVouchers);
@@ -287,6 +296,15 @@ public class OrderService {
         history.setChangedAt(LocalDateTime.now());
         orderStatusHistoryRepository.save(history);
 
+        // Xóa pending amount khi đơn hàng bị hủy
+        if (order.getStatus() == StatusOrder.CANCELLED) {
+            try {
+                walletService.removePendingAmount(order);
+            } catch (Exception e) {
+                System.err.println("Failed to remove pending amount from wallet: " + e.getMessage());
+            }
+        }
+
         //  Nếu cần, xử lý hoàn tiền ở đây
 //        Payment payment = order.getPayment();
 //        if (payment != null && payment.getStatus() == PaymentStatus.PAID) {
@@ -371,6 +389,24 @@ public class OrderService {
         history.setNote("Status updated to " + dto.getStatus());
         history.setChangedAt(LocalDateTime.now());
         orderStatusHistoryRepository.save(history);
+        
+        // Cập nhật wallet khi đơn hàng hoàn thành
+        if (dto.getStatus() == StatusOrder.DELIVERED) {
+            try {
+                walletService.addOrderPayment(order);
+            } catch (Exception e) {
+                System.err.println("Failed to add order payment to wallet: " + e.getMessage());
+            }
+        }
+        
+        // Xóa pending amount khi đơn hàng bị hủy
+        if (dto.getStatus() == StatusOrder.CANCELLED) {
+            try {
+                walletService.removePendingAmount(order);
+            } catch (Exception e) {
+                System.err.println("Failed to remove pending amount from wallet: " + e.getMessage());
+            }
+        }
 
         return true;
     }
