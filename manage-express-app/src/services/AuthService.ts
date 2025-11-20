@@ -12,7 +12,7 @@ class AuthService {
    * Login with username/password
    */
   async login(credentials: LoginRequestDto): Promise<ApiResponse<AuthResponseDto>> {
-    const response = await apiClient.post('/auth/login', credentials);
+    const response = await apiClient.post('/api/auth/login', credentials);
     return response.data;
   }
 
@@ -20,7 +20,7 @@ class AuthService {
    * Refresh access token
    */
   async refreshToken(refreshTokenRequest: RefreshTokenRequestDto): Promise<ApiResponse<AuthResponseDto>> {
-    const response = await apiClient.post('/auth/refresh-token', refreshTokenRequest);
+    const response = await apiClient.post('/api/auth/refresh-token', refreshTokenRequest);
     return response.data;
   }
 
@@ -28,7 +28,7 @@ class AuthService {
    * Logout user
    */
   async logout(): Promise<ApiResponse<{ message: string }>> {
-    const response = await apiClient.post('/auth/logout');
+    const response = await apiClient.post('/api/auth/logout');
     return response.data;
   }
 
@@ -44,7 +44,7 @@ class AuthService {
     console.log('Google Auth - idToken length:', googleUser.idToken?.length || 0);
     
     try {
-      const response = await apiClient.post('/auth/google-login', {
+      const response = await apiClient.post('/api/auth/google-login', {
         idToken: googleUser.idToken
       });
       return response.data;

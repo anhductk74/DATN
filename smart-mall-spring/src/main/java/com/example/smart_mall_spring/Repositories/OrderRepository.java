@@ -34,4 +34,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     //  Lấy chi tiết đơn hàng
     @Query("SELECT o FROM Order o WHERE o.id = :orderId")
     Optional<Order> findOrderDetail(UUID orderId);
+
+    List<Order> findByStatus(StatusOrder status);
 }

@@ -3,6 +3,7 @@ package com.example.smart_mall_spring.Entities.Users;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Enum.Gender;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
@@ -38,6 +39,7 @@ public class UserProfile extends BaseEntity {
 
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
+    @JsonIgnore
     private User user;
 
 }

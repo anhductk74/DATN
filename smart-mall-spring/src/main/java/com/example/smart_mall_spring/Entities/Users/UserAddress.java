@@ -4,6 +4,7 @@ import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Enum.AddressType;
 import com.example.smart_mall_spring.Enum.Status;
 import com.example.smart_mall_spring.Entities.Address;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,6 +18,7 @@ public class UserAddress extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     private String recipient;

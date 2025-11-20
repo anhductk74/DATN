@@ -4,6 +4,7 @@ import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.example.smart_mall_spring.Dtos.Auth.UserInfoDto;
 import com.example.smart_mall_spring.Dtos.Users.ChangePasswordDto;
 import com.example.smart_mall_spring.Dtos.Users.UpdateUserProfileDto;
+import com.example.smart_mall_spring.Dtos.Users.UserListDto;
 import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Users.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -117,5 +119,31 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<String>> adminOnly() {
         return ResponseEntity.ok(ApiResponse.success("Admin access granted", "This is admin-only content"));
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getUsers(
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "role", required = false) String role
+    ) {
+        if ((role == null || role.isBlank()) && (domain == null || domain.isBlank())) {
+            return ResponseEntity.badRequest()
+                    .body("You must provide either 'domain' or 'role' parameter.");
+        }
+
+        if (role != null && !role.isBlank() && domain != null && !domain.isBlank()) {
+            // Lọc theo role + domain + chưa có trong Shipper
+            return ResponseEntity.ok(userService.getUsersByRoleAndDomainExcludeShipper(role, domain));
+        }
+
+        if (role != null && !role.isBlank()) {
+            return ResponseEntity.ok(userService.getUsersByRole(role));
+        }
+
+        if (domain != null && !domain.isBlank()) {
+            return ResponseEntity.ok(userService.getUsersByDomain(domain));
+        }
+
+        return ResponseEntity.badRequest().body("Invalid request");
     }
 }
