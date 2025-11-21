@@ -21,4 +21,8 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
     @Query("SELECT r FROM OrderReturnRequest r WHERE r.status = 'PENDING'")
     List<OrderReturnRequest> findPendingRequests();
     boolean existsByOrderIdAndStatus(UUID orderId, ReturnStatus status);
+
+    @Query("SELECT r FROM OrderReturnRequest r WHERE r.order.shop.id = :shopId")
+    List<OrderReturnRequest> findByShopId(UUID shopId);
+
 }

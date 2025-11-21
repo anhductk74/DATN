@@ -68,6 +68,11 @@ public class OrderController {
         var orders = orderService.getOrdersByShopWithFilters(shopId, status, page, size);
         return ResponseEntity.ok(orders);
     }
+    @GetMapping("/shipping")
+    public ResponseEntity<List<OrderResponseDto>> getOrdersForShipmentManagement() {
+        List<OrderResponseDto> orders = orderService.getOrdersForShipmentManagement();
+        return ResponseEntity.ok(orders);
+    }
 
     // Lấy tất cả đơn hàng với pagination
     @GetMapping

@@ -3,6 +3,7 @@ package com.example.smart_mall_spring.Entities.Users;
 import java.util.List;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Index;
 import jakarta.persistence.ManyToMany;
@@ -23,5 +24,6 @@ public class Role extends BaseEntity {
     private String name;
 
     @ManyToMany(mappedBy = "roles")
+    @JsonIgnore
     private List<User> users;
 }

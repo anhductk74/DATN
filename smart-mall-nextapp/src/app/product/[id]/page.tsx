@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import Image from "next/image";
+import NextImage from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import productService from "@/services/ProductService";
-import { App, Avatar, Modal } from "antd";
+import { App, Avatar, Modal, Image } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import { 
   HeartOutlined,
@@ -333,7 +333,7 @@ export default function ProductDetail() {
             <div className="relative bg-white rounded-3xl p-8 shadow-lg">
               <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center relative overflow-hidden">
                 {product.images && product.images.length > 0 ? (
-                  <Image 
+                  <NextImage 
                     src={getCloudinaryUrl(product.images[selectedImage])} 
                     alt={product.name}
                     width={500}
@@ -389,7 +389,7 @@ export default function ProductDetail() {
                       selectedImage === index ? 'ring-4 ring-blue-500 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300'
                     }`}
                   >
-                    <Image 
+                    <NextImage 
                       src={getCloudinaryUrl(image)}
                       alt={`${product.name} ${index + 1}`}
                       width={120}
@@ -866,50 +866,31 @@ export default function ProductDetail() {
                           {review.mediaList && review.mediaList.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-4">
                               {review.mediaList.map((media) => (
-                                <div key={media.id} className="relative group">
+                                <div key={media.id} className="relative">
                                   {media.mediaType === 'IMAGE' ? (
-                                    <button
-                                      onClick={() => setSelectedReviewImage(`https://res.cloudinary.com${media.mediaUrl}`)}
-                                      className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-300 transition-all duration-200 group"
-                                    >
-                                      <Image
-                                        src={`https://res.cloudinary.com${media.mediaUrl}`}
-                                        alt="Review image"
-                                        fill
-                                        sizes="96px"
-                                        className="object-cover object-center group-hover:scale-110 transition-transform duration-200"
-                                        onLoad={(e) => {
-                                          console.log('Review image loaded:', media.mediaUrl);
-                                        }}
-                                        onError={(e) => {
-                                          console.error('Failed to load review image:', media.mediaUrl);
-                                          const target = e.target as HTMLImageElement;
-                                          const parent = target.parentElement;
-                                          if (parent) {
-                                            parent.innerHTML = `
-                                              <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                                                <div class="text-center">
-                                                  <div class="text-gray-400 text-sm">📷</div>
-                                                </div>
-                                              </div>
-                                            `;
-                                          }
-                                        }}
-                                      />
-                                      {/* Subtle hover overlay */}
-                                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-200 flex items-center justify-center">
-                                        <div className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                                          🔍
-                                        </div>
-                                      </div>
-                                    </button>
+                                    <Image
+                                      src={getCloudinaryUrl(media.mediaUrl)}
+                                      alt={`Review image`}
+                                      className="rounded-lg object-cover"
+                                      style={{ width: '96px', height: '96px', objectFit: 'cover' }}
+                                      fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='12' fill='%23666'%3E📷%3C/text%3E%3C/svg%3E"
+                                      preview={{
+                                        src: getCloudinaryUrl(media.mediaUrl),
+                                      }}
+                                    />
                                   ) : (
-                                    <button className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center border border-gray-200 hover:border-blue-300 hover:bg-gray-200 transition-all duration-200">
+                                    <div 
+                                      className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center border border-gray-200 hover:border-blue-300 hover:bg-gray-200 transition-all duration-200 cursor-pointer"
+                                      style={{ width: '96px', height: '96px' }}
+                                      onClick={() => {
+                                        window.open(getCloudinaryUrl(media.mediaUrl), '_blank');
+                                      }}
+                                    >
                                       <div className="text-center">
                                         <div className="text-gray-400 text-lg">🎥</div>
                                         <div className="text-gray-500 text-xs mt-1">Video</div>
                                       </div>
-                                    </button>
+                                    </div>
                                   )}
                                 </div>
                               ))}
@@ -988,10 +969,8 @@ export default function ProductDetail() {
             <Image
               src={selectedReviewImage}
               alt="Review image enlarged"
-              width={600}
-              height={600}
               className="max-w-full max-h-[80vh] object-contain rounded-lg"
-              style={{ width: 'auto', height: 'auto' }}
+              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '80vh' }}
             />
           </div>
         )}

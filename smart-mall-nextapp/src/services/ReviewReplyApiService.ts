@@ -3,6 +3,7 @@ import apiClient from '../lib/apiClient';
 // ===== DTOs =====
 export interface ReviewReplyResponseDto {
   id: string;
+  reviewId: string;
   shopId: string;
   shopName: string;
   replyContent: string;

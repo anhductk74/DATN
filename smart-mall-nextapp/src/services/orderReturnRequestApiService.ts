@@ -12,6 +12,7 @@ export interface OrderReturnResponseDto {
   id: string;
   orderId: string;
   userId: string;
+  userName: string;
   reason: string;
   status: string;
   requestDate: string;
@@ -132,7 +133,24 @@ export const orderReturnRequestApiService = {
       '/orders/return-request'
     );
     return response.data;
-  }
+  },
+  async getReturnRequestsByShop(shopId: string): Promise<OrderReturnResponseDto[]> {
+  const response = await apiClient.get<OrderReturnResponseDto[]>(
+    `/orders/return-request/shop/${shopId}`
+  );
+  return response.data;
+ },
+  async updateReturnStatusByShop(
+  requestId: string,
+  status: ReturnStatus
+): Promise<OrderReturnResponseDto> {
+  const response = await apiClient.put<OrderReturnResponseDto>(
+    `/orders/return-request/${requestId}/shop-status`,
+    null,
+    { params: { status: status.toString() } }
+  );
+  return response.data;
+},
 };
 
 // Default export

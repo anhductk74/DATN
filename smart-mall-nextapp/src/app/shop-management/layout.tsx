@@ -187,9 +187,9 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
           label: "Shop Profile",
         },
         {
-          key: "/shop-management/complaints",
+          key: "/shop-management/return-requests",
           icon: <FileTextOutlined />,
-          label: "Complaint Management",
+          label: "Return Requests",
         },
         {
           key: "/shop-management/reviews",

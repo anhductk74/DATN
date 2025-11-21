@@ -129,7 +129,6 @@ export default function CancelledOrdersPage() {
         const shop = response.data[0]; // Get first shop of the user
         setCurrentShop(shop);
         setCurrentShopId(shop.id);
-        message.success(`Loaded shop: ${shop.name}`);
       } else {
         message.warning('No shop found for this user. Please create a shop first.');
         setCurrentShop(null);
@@ -164,12 +163,7 @@ export default function CancelledOrdersPage() {
         total: response.totalElements || 0
       }));
       
-      // Show appropriate message based on results
-      if (response.content && response.content.length > 0) {
-        message.success(`Loaded ${response.content.length} cancelled orders`);
-      } else {
-        message.info('No cancelled orders found for your shop');
-      }
+      // Orders loaded successfully - no need to show message for normal operation
       
       // Generate mock cancellation info for existing orders
       // In real implementation, this would come from the backend

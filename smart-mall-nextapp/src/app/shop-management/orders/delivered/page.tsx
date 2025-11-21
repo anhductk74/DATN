@@ -340,7 +340,12 @@ export default function DeliveredOrdersPage() {
         
         return review ? (
           <div className="flex items-center">
-            <Rate disabled defaultValue={review.rating} style={{ fontSize: '14px' }} />
+            <Rate 
+              disabled 
+              value={review.rating} 
+              style={{ fontSize: '14px', color: '#fadb14' }}
+              character="★"
+            />
             <span className="ml-2 text-sm text-gray-600">({review.rating})</span>
           </div>
         ) : (
@@ -469,7 +474,13 @@ export default function DeliveredOrdersPage() {
               <div className="text-3xl font-bold text-orange-500 mb-2">
                 {getAverageRating().toFixed(1)}
               </div>
-              <Rate disabled defaultValue={getAverageRating()} allowHalf />
+              <Rate 
+                disabled 
+                value={getAverageRating()} 
+                allowHalf 
+                style={{ color: '#fadb14', fontSize: '18px' }}
+                character="★"
+              />
               <div className="text-gray-500 mt-2">Based on {getTotalReviews()} reviews</div>
             </div>
           </Col>
@@ -644,8 +655,10 @@ export default function DeliveredOrdersPage() {
                   <div className="flex items-center">
                     <Rate 
                       disabled 
-                      defaultValue={deliveryInfo[selectedOrder.id].review!.rating} 
+                      value={deliveryInfo[selectedOrder.id].review!.rating} 
                       className="mr-3"
+                      style={{ color: '#fadb14', fontSize: '16px' }}
+                      character="★"
                     />
                     <span className="font-medium">
                       {deliveryInfo[selectedOrder.id].review!.rating}/5 stars

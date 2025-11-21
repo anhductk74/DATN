@@ -13,6 +13,14 @@ interface UserProfile {
   roles: string[];
 }
 
+export interface UserListDto {
+  id: string;
+  username: string;
+  fullName: string;
+  roles: string[];
+  isActive: number;
+}
+
 class UserService {
   /**
    * Get current user profile
@@ -56,6 +64,36 @@ class UserService {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+    });
+    return response.data;
+  }
+
+  /**
+   * Get users by role
+   */
+  async getUsersByRole(role: string): Promise<UserListDto[]> {
+    const response = await apiClient.get<UserListDto[]>('/api/user', {
+      params: { role }
+    });
+    return response.data;
+  }
+
+  /**
+   * Get users by domain
+   */
+  async getUsersByDomain(domain: string): Promise<UserListDto[]> {
+    const response = await apiClient.get<UserListDto[]>('/api/user', {
+      params: { domain }
+    });
+    return response.data;
+  }
+
+  /**
+   * Get users by both role and domain (filters on backend)
+   */
+  async getUsersByRoleAndDomain(role: string, domain: string): Promise<UserListDto[]> {
+    const response = await apiClient.get<UserListDto[]>('/api/user', {
+      params: { role, domain }
     });
     return response.data;
   }

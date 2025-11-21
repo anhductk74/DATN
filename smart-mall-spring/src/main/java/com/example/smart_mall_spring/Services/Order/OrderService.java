@@ -1,5 +1,6 @@
 package com.example.smart_mall_spring.Services.Order;
 
+import com.example.smart_mall_spring.Dtos.Address.AddressResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.*;
 import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemRequestDto;
 import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemResponseDto;
@@ -184,6 +185,18 @@ public class OrderService {
 
         // 8️ Map dữ liệu trả về
         return mapToOrderResponseDto(order, subtotal, shippingFeeAmount, totalDiscount, appliedVouchers);
+    }
+    public List<OrderResponseDto> getOrdersForShipmentManagement() {
+        List<Order> orders = orderRepository.findByStatus(StatusOrder.SHIPPING);
+
+        return orders.stream().map(order -> {
+            double subtotal = order.getItems().stream().mapToDouble(OrderItem::getSubtotal).sum();
+            double shippingFee = order.getShippingFees().stream()
+                    .mapToDouble(ShippingFee::getFeeAmount).sum();
+            double discount = order.getVouchers().stream()
+                    .mapToDouble(OrderVoucher::getDiscountAmount).sum();
+            return mapToOrderResponseDto(order, subtotal, shippingFee, discount, null);
+        }).collect(Collectors.toList());
     }
 
     /**
@@ -417,6 +430,44 @@ public class OrderService {
     private OrderResponseDto mapToOrderResponseDto(Order order, double subtotal,
                                                    double shippingFee, double discount,
                                                    List<OrderVoucherResponseDto> vouchers) {
+        AddressResponseDto addressUserDto = null;
+        if (order.getShippingAddress() != null && order.getShippingAddress().getAddress() != null) {
+            var userAddress = order.getShippingAddress();
+            var address = userAddress.getAddress();
+
+            addressUserDto = AddressResponseDto.builder()
+                    .id(address.getId())
+                    .fullName(userAddress.getRecipient())
+                    .phoneNumber(userAddress.getPhoneNumber())
+                    .addressLine1(address.getStreet())       // trước là addressLine1, giờ map từ street
+                    .addressLine2(address.getCommune() + ", " + address.getDistrict()) // ghép phường + quận
+                    .city(address.getCity())                 // city
+                    .state("")                               // nếu bạn không có state thì để rỗng hoặc null
+                    .postalCode("")                          // nếu bạn không lưu postalCode thì để rỗng
+                    .country("Vietnam")                      // nếu mặc định là VN
+                    .isDefault(userAddress.isDefault())
+                    .createdAt(null)
+                    .updatedAt(null)
+                    .build();
+        }
+        AddressResponseDto addressShopDto = null;
+        if (order.getShop() != null && order.getShop().getAddress() != null) {
+            var shopAddr = order.getShop().getAddress();
+            addressShopDto = AddressResponseDto.builder()
+                    .id(shopAddr.getId())
+                    .fullName(order.getShop().getName())
+                    .phoneNumber(order.getShop().getPhoneNumber()) // nếu shop có phone
+                    .addressLine1(shopAddr.getStreet())
+                    .addressLine2(shopAddr.getCommune() + ", " + shopAddr.getDistrict())
+                    .city(shopAddr.getCity())
+                    .state("")
+                    .postalCode("")
+                    .country("Vietnam")
+                    .isDefault(false)
+                    .createdAt(null)
+                    .updatedAt(null)
+                    .build();
+        }
         return OrderResponseDto.builder()
                 .id(order.getId())
                 .userId(order.getUser().getId())
@@ -425,6 +476,9 @@ public class OrderService {
                 .addressId(order.getShippingAddress().getId())
                 .shopName(order.getShop().getName())
                 .shopAvatar(order.getShop().getAvatar())
+                .addressUser(addressUserDto)
+                .addressShop(addressShopDto)
+                .shopAddressId(order.getShop().getAddress() != null ? order.getShop().getAddress().getId() : null)
                 .status(order.getStatus())
                 .totalAmount(subtotal)
                 .shippingFee(shippingFee)

@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Services.Users;
 
 import com.example.smart_mall_spring.Dtos.Auth.UserInfoDto;
 import com.example.smart_mall_spring.Dtos.Users.UpdateUserProfileDto;
+import com.example.smart_mall_spring.Dtos.Users.UserListDto;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Entities.Users.UserProfile;
 import com.example.smart_mall_spring.Repositories.UserRepository;
@@ -191,6 +192,34 @@ public class UserService {
         // Update password
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+    }
+    public List<UserListDto> getUsersByDomain(String domain) {
+        return userRepository.findByEmailDomain(domain)
+                .stream()
+                .map(this::convertToDto)
+                .toList();
+    }
+
+    public List<UserListDto> getUsersByRole(String roleName) {
+        return userRepository.findByRole(roleName)
+                .stream()
+                .map(this::convertToDto)
+                .toList();
+    }
+    public List<UserListDto> getUsersByRoleAndDomainExcludeShipper(String roleName, String domain) {
+        return userRepository.findByRoleAndEmailDomainExcludeShipper(roleName, domain)
+                .stream()
+                .map(this::convertToDto)
+                .toList();
+    }
+    private UserListDto convertToDto(User user) {
+        return new UserListDto(
+                user.getId(),
+                user.getUsername(),
+                user.getProfile() != null ? user.getProfile().getFullName() : "",
+                user.getRoles() != null ? user.getRoles().stream().map(r -> r.getName()).toList() : List.of(),
+                user.getIsActive()
+        );
     }
 
     // Convert User entity to UserInfoDto

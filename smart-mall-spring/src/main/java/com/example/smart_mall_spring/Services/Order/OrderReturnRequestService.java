@@ -106,6 +106,52 @@ public class OrderReturnRequestService {
         return requests.stream().map(mapper::toResponseDto).toList();
     }
 
+    public List<OrderReturnResponseDto> getReturnRequestsByShop(UUID shopId) {
+        List<OrderReturnRequest> requests = returnRequestRepository.findByShopId(shopId);
+        return requests.stream().map(mapper::toResponseDto).toList();
+    }
+
+    @Transactional
+    public OrderReturnResponseDto updateReturnStatusByShop(UUID requestId, ReturnStatus newStatus) {
+        OrderReturnRequest request = returnRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn trả."));
+
+        // Shop chỉ được phép xử lý khi trạng thái hiện tại là PENDING hoặc APPROVED
+        if (request.getStatus() == ReturnStatus.REJECTED || request.getStatus() == ReturnStatus.COMPLETED) {
+            throw new RuntimeException("Yêu cầu này đã được xử lý, không thể thay đổi trạng thái.");
+        }
+
+        // Cho phép chuyển từ PENDING → APPROVED/REJECTED
+        // hoặc từ APPROVED → COMPLETED
+        if (request.getStatus() == ReturnStatus.PENDING &&
+                (newStatus == ReturnStatus.APPROVED || newStatus == ReturnStatus.REJECTED)) {
+            request.setStatus(newStatus);
+        }
+        else if (request.getStatus() == ReturnStatus.APPROVED && newStatus == ReturnStatus.COMPLETED) {
+            request.setStatus(newStatus);
+        }
+        else {
+            throw new RuntimeException("Trạng thái cập nhật không hợp lệ.");
+        }
+
+        request.setProcessedDate(LocalDateTime.now());
+        returnRequestRepository.save(request);
+
+        // Cập nhật trạng thái đơn hàng tương ứng
+        Order order = request.getOrder();
+        switch (newStatus) {
+            case APPROVED -> order.setStatus(StatusOrder.RETURN_REQUESTED);
+            case REJECTED -> order.setStatus(StatusOrder.DELIVERED);
+            case COMPLETED -> order.setStatus(StatusOrder.RETURNED);
+            default -> {}
+        }
+
+        orderRepository.save(order);
+
+        return mapper.toResponseDto(request);
+    }
+
+
     /**
      * Admin xử lý yêu cầu hoàn trả
      */

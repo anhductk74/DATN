@@ -5,8 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,8 +19,28 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByUsername(String username);
     
     boolean existsByUsername(String username);
-    
+
     // Get users by role name with pagination
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.roles r LEFT JOIN FETCH u.profile WHERE r.name = :roleName")
     Page<User> findByRoleName(String roleName, Pageable pageable);
+
+    // Lọc theo domain email
+    @Query("SELECT u FROM User u WHERE u.username LIKE %:domain")
+    List<User> findByEmailDomain(@Param("domain") String domain);
+
+    // Lấy tất cả user có role SHIPPER hoặc STAFF (tuỳ bạn quy định)
+    @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
+    List<User> findByRole(@Param("roleName") String roleName);
+
+    // Lọc theo role + domain + chưa tồn tại trong Shipper
+    @Query("""
+        SELECT u FROM User u 
+        JOIN u.roles r 
+        WHERE r.name = :roleName 
+          AND u.username LIKE %:domain
+          AND u.id NOT IN (SELECT s.user.id FROM Shipper s)
+        """)
+    List<User> findByRoleAndEmailDomainExcludeShipper(@Param("roleName") String roleName,
+                                                      @Param("domain") String domain);
+
 }

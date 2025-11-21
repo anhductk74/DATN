@@ -13,6 +13,7 @@ public class OrderReturnMapper {
         OrderReturnResponseDto dto = new OrderReturnResponseDto();
         dto.setId(entity.getId());
         dto.setOrderId(entity.getOrder().getId());
+        dto.setUserName(entity.getUser().getProfile().getFullName());
         dto.setUserId(entity.getUser().getId());
         dto.setReason(entity.getReason());
         dto.setStatus(entity.getStatus().name());

@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Dtos.Orders;
 
 
+import com.example.smart_mall_spring.Dtos.Address.AddressResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.OrderVoucher.OrderVoucherResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.Payment.PaymentResponseDto;
@@ -28,6 +29,9 @@ public class OrderResponseDto {
     private String shopAvatar;
     private  UUID addressId;
     private String shopName;
+    private UUID shopAddressId;
+    private AddressResponseDto addressUser;
+    private AddressResponseDto addressShop;
     private StatusOrder status;
     private Double totalAmount;
     private Double shippingFee;

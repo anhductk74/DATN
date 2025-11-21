@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Image from "next/image";
 import { 
   Card,
   Row,
@@ -18,6 +17,7 @@ import {
   Modal,
   Form,
   Tag,
+  Image,
   Space,
   Divider,
   Badge,
@@ -46,7 +46,7 @@ import {
   CalendarOutlined,
   CommentOutlined
 } from "@ant-design/icons";
-import reviewApiService, { ReviewResponseDto } from "@/services/ReviewApiService";
+import reviewApiService, { ReviewResponseDto, ReviewReplyResponseDto as ReviewReplyInReview } from "@/services/ReviewApiService";
 import reviewReplyApiService, { ReviewReplyRequestDto, ReviewReplyResponseDto } from "@/services/ReviewReplyApiService";
 import shopService, { Shop } from "@/services/ShopService";
 import { getCloudinaryUrl } from "@/config/config";
@@ -146,11 +146,15 @@ export default function ShopReviewManagement() {
       };
       return reviewReplyApiService.createReply(dto);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Reply sent successfully:', data);
       message.success('Reply sent successfully!');
-      queryClient.invalidateQueries({ queryKey: ['shop-reviews'] });
-      queryClient.invalidateQueries({ queryKey: ['shop-review-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['shop-replies'] });
+      // Add a small delay to ensure backend is updated
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['shop-reviews'] });
+        queryClient.invalidateQueries({ queryKey: ['shop-review-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['shop-replies'] });
+      }, 500);
       setReplyModalVisible(false);
       setSelectedReview(null);
       form.resetFields();
@@ -287,13 +291,24 @@ export default function ShopReviewManagement() {
   };
 
   // Helper function to check if review has reply
-  const hasReply = (reviewId: string): ReviewReplyResponseDto | null => {
-    return repliesData?.find(reply => reply.id === reviewId) || null;
+  const hasReply = (reviewId: string): ReviewReplyInReview | null => {
+    const reviewWithReply = reviewsData?.content?.find(review => review.id === reviewId);
+    return reviewWithReply?.shopReply || null;
   };
 
   // Helper function to get reply for a review
-  const getReplyForReview = (reviewId: string): ReviewReplyResponseDto | null => {
-    return repliesData?.find(reply => reply.id === reviewId) || null;
+  const getReplyForReview = (reviewId: string): ReviewReplyInReview | null => {
+    const reviewWithReply = reviewsData?.content?.find(review => review.id === reviewId);
+    console.log('Getting reply for review:', reviewId, 'found:', reviewWithReply?.shopReply);
+    return reviewWithReply?.shopReply || null;
+  };
+
+  // Helper function to get reply content (handles both content and replyContent fields)
+  const getReplyContent = (reply: any): string => {
+    console.log('Getting reply content from:', reply);
+    const content = reply?.content || reply?.replyContent || '';
+    console.log('Reply content result:', content);
+    return content;
   };
 
   const reviewColumns = [
@@ -726,7 +741,7 @@ export default function ShopReviewManagement() {
                             <span className="font-medium text-blue-600">{existingReply.shopName}</span>
                             <Tag color="blue">Shop Reply</Tag>
                           </div>
-                          <p className="text-gray-700">{existingReply.replyContent}</p>
+                          <p className="text-gray-700">{getReplyContent(existingReply)}</p>
                           <div className="text-sm text-gray-500 mt-2">
                             {new Date(existingReply.repliedAt).toLocaleDateString()}
                           </div>
@@ -846,25 +861,26 @@ export default function ShopReviewManagement() {
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {selectedReview.mediaList.map((media, index) => (
-                      <div key={media.id} className="relative group">
+                      <div key={media.id} className="relative">
                         {media.mediaType === 'IMAGE' ? (
-                          <div className="aspect-square relative overflow-hidden rounded-lg border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow">
-                            <Image
-                              src={getCloudinaryUrl(media.mediaUrl)}
-                              alt={`Review media ${index + 1}`}
-                              fill
-                              className="object-cover hover:scale-105 transition-transform duration-300"
-                              onClick={() => {
-                                // Open image in new tab for full view
-                                window.open(getCloudinaryUrl(media.mediaUrl), '_blank');
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
-                              <EyeOutlined className="text-white opacity-0 group-hover:opacity-100 text-2xl" />
-                            </div>
-                          </div>
+                          <Image
+                            src={getCloudinaryUrl(media.mediaUrl)}
+                            alt={`Review image ${index + 1}`}
+                            className="rounded-lg"
+                            style={{ width: '100%', height: 150, objectFit: 'cover' }}
+                            fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect width='150' height='150' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='%23666'%3ENo Image%3C/text%3E%3C/svg%3E"
+                            preview={{
+                              src: getCloudinaryUrl(media.mediaUrl),
+                            }}
+                          />
                         ) : (
-                          <div className="aspect-square relative overflow-hidden rounded-lg border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow bg-gray-100 flex items-center justify-center">
+                          <div 
+                            className="relative overflow-hidden rounded-lg border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow bg-gray-100 flex items-center justify-center"
+                            style={{ width: '100%', height: 150 }}
+                            onClick={() => {
+                              window.open(getCloudinaryUrl(media.mediaUrl), '_blank');
+                            }}
+                          >
                             <div className="text-center">
                               <div className="text-4xl mb-2">🎥</div>
                               <span className="text-sm text-gray-600">Video</span>
@@ -892,7 +908,7 @@ export default function ShopReviewManagement() {
                           <span className="font-semibold text-green-700">{reply.shopName}</span>
                           <Tag color="green">Shop Reply</Tag>
                         </div>
-                        <p className="text-gray-700 leading-relaxed">{reply.replyContent}</p>
+                        <p className="text-gray-700 leading-relaxed">{getReplyContent(reply)}</p>
                         <div className="text-sm text-gray-500 mt-2">
                           Replied on: {new Date(reply.repliedAt).toLocaleDateString('en-US', {
                             year: 'numeric',
