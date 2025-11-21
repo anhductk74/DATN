@@ -247,77 +247,164 @@ def ai_approval():
 # ==========================================================
 @app.route('/ai_chatbot', methods=['POST'])
 def ai_chatbot():
-    data = request.get_json()
-    history = data.get("history", [])
-
-    result, columns = get_products()
-    if not result or not columns:
-        return jsonify({"reply": "⚠️ Cannot fetch product data from database."}), 500
-
-    # 🧩 Dạng hiển thị markdown card
-    products_text = ""
-    for row in result:
-        info = {col: str(val) if val not in [None, 'None'] else '' for col, val in zip(columns, row)}
-        product_id = info.get('product_id', '')
-        if isinstance(row[0], bytes) and len(row[0]) == 16:
-            product_id = str(uuid.UUID(bytes=row[0]))
-
-        image_url = ""
-        if info.get("images"):
-            image_list = info["images"].split(",")
-            image_url = image_list[0].strip() if image_list else ""
-        if image_url and not image_url.startswith("https://res.cloudinary.com"):
-            image_url = f"https://res.cloudinary.com/{image_url}"
-
-        link = f"http://localhost:3000/product/{product_id}"
-
-        products_text += (
-            f"🛍 **{info.get('product_name', 'Unnamed Product')}**\n"
-        )
-        if image_url:
-            products_text += f"![Product Image]({image_url})\n"
-        products_text += (
-            f"💰 **Price:** {info.get('min_price', '0')} - {info.get('max_price', '0')} VNĐ\n"
-            f"🏷 Brand: {info.get('brand', 'Unknown')}\n"
-            f"⭐ Rating: {info.get('average_rating', '0')} ({info.get('review_count', '0')} reviews)\n"
-            f"🏪 Shop: {info.get('shop_name', 'N/A')}\n"
-            f"🔗 [View Product]({link})\n\n"
-        )
-
-    if not history or 'Smart-mall Shopping Assistant' not in str(history[0]):
-        initial_prompt = (
-            "You are **Smart-mall Shopping Assistant**, an AI helping customers discover products.\n"
-            "- Respond in English.\n"
-            "- Recommend items and describe them clearly.\n"
-            "- Always display results in Markdown card format (with image, price, and link).\n"
-            "- If data is missing, say: 'Sorry, no matching product found.'\n\n"
-            f"Here is the current catalog:\n\n{products_text}"
-        )
-        history = [{'role': 'user', 'text': initial_prompt}] + history
-
-    API_KEY = os.getenv("API_KEY")
-    MODEL = "gemini-2.0-flash"
-    URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
-
-    parts = []
-    for turn in history:
-        if turn['role'] == 'user':
-            parts.append({"text": f"User: {turn['text']}"})
-        else:
-            parts.append({"text": turn['text']})
-
-    payload = {"contents": [{"parts": parts}]}
-    headers = {"Content-Type": "application/json"}
-
     try:
-        resp = requests.post(URL, headers=headers, data=json.dumps(payload), timeout=15)
-        resp.raise_for_status()
-        result = resp.json()
-        reply = result["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as e:
-        reply = f"Error calling Gemini API: {str(e)}"
+        data = request.get_json()
+        history = data.get("history", [])
 
-    return jsonify({"reply": reply})
+        result, columns = get_products()
+        if not result or not columns:
+            return jsonify({
+                "success": False,
+                "message": "Cannot fetch product data from database.",
+                "reply": "⚠️ Không thể lấy dữ liệu sản phẩm từ database.",
+                "products": []
+            }), 500
+
+        # Helper functions cho safe conversion
+        def safe_float(val, default=0.0):
+            try:
+                return float(val) if val and val != '' else default
+            except (ValueError, TypeError):
+                return default
+        
+        def safe_int(val, default=0):
+            try:
+                return int(val) if val and val != '' else default
+            except (ValueError, TypeError):
+                return default
+
+        # 🧩 Chuẩn bị dữ liệu sản phẩm
+        products_list = []
+        products_text = ""
+        
+        for row in result:
+            info = {col: str(val) if val not in [None, 'None'] else '' for col, val in zip(columns, row)}
+            product_id = info.get('product_id', '')
+            if isinstance(row[0], bytes) and len(row[0]) == 16:
+                product_id = str(uuid.UUID(bytes=row[0]))
+
+            image_url = ""
+            if info.get("images"):
+                image_list = info["images"].split(",")
+                image_url = image_list[0].strip() if image_list else ""
+            if image_url and not image_url.startswith("https://res.cloudinary.com"):
+                image_url = f"https://res.cloudinary.com/{image_url}"
+
+            product_obj = {
+                "id": str(product_id),
+                "name": info.get('product_name', 'Unnamed Product'),
+                "image": image_url if image_url else "",
+                "minPrice": safe_float(info.get('min_price')),
+                "maxPrice": safe_float(info.get('max_price')),
+                "brand": info.get('brand') or 'Unknown',
+                "rating": safe_float(info.get('average_rating')),
+                "reviewCount": safe_int(info.get('review_count')),
+                "shopName": info.get('shop_name') or 'N/A',
+                "link": f"http://localhost:3000/product/{product_id}",
+                "category": info.get('category_name', '')
+            }
+            products_list.append(product_obj)
+
+            # Compact text cho AI
+            products_text += f"{product_obj['name']} | {product_obj['brand']} | {product_obj['category']} | {product_obj['minPrice']}-{product_obj['maxPrice']} VNĐ\n"
+
+        # System prompt với instruction rõ ràng
+        if not history or 'Smart-mall Shopping Assistant' not in str(history[0]):
+            initial_prompt = (
+                "Bạn là **Trợ lý mua sắm Smart-mall**.\n\n"
+                "**NHIỆM VỤ:**\n"
+                "1. Khi khách hỏi về sản phẩm (ví dụ: 'tìm tai nghe', 'điện thoại giá rẻ', 'laptop'), bạn phải:\n"
+                "   - Phân tích yêu cầu (loại sản phẩm, giá, thương hiệu)\n"
+                "   - Tìm 3-5 sản phẩm PHÙ HỢP NHẤT từ danh mục\n"
+                "   - Trả lời bằng tiếng Việt, giới thiệu ngắn gọn\n"
+                "   - KẾT THÚC bằng dòng: PRODUCTS:[id1,id2,id3]\n\n"
+                "2. Với câu chào hỏi thông thường ('xin chào', 'cảm ơn'), trả lời thân thiện KHÔNG cần gợi ý sản phẩm.\n\n"
+                "3. Nếu không tìm thấy sản phẩm phù hợp, nói: 'Xin lỗi, hiện không có sản phẩm phù hợp.'\n\n"
+                f"**DANH MUC SẢN PHẨM:**\n{products_text}\n"
+                "**LƯU Ý:** Luôn ưu tiên sản phẩm có rating cao, giá phù hợp với yêu cầu."
+            )
+            history = [{'role': 'user', 'text': initial_prompt}] + history
+
+        API_KEY = os.getenv("API_KEY")
+        MODEL = "gemini-2.0-flash"
+        URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
+
+        parts = []
+        for turn in history:
+            if turn['role'] == 'user':
+                parts.append({"text": f"User: {turn['text']}"})
+            else:
+                parts.append({"text": turn['text']})
+
+        payload = {"contents": [{"parts": parts}]}
+        headers = {"Content-Type": "application/json"}
+
+        try:
+            resp = requests.post(URL, headers=headers, data=json.dumps(payload), timeout=15)
+            resp.raise_for_status()
+            result = resp.json()
+            reply = result["candidates"][0]["content"]["parts"][0]["text"]
+            
+            # 🔍 Extract recommended product IDs - Hỗ trợ nhiều format
+            recommended_products = []
+            if "PRODUCTS:" in reply or "RECOMMEND_PRODUCTS:" in reply:
+                import re
+                # Tìm pattern PRODUCTS:[id1,id2,id3] hoặc RECOMMEND_PRODUCTS: [id1, id2, id3]
+                patterns = [
+                    r'PRODUCTS:\s*\[(.*?)\]',
+                    r'RECOMMEND_PRODUCTS:\s*\[(.*?)\]',
+                    r'PRODUCTS:\s*([a-f0-9\-,\s]+)',
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, reply, re.IGNORECASE)
+                    if match:
+                        ids_str = match.group(1)
+                        # Parse IDs (hỗ trợ cả có/không có dấu ngoặc vuông)
+                        product_ids = [pid.strip().strip('"').strip("'") for pid in ids_str.split(',') if pid.strip()]
+                        recommended_products = [p for p in products_list if p['id'] in product_ids]
+                        # Remove the PRODUCTS/RECOMMEND_PRODUCTS line from reply
+                        reply = re.sub(r'(PRODUCTS|RECOMMEND_PRODUCTS):\s*\[?[^\n]*\]?\n?', '', reply, flags=re.IGNORECASE).strip()
+                        break
+            
+            # Nếu AI không trả về IDs nhưng có mention product names, tự động match
+            if not recommended_products and len(reply) > 50:  # Có content dài → có thể đang recommend
+                mentioned_products = []
+                for product in products_list:
+                    # Check if product name được mention trong reply
+                    if product['name'].lower() in reply.lower():
+                        mentioned_products.append(product)
+                
+                # Lấy tối đa 5 sản phẩm được mention
+                if mentioned_products:
+                    recommended_products = mentioned_products[:5]
+            
+            response_data = {
+                "success": True,
+                "reply": reply,
+                "products": recommended_products,
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+            return jsonify(response_data), 200
+            
+        except Exception as e:
+            print(f"[ERROR] Gemini API: {str(e)}")
+            response_data = {
+                "success": False,
+                "reply": f"Lỗi kết nối AI: {str(e)}",
+                "products": [],
+                "error": str(e)
+            }
+            return jsonify(response_data), 500
+            
+    except Exception as e:
+        print(f"[ERROR] ai_chatbot endpoint: {str(e)}")
+        return jsonify({
+            "success": False,
+            "reply": "Đã xảy ra lỗi khi xử lý yêu cầu.",
+            "products": [],
+            "error": str(e)
+        }), 500
 
 
 # ==========================================================

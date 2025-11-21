@@ -6,7 +6,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { IoMdChatboxes } from "react-icons/io";
 import { MdDeleteForever } from "react-icons/md";
 import { FaStar, FaStarHalf } from "react-icons/fa";
-import { AiOutlineShoppingCart } from "react-icons/ai";
 
 const API_URL = `${process.env.NEXT_PUBLIC_URL_PYTHON}/ai_chatbot`;
 
@@ -14,24 +13,13 @@ const API_URL = `${process.env.NEXT_PUBLIC_URL_PYTHON}/ai_chatbot`;
 interface Product {
   id: string;
   name: string;
-  description: string;
-  brand: string;
-  category: string;
-  price: {
-    min: string;
-    max: string;
-    currency: string;
-  };
-  rating: {
-    average: string;
-    count: string;
-  };
-  shop: {
-    name: string;
-    avatar: string;
-    phone: string;
-  };
   image: string;
+  minPrice: number;
+  maxPrice: number;
+  brand: string;
+  rating: number;
+  reviewCount: number;
+  shopName: string;
   link: string;
 }
 
@@ -61,75 +49,110 @@ function useSessionChatHistory(initialHistory: ChatMessage[]) {
   return [history, setHistory] as const;
 }
 
-// Function để parse markdown links
-function parseMarkdownLinks(text: string) {
-  // Pattern để tìm markdown links: [text](url)
-  const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+// Function để parse markdown (links, bold, italic, lists)
+function parseMarkdown(text: string) {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  
+  lines.forEach((line, lineIndex) => {
+    // Check for bullet points
+    if (line.trim().startsWith('*') || line.trim().startsWith('-')) {
+      const content = line.trim().substring(1).trim();
+      elements.push(
+        <li key={`li-${lineIndex}`} className="ml-4 mb-1">
+          {parseInlineMarkdown(content)}
+        </li>
+      );
+    } 
+    // Check for numbered lists
+    else if (/^\d+\./.test(line.trim())) {
+      const content = line.trim().replace(/^\d+\.\s*/, '');
+      elements.push(
+        <li key={`li-${lineIndex}`} className="ml-4 mb-1 list-decimal">
+          {parseInlineMarkdown(content)}
+        </li>
+      );
+    }
+    // Regular text
+    else if (line.trim()) {
+      elements.push(
+        <p key={`p-${lineIndex}`} className="mb-2">
+          {parseInlineMarkdown(line)}
+        </p>
+      );
+    }
+    // Empty line
+    else {
+      elements.push(<br key={`br-${lineIndex}`} />);
+    }
+  });
 
-  const parts = [];
-  let lastIndex = 0;
+  return elements;
+}
+
+// Function để parse inline markdown (bold, italic, links)
+function parseInlineMarkdown(text: string) {
+  const parts: React.ReactNode[] = [];
+  let currentIndex = 0;
+  
+  // Pattern để tìm markdown: **bold**, *italic*, [link](url)
+  const pattern = /(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(\[([^\]]+)\]\(([^)]+)\))/g;
   let match;
 
-  while ((match = linkPattern.exec(text)) !== null) {
-    // Thêm text trước link
-    if (match.index > lastIndex) {
-      parts.push({
-        type: "text",
-        content: text.slice(lastIndex, match.index),
-      });
+  while ((match = pattern.exec(text)) !== null) {
+    // Thêm text trước match
+    if (match.index > currentIndex) {
+      parts.push(text.slice(currentIndex, match.index));
     }
 
-    // Thêm link
-    parts.push({
-      type: "link",
-      content: match[1], // link text
-      url: match[2], // link URL
-    });
+    // Check loại markdown
+    if (match[1]) {
+      // **bold**
+      parts.push(<strong key={match.index} className="font-semibold text-gray-900">{match[2]}</strong>);
+    } else if (match[3]) {
+      // *italic*
+      parts.push(<em key={match.index} className="italic">{match[4]}</em>);
+    } else if (match[5]) {
+      // [text](url)
+      parts.push(
+        <a
+          key={match.index}
+          href={match[7]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 underline font-medium"
+        >
+          {match[6]}
+        </a>
+      );
+    }
 
-    lastIndex = match.index + match[0].length;
+    currentIndex = match.index + match[0].length;
   }
 
   // Thêm phần text còn lại
-  if (lastIndex < text.length) {
-    parts.push({
-      type: "text",
-      content: text.slice(lastIndex),
-    });
+  if (currentIndex < text.length) {
+    parts.push(text.slice(currentIndex));
   }
 
-  return parts.length > 0 ? parts : [{ type: "text", content: text }];
+  return parts.length > 0 ? parts : text;
 }
 
 // Component để render message với markdown support
 function MessageContent({ text }: { text: string }) {
-  const parts = parseMarkdownLinks(text);
+  const elements = parseMarkdown(text);
 
   return (
-    <div className="whitespace-pre-line">
-      {parts.map((part, index) => {
-        if (part.type === "link") {
-          return (
-            <a
-              key={index}
-              href={part.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline font-medium"
-            >
-              {part.content}
-            </a>
-          );
-        }
-        return <span key={index}>{part.content}</span>;
-      })}
+    <div className="space-y-1">
+      {elements}
     </div>
   );
 }
 
 // Component để render product cards
 function ProductCard({ product }: { product: Product }) {
-  const renderStars = (rating: string) => {
-    const rate = parseFloat(rating) || 0;
+  const renderStars = (rating: number) => {
+    const rate = rating || 0;
     const stars = [];
     const fullStars = Math.floor(rate);
     const hasHalfStar = rate % 1 !== 0;
@@ -150,8 +173,8 @@ function ProductCard({ product }: { product: Product }) {
       <div className="flex gap-3">
         {product.image && (
           <div className="flex-shrink-0">
-            <Image
-              src={product.image}
+            <img
+              src={product.image.replace('cloudinary.com//', 'cloudinary.com/')}
               alt={product.name}
               width={60}
               height={60}
@@ -165,15 +188,15 @@ function ProductCard({ product }: { product: Product }) {
           </h4>
           <p className="text-xs text-gray-500 mb-1">{product.brand}</p>
           <div className="flex items-center gap-1 mb-1">
-            {renderStars(product.rating.average)}
+            {renderStars(product.rating)}
             <span className="text-xs text-gray-500">
-              ({product.rating.count})
+              ({product.reviewCount})
             </span>
           </div>
           <div className="text-sm font-semibold text-red-600 mb-2">
-            {product.price.min === product.price.max 
-              ? `${product.price.min} ${product.price.currency}`
-              : `${product.price.min} - ${product.price.max} ${product.price.currency}`
+            {product.minPrice === product.maxPrice 
+              ? `${product.minPrice.toLocaleString()} VNĐ`
+              : `${product.minPrice.toLocaleString()} - ${product.maxPrice.toLocaleString()} VNĐ`
             }
           </div>
           <div className="flex gap-2">
@@ -181,13 +204,10 @@ function ProductCard({ product }: { product: Product }) {
               href={product.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 bg-blue-600 text-white text-xs py-1 px-2 rounded text-center hover:bg-blue-700 transition"
+              className="w-full bg-blue-600 text-white text-xs py-1 px-2 rounded text-center hover:bg-blue-700 transition"
             >
-              Xem chi tiết
+              View Product
             </a>
-            <button className="flex items-center justify-center w-8 h-6 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition">
-              <AiOutlineShoppingCart className="text-xs" />
-            </button>
           </div>
         </div>
       </div>
@@ -393,7 +413,7 @@ export default function Chatbot() {
                 <div className="flex items-end mr-2">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                     <Image
-                      src="/images/chatbot.png"
+                      src="/images/chatbox.webp"
                       alt="Bot"
                       width={20}
                       height={20}
