@@ -7,6 +7,9 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AddressesScreen from '../screens/AddressesScreen';
+import CategoriesScreen from '../screens/CategoriesScreen';
+import ProductListScreen from '../screens/ProductListScreen';
+import ProductDetailScreen from '../screens/ProductDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -64,6 +67,30 @@ export default function AppNavigator() {
           component={AddressesScreen}
           options={{
             title: 'My Addresses',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Categories"
+          component={CategoriesScreen}
+          options={{
+            title: 'Categories',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ProductList"
+          component={ProductListScreen}
+          options={{
+            title: 'Products',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ProductDetail"
+          component={ProductDetailScreen}
+          options={{
+            title: 'Product Detail',
             headerShown: false,
           }}
         />

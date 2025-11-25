@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,12 @@ import {
   TouchableOpacity,
   Image,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { categoryService, Category } from '../services/categoryService';
+import { productService, Product } from '../services/productService';
+import { getCloudinaryUrl } from '../config/config';
 
 interface HomeScreenProps {
   navigation: any;
@@ -94,51 +98,124 @@ const flashDeals = [
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentBanner, setCurrentBanner] = useState(0);
-  const screenWidth = 380; // Approximate screen width minus padding
-  const bannerSpacing = 12; // Spacing between banners
+  const screenWidth = 380;
+  const bannerSpacing = 12;
   const bannerWidth = screenWidth - bannerSpacing;
+  
+  const [realCategories, setRealCategories] = useState<Category[]>([]);
+  const [featuredProductsReal, setFeaturedProductsReal] = useState<Product[]>([]);
+  const [flashDealsReal, setFlashDealsReal] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const renderCategory = ({ item }: any) => (
-    <TouchableOpacity style={styles.categoryItem}>
-      <View style={styles.categoryIcon}>
-        <Text style={styles.categoryEmoji}>{item.icon}</Text>
-      </View>
-      <Text style={styles.categoryName}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+  useEffect(() => {
+    loadHomeData();
+  }, []);
 
-  const renderProduct = (product: any) => (
-    <TouchableOpacity key={product.id} style={styles.productCard}>
-      <View style={styles.productImageContainer}>
-        <View style={styles.productImagePlaceholder}>
-          <Text style={styles.productImageText}>📦</Text>
-        </View>
-        {product.discount && (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>-{product.discount}%</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.productInfo}>
-        <Text style={styles.productName} numberOfLines={2}>
-          {product.name}
-        </Text>
-        <View style={styles.ratingContainer}>
-          <Text style={styles.ratingStar}>⭐</Text>
-          <Text style={styles.ratingText}>{product.rating}</Text>
-        </View>
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>${product.price}</Text>
-          {product.originalPrice && (
-            <Text style={styles.originalPrice}>${product.originalPrice}</Text>
+  const loadHomeData = async () => {
+    try {
+      setIsLoading(true);
+      
+      const [categoriesRes, featuredRes, dealsRes] = await Promise.all([
+        categoryService.getAllCategories(),
+        productService.getProducts({ page: 0, size: 8, sort: 'createdAt,desc' }),
+        productService.getProductsOnSale(0, 4, 10)
+      ]);
+
+      if (categoriesRes.success && categoriesRes.data) {
+        const cats = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
+        setRealCategories(cats.slice(0, 8));
+      }
+
+      if (featuredRes.success && featuredRes.data) {
+        const products = featuredRes.data.content || featuredRes.data || [];
+        setFeaturedProductsReal(products);
+      }
+
+      if (dealsRes.success && dealsRes.data) {
+        const deals = dealsRes.data.content || dealsRes.data || [];
+        setFlashDealsReal(deals);
+      }
+    } catch (error) {
+      console.error('Error loading home data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderCategory = ({ item }: any) => {
+    const isRealCategory = item.image !== undefined;
+    return (
+      <TouchableOpacity 
+        style={styles.categoryItem}
+        onPress={() => navigation.navigate('ProductList', { categoryId: item.id, categoryName: item.name })}
+      >
+        <View style={styles.categoryIcon}>
+          {isRealCategory && item.image ? (
+            <Image 
+              source={{ uri: getCloudinaryUrl(item.image) }} 
+              style={styles.categoryIconImage}
+            />
+          ) : (
+            <Text style={styles.categoryEmoji}>{item.icon || '📋'}</Text>
           )}
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+        <Text style={styles.categoryName}>{item.name}</Text>
+      </TouchableOpacity>
+    );
+  };
 
-  const renderFlashDeal = (deal: any) => (
-    <TouchableOpacity key={deal.id} style={styles.flashDealCard}>
+  const renderProduct = (product: any, index: number) => {
+    const isRealProduct = product.variants !== undefined;
+    const price = isRealProduct && product.variants?.length > 0 ? product.variants[0].price : product.price;
+    const rating = product.averageRating || product.rating || 0;
+    
+    return (
+      <TouchableOpacity 
+        key={`product-${product.id}-${index}`} 
+        style={styles.productCard}
+        onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+      >
+        <View style={styles.productImageContainer}>
+          {isRealProduct && product.images && product.images.length > 0 ? (
+            <Image 
+              source={{ uri: getCloudinaryUrl(product.images[0]) }} 
+              style={styles.productImage}
+            />
+          ) : (
+            <View style={styles.productImagePlaceholder}>
+              <Text style={styles.productImageText}>📦</Text>
+            </View>
+          )}
+          {product.discount && product.discount > 0 && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>-{product.discount}%</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.productInfo}>
+          <Text style={styles.productName} numberOfLines={2}>
+            {product.name}
+          </Text>
+          <View style={styles.ratingContainer}>
+            <Text style={styles.ratingStar}>⭐</Text>
+            <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+          </View>
+          <View style={styles.priceContainer}>
+            <Text style={styles.price}>
+              {price ? `${price.toLocaleString('vi-VN')}đ` : 'N/A'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderFlashDeal = (deal: any, index: number) => (
+    <TouchableOpacity 
+      key={`deal-${deal.id}-${index}`} 
+      style={styles.flashDealCard}
+      onPress={() => navigation.navigate('ProductDetail', { productId: deal.id })}
+    >
       <View style={styles.flashDealImageContainer}>
         <View style={styles.flashDealImagePlaceholder}>
           <Text style={styles.flashDealImageText}>⚡</Text>
@@ -254,18 +331,22 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Categories</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Categories')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={categories}
-            renderItem={renderCategory}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesList}
-          />
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#2563eb" style={{ padding: 20 }} />
+          ) : (
+            <FlatList
+              data={realCategories.length > 0 ? realCategories : categories as any}
+              renderItem={renderCategory}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesList}
+            />
+          )}
         </View>
 
         {/* Flash Deals */}
@@ -279,13 +360,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.flashDealsList}
-          >
-            {flashDeals.map(renderFlashDeal)}
-          </ScrollView>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#2563eb" style={{ padding: 20 }} />
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.flashDealsList}
+            >
+              {(flashDealsReal.length > 0 ? flashDealsReal : flashDeals).map((deal, index) => renderFlashDeal(deal, index))}
+            </ScrollView>
+          )}
         </View>
 
         {/* Featured Products */}
@@ -296,9 +381,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.productsGrid}>
-            {featuredProducts.map(renderProduct)}
-          </View>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#2563eb" style={{ padding: 20 }} />
+          ) : (
+            <View style={styles.productsGrid}>
+              {(featuredProductsReal.length > 0 ? featuredProductsReal : featuredProducts).map((product, index) => renderProduct(product, index))}
+            </View>
+          )}
         </View>
 
         {/* Bottom Spacing */}
@@ -311,7 +400,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.navIcon}>🏠</Text>
           <Text style={[styles.navLabel, styles.navLabelActive]}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate('Categories')}
+        >
           <Text style={styles.navIcon}>📂</Text>
           <Text style={styles.navLabel}>Categories</Text>
         </TouchableOpacity>
@@ -497,6 +589,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#f0f0f0',
+    overflow: 'hidden',
+  },
+  categoryIconImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   categoryEmoji: {
     fontSize: 28,
@@ -615,6 +713,12 @@ const styles = StyleSheet.create({
     height: 140,
     backgroundColor: '#f8f9fa',
     position: 'relative',
+    overflow: 'hidden',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   productImagePlaceholder: {
     flex: 1,
