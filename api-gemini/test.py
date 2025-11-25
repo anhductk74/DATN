@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 from PIL import Image
 
-client = genai.Client(api_key="AIzaSyCdeoOtWgL3h1xRDiOclJwbMPsjhDw3oK0")
+client = genai.Client(api_key="")
 
 prompt = (
     "Generate a realistic fashion image of the model wearing the outfit. "
