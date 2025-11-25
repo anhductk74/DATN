@@ -49,10 +49,19 @@ export default function ProductListScreen({ navigation, route }: ProductListScre
         if (pageNum === 0) {
           setProducts(newProducts);
         } else {
-          setProducts(prev => [...prev, ...newProducts]);
+          // Chỉ append nếu có products mới và loại bỏ trùng lặp
+          if (newProducts.length > 0) {
+            setProducts(prev => {
+              const existingIds = new Set(prev.map((p: Product) => p.id));
+              const uniqueNewProducts = newProducts.filter((p: Product) => !existingIds.has(p.id));
+              return [...prev, ...uniqueNewProducts];
+            });
+          }
         }
         
-        setHasMore(!response.data.last && !(response.data.products?.last));
+        // Kiểm tra xem còn trang tiếp theo không
+        const isLast = response.data.last || response.data.products?.last || newProducts.length === 0;
+        setHasMore(!isLast);
         setPage(pageNum);
       } else {
         Alert.alert('Error', response.message);
@@ -67,7 +76,7 @@ export default function ProductListScreen({ navigation, route }: ProductListScre
   };
 
   const loadMore = () => {
-    if (!isLoadingMore && hasMore && !onEndReachedCalledDuringMomentum) {
+    if (!isLoadingMore && hasMore && !onEndReachedCalledDuringMomentum && products.length > 0) {
       setOnEndReachedCalledDuringMomentum(true);
       loadProducts(page + 1);
     }
@@ -148,14 +157,19 @@ export default function ProductListScreen({ navigation, route }: ProductListScre
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
         numColumns={2}
+        columnWrapperStyle={styles.row}
         contentContainerStyle={styles.productsList}
         onEndReached={loadMore}
-        onEndReachedThreshold={0.3}
+        onEndReachedThreshold={0.5}
         onMomentumScrollBegin={() => setOnEndReachedCalledDuringMomentum(false)}
         ListFooterComponent={
-          isLoadingMore ? (
+          isLoadingMore && hasMore ? (
             <View style={styles.loadingMore}>
               <ActivityIndicator size="small" color="#2563eb" />
+            </View>
+          ) : !hasMore && products.length > 0 ? (
+            <View style={styles.endOfList}>
+              <Text style={styles.endOfListText}>No more products</Text>
             </View>
           ) : null
         }
@@ -211,12 +225,15 @@ const styles = StyleSheet.create({
   productsList: {
     padding: 8,
   },
+  row: {
+    justifyContent: 'space-between',
+  },
   productCard: {
-    width: '48%',
+    width: '48.5%',
     backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
-    margin: '1%',
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#f0f0f0',
   },
@@ -310,6 +327,14 @@ const styles = StyleSheet.create({
   loadingMore: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  endOfList: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  endOfListText: {
+    fontSize: 14,
+    color: '#999',
   },
   emptyContainer: {
     flex: 1,

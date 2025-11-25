@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +28,27 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [verificationCode, setVerificationCode] = useState('');
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const passwordInputRef = useRef<TextInput>(null);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    loadSavedCredentials();
+  }, []);
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedEmail = await AsyncStorage.getItem('savedEmail');
+      const savedRememberMe = await AsyncStorage.getItem('rememberMe');
+      if (savedEmail && savedRememberMe === 'true') {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.error('Error loading saved credentials:', error);
+    }
+  };
 
   const handleSendCode = async () => {
     if (!email.trim()) {
@@ -92,6 +114,16 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem('accessToken', response.data.accessToken);
         await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        
+        // Save credentials if remember me is checked
+        if (rememberMe) {
+          await AsyncStorage.setItem('savedEmail', email);
+          await AsyncStorage.setItem('rememberMe', 'true');
+        } else {
+          await AsyncStorage.removeItem('savedEmail');
+          await AsyncStorage.removeItem('rememberMe');
+        }
+        
         navigation.replace('Home');
       } else {
         Alert.alert('Error', response.message || 'Login failed');
@@ -259,16 +291,40 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>Password</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your password"
-                    placeholderTextColor="#999"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    editable={!isLoading}
-                  />
+                  <View style={styles.passwordContainer}>
+                    <TextInput
+                      ref={passwordInputRef}
+                      style={styles.passwordInput}
+                      placeholder="Enter your password"
+                      placeholderTextColor="#999"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      editable={!isLoading}
+                    />
+                    <Pressable
+                      style={styles.eyeButton}
+                      onPress={() => {
+                        setShowPassword(!showPassword);
+                        setTimeout(() => passwordInputRef.current?.focus(), 0);
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                    </Pressable>
+                  </View>
                 </View>
+
+                <TouchableOpacity
+                  style={styles.rememberMeContainer}
+                  onPress={() => setRememberMe(!rememberMe)}
+                  disabled={isLoading}
+                >
+                  <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                    {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.rememberMeText}>Remember me</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -438,6 +494,54 @@ const styles = StyleSheet.create({
     color: '#2563eb',
     fontSize: 16,
     fontWeight: '600',
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 15,
+    paddingRight: 50,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 15,
+    top: 15,
+  },
+  eyeIcon: {
+    fontSize: 20,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#2563eb',
+    borderRadius: 4,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#2563eb',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  rememberMeText: {
+    color: '#333',
+    fontSize: 14,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { userService, UserProfile } from '../services/userService';
@@ -32,6 +33,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // Password visibility
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const currentPasswordInputRef = useRef<TextInput>(null);
+  const newPasswordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     loadProfile();
@@ -365,38 +374,77 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Current Password *</Text>
-              <TextInput
-                style={styles.input}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="Enter current password"
-                placeholderTextColor="#999"
-                secureTextEntry
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  ref={currentPasswordInputRef}
+                  style={styles.passwordInput}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Enter current password"
+                  placeholderTextColor="#999"
+                  secureTextEntry={!showCurrentPassword}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => {
+                    setShowCurrentPassword(!showCurrentPassword);
+                    setTimeout(() => currentPasswordInputRef.current?.focus(), 0);
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.eyeIcon}>{showCurrentPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>New Password *</Text>
-              <TextInput
-                style={styles.input}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="Enter new password"
-                placeholderTextColor="#999"
-                secureTextEntry
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  ref={newPasswordInputRef}
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Enter new password"
+                  placeholderTextColor="#999"
+                  secureTextEntry={!showNewPassword}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => {
+                    setShowNewPassword(!showNewPassword);
+                    setTimeout(() => newPasswordInputRef.current?.focus(), 0);
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.eyeIcon}>{showNewPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirm Password *</Text>
-              <TextInput
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter new password"
-                placeholderTextColor="#999"
-                secureTextEntry
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  ref={confirmPasswordInputRef}
+                  style={styles.passwordInput}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Re-enter new password"
+                  placeholderTextColor="#999"
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <Pressable
+                  style={styles.eyeButton}
+                  onPress={() => {
+                    setShowConfirmPassword(!showConfirmPassword);
+                    setTimeout(() => confirmPasswordInputRef.current?.focus(), 0);
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.eyeIcon}>{showConfirmPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -407,6 +455,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                   setCurrentPassword('');
                   setNewPassword('');
                   setConfirmPassword('');
+                  setShowCurrentPassword(false);
+                  setShowNewPassword(false);
+                  setShowConfirmPassword(false);
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -699,5 +750,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 16,
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    paddingRight: 50,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+  },
+  eyeIcon: {
+    fontSize: 20,
   },
 });
