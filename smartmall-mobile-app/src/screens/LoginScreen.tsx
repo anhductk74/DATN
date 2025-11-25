@@ -5,12 +5,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/authService';
 
 interface LoginScreenProps {
@@ -59,9 +60,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     try {
       const response = await authService.verifyLoginCode(email, verificationCode);
       if (response.success && response.data) {
-        Alert.alert('Success', 'Login successful!');
-        // Navigate to main app or home screen
-        // navigation.navigate('Home');
+        // Lưu token vào AsyncStorage
+        await AsyncStorage.setItem('accessToken', response.data.accessToken);
+        await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        navigation.replace('Home');
       } else {
         Alert.alert('Error', response.message || 'Invalid verification code');
       }
@@ -87,9 +89,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     try {
       const response = await authService.loginWithPassword(email, password);
       if (response.success && response.data) {
-        Alert.alert('Success', 'Login successful!');
-        // Navigate to main app or home screen
-        // navigation.navigate('Home');
+        // Lưu token vào AsyncStorage
+        await AsyncStorage.setItem('accessToken', response.data.accessToken);
+        await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        navigation.replace('Home');
       } else {
         Alert.alert('Error', response.message || 'Login failed');
       }

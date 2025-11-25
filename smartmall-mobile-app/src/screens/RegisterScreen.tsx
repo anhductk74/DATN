@@ -5,12 +5,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/authService';
 
 interface RegisterScreenProps {
@@ -82,19 +83,10 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
       });
 
       if (response.success && response.data) {
-        Alert.alert(
-          'Success',
-          'Account created successfully!',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate to main app or home screen
-                // navigation.navigate('Home');
-              },
-            },
-          ]
-        );
+        // Lưu token vào AsyncStorage
+        await AsyncStorage.setItem('accessToken', response.data.accessToken);
+        await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        navigation.replace('Home');
       } else {
         Alert.alert('Error', response.message || 'Registration failed');
       }
