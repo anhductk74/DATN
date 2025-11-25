@@ -63,4 +63,26 @@ public class AuthController {
         // if needed for additional security.
         return ResponseEntity.ok(ApiResponse.success("Logout successful", "Token invalidated"));
     }
+
+    // Mobile app email login - Step 1: Send verification code
+    @PostMapping("/mobile/send-login-code")
+    public ResponseEntity<ApiResponse<String>> sendMobileLoginCode(@Valid @RequestBody MobileEmailLoginRequestDto request) {
+        try {
+            authService.sendMobileLoginCode(request);
+            return ResponseEntity.ok(ApiResponse.success("Verification code sent to your email", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // Mobile app email login - Step 2: Verify code and login
+    @PostMapping("/mobile/verify-login-code")
+    public ResponseEntity<ApiResponse<AuthResponseDto>> verifyMobileLoginCode(@Valid @RequestBody MobileVerifyCodeRequestDto request) {
+        try {
+            AuthResponseDto response = authService.verifyMobileLoginCode(request);
+            return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
 }
