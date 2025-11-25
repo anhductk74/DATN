@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os, datetime, json, requests, uuid, base64, shutil
-import mysql.connector
+import pymysql
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 
@@ -34,12 +34,13 @@ def get_products():
             return product_cache['result'], product_cache['columns']
 
     try:
-        conn = mysql.connector.connect(
+        conn = pymysql.connect(
             host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT"),
+            port=int(os.getenv("DB_PORT", 3306)),
             database=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
+            charset='utf8mb4'
         )
         cursor = conn.cursor()
         query = '''
@@ -405,6 +406,110 @@ def ai_chatbot():
             "products": [],
             "error": str(e)
         }), 500
+
+
+# ==========================================================
+# 🎨 API TẠO ẢNH THỜI TRANG VỚI GEMINI (FORM-DATA)
+# ==========================================================
+@app.route('/ai_generate_fashion', methods=['POST'])
+def ai_generate_fashion():
+    """
+    Input form-data:
+    - model_image: file (required)
+    - outfit_images: files (required, multiple files)
+    """
+    try:
+        from google import genai
+        from google.genai import types
+        from PIL import Image
+        
+        # Get uploaded files from form-data
+        model_file = request.files.get('model_image')
+        outfit_files = request.files.getlist('outfit_images')
+        
+        if not model_file:
+            return jsonify({"error": "Missing model_image file"}), 400
+        
+        if not outfit_files:
+            return jsonify({"error": "Missing outfit_images files"}), 400
+        
+        # Save uploaded files temporarily
+        saved_files = []
+        
+        # Save model image with correct extension
+        model_ext = os.path.splitext(model_file.filename)[1] or '.png'
+        model_filename = f"model_{uuid.uuid4().hex[:8]}{model_ext}"
+        model_path = os.path.join(IMAGES_DIR, model_filename)
+        model_file.save(model_path)
+        saved_files.append(model_path)
+        
+        # Save outfit images with correct extensions
+        outfit_paths = []
+        for i, outfit_file in enumerate(outfit_files):
+            outfit_ext = os.path.splitext(outfit_file.filename)[1] or '.png'
+            outfit_filename = f"outfit_{uuid.uuid4().hex[:8]}_{i}{outfit_ext}"
+            outfit_path = os.path.join(IMAGES_DIR, outfit_filename)
+            outfit_file.save(outfit_path)
+            saved_files.append(outfit_path)
+            outfit_paths.append(outfit_path)
+        
+        # Generate with Gemini
+        API_KEY = os.getenv("API_KEY")
+        client = genai.Client(api_key=API_KEY)
+        
+        prompt = (
+    "Generate a photorealistic fashion image of a model wearing the outfit. "
+    "Input may include only a shirt, only pants, or both. "
+    "Keep the model's face, pose, and background consistent. "
+    "Blend clothing naturally onto the model, maintaining realistic proportions and lighting. "
+    "High-quality, professional fashion photography style."
+)
+        
+        # Load images
+        image_model = Image.open(model_path)
+        outfit_images = [Image.open(path) for path in outfit_paths]
+        
+        # Generate content
+        contents = [prompt, image_model] + outfit_images
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=contents,
+        )
+        
+        # Save generated image
+        result_text = None
+        result_image_path = None
+        
+        for part in response.parts:
+            if part.text is not None:
+                result_text = part.text
+            elif part.inline_data is not None:
+                image = part.as_image()
+                result_filename = f"generated_{uuid.uuid4().hex[:8]}.png"
+                result_image_path = os.path.join(IMAGES_DIR, result_filename)
+                image.save(result_image_path)
+        
+        # Cleanup uploaded files (giữ lại file generated)
+        cleanup_media_files(saved_files)
+        
+        # Return result
+        result_data = {
+            "success": True,
+            "text": result_text,
+            "image_path": result_image_path if result_image_path else None
+        }
+        
+        # Convert image to base64 for response
+        if result_image_path and os.path.exists(result_image_path):
+            with open(result_image_path, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("utf-8")
+                result_data["image_base64"] = f"data:image/png;base64,{image_base64}"
+        
+        return jsonify(result_data), 200
+        
+    except Exception as e:
+        print(f"[ERROR] ai_generate_fashion: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ==========================================================
