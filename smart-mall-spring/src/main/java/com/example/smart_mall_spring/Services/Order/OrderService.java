@@ -4,6 +4,7 @@ import com.example.smart_mall_spring.Dtos.Address.AddressResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.*;
 import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemRequestDto;
 import com.example.smart_mall_spring.Dtos.Orders.OrderItem.OrderItemResponseDto;
+import com.example.smart_mall_spring.Dtos.Orders.OrderTrackingLog.OrderTrackingLogRequest;
 import com.example.smart_mall_spring.Dtos.Orders.OrderVoucher.OrderVoucherResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.Payment.PaymentResponseDto;
 import com.example.smart_mall_spring.Dtos.Orders.ShippingFee.ShippingFeeResponseDto;
@@ -43,6 +44,7 @@ public class OrderService {
     private final UserAddressRepository userAddressRepository;
     private final ProductVariantRepository productVariantRepository;
     private final WalletService walletService;
+    private final OrderTrackingLogService orderTrackingLogService;
 
     /**
      * 🛒 Tạo đơn hàng mới
@@ -187,7 +189,7 @@ public class OrderService {
         return mapToOrderResponseDto(order, subtotal, shippingFeeAmount, totalDiscount, appliedVouchers);
     }
     public List<OrderResponseDto> getOrdersForShipmentManagement() {
-        List<Order> orders = orderRepository.findByStatus(StatusOrder.SHIPPING);
+        List<Order> orders = orderRepository.findByStatus(StatusOrder.CONFIRMED);
 
         return orders.stream().map(order -> {
             double subtotal = order.getItems().stream().mapToDouble(OrderItem::getSubtotal).sum();
@@ -402,7 +404,15 @@ public class OrderService {
         history.setNote("Status updated to " + dto.getStatus());
         history.setChangedAt(LocalDateTime.now());
         orderStatusHistoryRepository.save(history);
-        
+
+        if (dto.getStatus() == StatusOrder.PACKED) {
+            orderTrackingLogService.recordTrackingLog(order, new OrderTrackingLogRequest(
+                    "SHOP",                         // Carrier hoặc đơn vị xử lý
+                    order.getId().toString(),       // trackingNumber - có thể dùng orderId
+                    order.getShop().getAddress().getStreet(),
+                    "Đơn hàng đã được đóng gói"
+            ));
+        }
         // Cập nhật wallet khi đơn hàng hoàn thành
         if (dto.getStatus() == StatusOrder.DELIVERED) {
             try {

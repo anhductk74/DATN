@@ -239,7 +239,7 @@ export const orderApiService = {
   },
 
   async getOrdersReadyForShipment(): Promise<OrderResponseDto[]> {
-    const response = await apiClient.get<OrderResponseDto[]>('/api/orders/shipping');
+    const response = await apiClient.get<OrderResponseDto[]>('/api/orders/confirmed');
     return response.data;
   },
 };

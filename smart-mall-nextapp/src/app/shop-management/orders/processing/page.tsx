@@ -27,11 +27,14 @@ import {
   InboxOutlined,
   CheckCircleOutlined,
   PlayCircleOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  PrinterOutlined
 } from "@ant-design/icons";
 import type { ColumnsType } from 'antd/es/table';
 import { orderApiService, OrderStatus, PaymentMethod, type OrderResponseDto } from "@/services/OrderApiService";
 import { shopService, type Shop } from "@/services/ShopService";
+import { ShipmentOrderService, ShipmentStatus, type ShipmentOrderResponseDto } from "@/services/ShipmentOrderService";
+import { GhtkService } from "@/services/GhtkService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
@@ -59,6 +62,8 @@ export default function ProcessingOrdersPage() {
     pageSize: 10,
     total: 0
   });
+  const [shipmentOrders, setShipmentOrders] = useState<Map<string, ShipmentOrderResponseDto>>(new Map());
+  const [printingLabel, setPrintingLabel] = useState<string | null>(null);
 
   // Load shop data when user changes
   useEffect(() => {
@@ -115,6 +120,23 @@ export default function ProcessingOrdersPage() {
     }
   };
 
+  const checkShipmentOrders = async (orders: OrderResponseDto[]) => {
+    const shipmentMap = new Map<string, ShipmentOrderResponseDto>();
+    
+    for (const order of orders) {
+      try {
+        const shipment = await ShipmentOrderService.getByOrderId(order.id);
+        if (shipment) {
+          shipmentMap.set(order.id, shipment);
+        }
+      } catch (error) {
+        // Không có shipment cho order này, bỏ qua
+      }
+    }
+    
+    setShipmentOrders(shipmentMap);
+  };
+
   const loadProcessingOrders = async () => {
     if (!currentShopId) {
       return;
@@ -154,6 +176,9 @@ export default function ProcessingOrdersPage() {
         total: allOrders.length
       }));
       
+      // Kiểm tra shipment orders cho các đơn hàng đã load
+      await checkShipmentOrders(paginatedOrders);
+      
       // Orders loaded successfully - no need to show message for normal operation
       
     } catch (error: any) {
@@ -187,6 +212,36 @@ export default function ProcessingOrdersPage() {
       [OrderStatus.RETURNED]: { step: 0, text: 'Returned', progress: 0 },
     };
     return stages[status] || { step: 0, text: 'Processing', progress: 0 };
+  };
+
+  const handlePrintLabel = async (orderId: string) => {
+    const shipment = shipmentOrders.get(orderId);
+    if (!shipment || !shipment.trackingCode) {
+      message.error('Không tìm thấy mã vận đơn GHTK');
+      return;
+    }
+
+    setPrintingLabel(orderId);
+    try {
+      const labelBlob = await GhtkService.printLabel(shipment.trackingCode);
+      
+      // Tạo URL từ blob và tải xuống
+      const url = window.URL.createObjectURL(labelBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `label-${shipment.trackingCode}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      message.success('Đã tải nhãn vận đơn thành công');
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Không thể in nhãn vận đơn';
+      message.error(errorMessage);
+    } finally {
+      setPrintingLabel(null);
+    }
   };
 
   const handleMoveToNextStage = async (orderId: string, currentStatus: OrderStatus) => {
@@ -377,29 +432,47 @@ export default function ProcessingOrdersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
-      render: (_, record) => (
-        <Space size="small">
-          <Button 
-            type="text" 
-            icon={<EyeOutlined />} 
-            size="small"
-            title="View Details"
-            onClick={() => {
-              setSelectedOrder(record);
-              setOrderDetailVisible(true);
-            }}
-          />
-          <Button 
-            type="primary"
-            size="small"
-            loading={processing === record.id}
-            onClick={() => handleMoveToNextStage(record.id, record.status)}
-          >
-            {record.status === OrderStatus.CONFIRMED ? 'Start Packing' : 'Start Shipping'}
-          </Button>
-        </Space>
-      ),
+      width: 280,
+      render: (_, record) => {
+        const shipment = shipmentOrders.get(record.id);
+        const hasRegisteredShipment = shipment && 
+          (shipment.status === ShipmentStatus.REGISTERED || shipment.status === ShipmentStatus.PENDING) && 
+          shipment.trackingCode;
+        
+        return (
+          <Space size="small" wrap>
+            <Button 
+              type="text" 
+              icon={<EyeOutlined />} 
+              size="small"
+              title="View Details"
+              onClick={() => {
+                setSelectedOrder(record);
+                setOrderDetailVisible(true);
+              }}
+            />
+            {record.status === OrderStatus.PACKED && hasRegisteredShipment ? (
+              <Button 
+                type="default"
+                size="small"
+                icon={<PrinterOutlined />}
+                loading={printingLabel === record.id}
+                onClick={() => handlePrintLabel(record.id)}
+              >
+                In nhãn
+              </Button>
+            ) : null}
+            <Button 
+              type="primary"
+              size="small"
+              loading={processing === record.id}
+              onClick={() => handleMoveToNextStage(record.id, record.status)}
+            >
+              {record.status === OrderStatus.CONFIRMED ? 'Start Packing' : 'Start Shipping'}
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -528,25 +601,81 @@ export default function ProcessingOrdersPage() {
         open={orderDetailVisible}
         onCancel={() => setOrderDetailVisible(false)}
         width={900}
-        footer={[
-          <Button key="close" onClick={() => setOrderDetailVisible(false)}>
-            Close
-          </Button>,
-          <Button 
-            key="next" 
-            type="primary"
-            icon={selectedOrder?.status === OrderStatus.CONFIRMED ? <InboxOutlined /> : <PlayCircleOutlined />}
-            onClick={() => {
-              handleMoveToNextStage(selectedOrder!.id, selectedOrder!.status);
-              setOrderDetailVisible(false);
-            }}
-          >
-            {selectedOrder?.status === OrderStatus.CONFIRMED ? 'Start Packing' : 'Start Shipping'}
-          </Button>
-        ]}
+        footer={(() => {
+          const shipment = selectedOrder ? shipmentOrders.get(selectedOrder.id) : null;
+          const hasRegisteredShipment = shipment && 
+            (shipment.status === ShipmentStatus.REGISTERED || shipment.status === ShipmentStatus.PENDING) && 
+            shipment.trackingCode;
+          
+          return [
+            <Button key="close" onClick={() => setOrderDetailVisible(false)}>
+              Close
+            </Button>,
+            selectedOrder?.status === OrderStatus.PACKED && hasRegisteredShipment && (
+              <Button 
+                key="print"
+                icon={<PrinterOutlined />}
+                loading={printingLabel === selectedOrder?.id}
+                onClick={() => {
+                  if (selectedOrder) {
+                    handlePrintLabel(selectedOrder.id);
+                  }
+                }}
+              >
+                In nhãn
+              </Button>
+            ),
+            <Button 
+              key="next" 
+              type="primary"
+              icon={selectedOrder?.status === OrderStatus.CONFIRMED ? <InboxOutlined /> : <PlayCircleOutlined />}
+              onClick={() => {
+                handleMoveToNextStage(selectedOrder!.id, selectedOrder!.status);
+                setOrderDetailVisible(false);
+              }}
+            >
+              {selectedOrder?.status === OrderStatus.CONFIRMED ? 'Start Packing' : 'Start Shipping'}
+            </Button>
+          ];
+        })()}
       >
         {selectedOrder && (
           <div className="space-y-6">
+            {/* Shipment Information */}
+            {(() => {
+              const shipment = shipmentOrders.get(selectedOrder.id);
+              if (shipment && shipment.trackingCode) {
+                return (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="text-md font-medium text-blue-900 mb-2">
+                          Thông tin vận đơn GHTK
+                        </h4>
+                        <p className="text-sm text-blue-800">
+                          <strong>Mã vận đơn:</strong> <span className="font-mono">{shipment.trackingCode}</span>
+                        </p>
+                        <p className="text-sm text-blue-800">
+                          <strong>Trạng thái:</strong> <Tag color="blue">{ShipmentOrderService.formatStatus(shipment.status)}</Tag>
+                        </p>
+                      </div>
+                      {(shipment.status === ShipmentStatus.REGISTERED || shipment.status === ShipmentStatus.PENDING) && (
+                        <Button 
+                          type="primary"
+                          icon={<PrinterOutlined />}
+                          loading={printingLabel === selectedOrder.id}
+                          onClick={() => handlePrintLabel(selectedOrder.id)}
+                        >
+                          In nhãn
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {/* Processing Pipeline */}
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
               <h4 className="text-lg font-medium mb-4 text-center">Processing Pipeline</h4>
