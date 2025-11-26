@@ -28,6 +28,12 @@ public class User extends BaseEntity {
     @Column(name = "resetpasswordcodecreationtime")
     private LocalDateTime resetPasswordCodeCreationTime;
 
+    @Column(name = "logincode")
+    private String loginCode;
+
+    @Column(name = "logincodecreationtime")
+    private LocalDateTime loginCodeCreationTime;
+
     @Column(name = "is_active", nullable = false, columnDefinition = "int default 0")
     private int isActive;
 

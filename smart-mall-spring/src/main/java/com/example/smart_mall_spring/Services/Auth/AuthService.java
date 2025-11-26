@@ -21,8 +21,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,6 +53,9 @@ public class AuthService {
 
     @Autowired
     private GoogleOAuth2Service googleOAuth2Service;
+
+    @Autowired
+    private EmailService emailService;
 
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
@@ -262,5 +267,109 @@ public class AuthService {
                 .isActive(user.getIsActive())
                 .roles(roleNames)
                 .build();
+    }
+
+    // Mobile email login - Step 1: Send verification code
+    public void sendMobileLoginCode(MobileEmailLoginRequestDto request) {
+        logger.info("Mobile login code request for username: {}", request.getUsername());
+        
+        // Find user by username
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> {
+                    logger.warn("Username does not exist: {}", request.getUsername());
+                    return new CustomException("Username does not exist");
+                });
+
+        // Check if user is active
+        if (user.getIsActive() != 1) {
+            logger.warn("Inactive account attempted login: {}", request.getUsername());
+            throw new CustomException("Account is not active");
+        }
+
+        // Generate 6-digit code
+        String code = generateSixDigitCode();
+        logger.debug("Generated login code for user: {}", request.getUsername());
+        
+        // Save code and creation time to database
+        user.setLoginCode(code);
+        user.setLoginCodeCreationTime(LocalDateTime.now());
+        userRepository.save(user);
+        logger.info("Login code saved to database for user: {}", request.getUsername());
+
+        // Send code via email
+        try {
+            emailService.sendLoginCode(request.getUsername(), code);
+            logger.info("Login code email sent successfully to: {}", request.getUsername());
+        } catch (Exception e) {
+            logger.error("Failed to send login code email to: {}. Error: {}", request.getUsername(), e.getMessage(), e);
+            throw new CustomException("Failed to send verification code. Please try again.");
+        }
+    }
+
+    // Mobile email login - Step 2: Verify code and login
+    public AuthResponseDto verifyMobileLoginCode(MobileVerifyCodeRequestDto request) {
+        logger.info("Mobile login code verification for username: {}", request.getUsername());
+        
+        // Find user by username
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> {
+                    logger.warn("Username does not exist during verification: {}", request.getUsername());
+                    return new CustomException("Username does not exist");
+                });
+
+        // Check if user is active
+        if (user.getIsActive() != 1) {
+            logger.warn("Inactive account attempted verification: {}", request.getUsername());
+            throw new CustomException("Account is not active");
+        }
+
+        // Check if code exists
+        if (user.getLoginCode() == null || user.getLoginCodeCreationTime() == null) {
+            logger.warn("No verification code found for user: {}", request.getUsername());
+            throw new CustomException("No verification code found. Please request a new code.");
+        }
+
+        // Check if code is expired (5 minutes)
+        LocalDateTime expirationTime = user.getLoginCodeCreationTime().plusMinutes(5);
+        if (LocalDateTime.now().isAfter(expirationTime)) {
+            logger.warn("Verification code expired for user: {}", request.getUsername());
+            throw new CustomException("Verification code has expired. Please request a new code.");
+        }
+
+        // Verify code
+        if (!user.getLoginCode().equals(request.getCode())) {
+            logger.warn("Invalid verification code for user: {}", request.getUsername());
+            throw new CustomException("Invalid verification code");
+        }
+
+        logger.info("Verification code validated successfully for user: {}", request.getUsername());
+
+        // Clear the code after successful verification
+        user.setLoginCode(null);
+        user.setLoginCodeCreationTime(null);
+        userRepository.save(user);
+
+        // Generate tokens
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+        String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        UserInfoDto userInfo = buildUserInfoDto(user);
+
+        logger.info("Mobile login successful for user: {}", request.getUsername());
+
+        return AuthResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .expiresIn(jwtExpiration / 1000)
+                .userInfo(userInfo)
+                .build();
+    }
+
+    private String generateSixDigitCode() {
+        Random random = new Random();
+        int code = 100000 + random.nextInt(900000); // Generate number between 100000 and 999999
+        return String.valueOf(code);
     }
 }
