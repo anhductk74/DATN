@@ -411,9 +411,9 @@ def ai_chatbot():
 # ==========================================================
 # 🎨 HELPER FUNCTIONS CHO FASHION API
 # ==========================================================
-def extract_garment(garment_image_path, garment_type, garment_name):
+def extract_garment_internal(garment_image_path, garment_type, garment_name, custom_prompt=None):
     """
-    Step 1: Extract specific garment from photo using Gemini
+    Internal helper: Extract specific garment from photo using Gemini
     Returns: path to extracted garment image
     """
     from google import genai
@@ -422,13 +422,18 @@ def extract_garment(garment_image_path, garment_type, garment_name):
     API_KEY = os.getenv("API_KEY")
     client = genai.Client(api_key=API_KEY)
     
+    user_hint = ""
+    if custom_prompt:
+        user_hint = f"\nIMPORTANT USER HINT: The user has specifically described this item as: \"{custom_prompt}\". Prioritize this description when identifying the item."
+    
     prompt = f"""
 You are a professional fashion image editor.
 Task: Isolate the "{garment_name}" ({garment_type}) from the provided image.
+{user_hint}
 
 CRITICAL INSTRUCTIONS:
 1. Identify the "{garment_name}" in the image.
-2. MULTIPLE ITEMS HANDLING: If the input image contains MULTIPLE distinct items of type "{garment_name}" (e.g., two different shirts side-by-side, or a rack of clothes), YOU MUST RANDOMLY SELECT ONLY ONE SINGLE ITEM to extract. Do not extract the group. Focus on just one specific item.
+2. MULTIPLE ITEMS HANDLING: If the input image contains MULTIPLE distinct items of type "{garment_name}" (e.g., two different shirts side-by-side, or a rack of clothes), YOU MUST RANDOMLY SELECT ONLY ONE SINGLE ITEM to extract. Do not extract the group. Focus on just one specific item unless the user hint says otherwise.
 3. Crop close to the item but keep the entire item visible.
 4. Remove the background completely (transparent or solid white).
 5. PRESERVE the original texture, patterns, and color nuances exactly. Do not hallucinate new patterns.
@@ -460,6 +465,109 @@ CRITICAL INSTRUCTIONS:
         raise
 
 
+# ==========================================================
+# 🧥 API TÁCH TRANG PHỤC (EXTRACT GARMENT)
+# ==========================================================
+@app.route('/ai_extract_garment', methods=['POST'])
+def ai_extract_garment():
+    """
+    API để tách một món trang phục từ ảnh
+    
+    Input form-data:
+    - garment_image: file (required) - Ảnh chứa trang phục cần tách
+    - garment_type: string (required) - Loại trang phục: shirt, pants, shoes, hat, dress, jacket, skirt, accessories
+    - custom_prompt: string (optional) - Mô tả chi tiết để hỗ trợ AI tách đúng món đồ
+    
+    Example custom_prompt:
+    - "The red striped t-shirt on the left"
+    - "The blue jeans with ripped knees"
+    - "The white sneakers in the center"
+    """
+    try:
+        from PIL import Image
+        
+        # Get garment image
+        garment_file = request.files.get('garment_image')
+        if not garment_file:
+            return jsonify({"error": "Missing garment_image file"}), 400
+        
+        # Get garment type
+        garment_type = request.form.get('garment_type')
+        if not garment_type:
+            return jsonify({"error": "Missing garment_type parameter"}), 400
+        
+        # Validate garment type
+        outfit_types = {
+            'shirt': 'áo',
+            'pants': 'quần', 
+            'shoes': 'giày',
+            'hat': 'mũ',
+            'accessories': 'phụ kiện',
+            'dress': 'váy',
+            'jacket': 'áo khoác',
+            'towel': 'khăn',
+            'skirt': 'chân váy'
+        }
+        
+        if garment_type not in outfit_types:
+            return jsonify({
+                "error": f"Invalid garment_type. Must be one of: {', '.join(outfit_types.keys())}"
+            }), 400
+        
+        # Get optional custom prompt
+        custom_prompt = request.form.get('custom_prompt', None)
+        
+        # Save garment image
+        saved_files = []
+        garment_ext = os.path.splitext(garment_file.filename)[1] or '.png'
+        garment_filename = f"input_{garment_type}_{uuid.uuid4().hex[:8]}{garment_ext}"
+        garment_path = os.path.join(IMAGES_DIR, garment_filename)
+        garment_file.save(garment_path)
+        saved_files.append(garment_path)
+        
+        # Extract garment
+        try:
+            print(f"[INFO] Extracting {garment_type} from {garment_path}")
+            if custom_prompt:
+                print(f"[INFO] Custom prompt: {custom_prompt}")
+            
+            extracted_path = extract_garment_internal(
+                garment_image_path=garment_path,
+                garment_type=garment_type,
+                garment_name=outfit_types[garment_type],
+                custom_prompt=custom_prompt
+            )
+            
+            print(f"[SUCCESS] Extracted {garment_type} -> {extracted_path}")
+            
+        except Exception as e:
+            cleanup_media_files(saved_files)
+            return jsonify({"error": f"Failed to extract garment: {str(e)}"}), 500
+        
+        # Cleanup input file
+        cleanup_media_files(saved_files)
+        
+        # Return result
+        result_data = {
+            "success": True,
+            "garment_type": garment_type,
+            "extracted_image_path": extracted_path,
+            "custom_prompt_used": custom_prompt if custom_prompt else None
+        }
+        
+        # Convert image to base64 for response
+        if os.path.exists(extracted_path):
+            with open(extracted_path, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("utf-8")
+                result_data["image_base64"] = f"data:image/png;base64,{image_base64}"
+        
+        return jsonify(result_data), 200
+        
+    except Exception as e:
+        print(f"[ERROR] ai_extract_garment: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 def generate_outfit_mix(model_image_path, extracted_garments):
     """
     Step 2: Mix extracted garments onto model using Gemini
@@ -478,31 +586,36 @@ def generate_outfit_mix(model_image_path, extracted_garments):
     ])
     
     prompt = f"""
-You are a world-class High Fashion Art Director and Photo Retoucher for Vogue and high-end e-commerce brands.
+You are a world-class High Fashion Art Director and Digital Retoucher for luxury brands.
 
 INPUTS:
-- The FIRST image provided is the MODEL.
-- The SUBSEQUENT images are INDIVIDUAL CLOTHING ITEMS (Already Extracted - The Outfit):
+- The FIRST image is the MODEL.
+- The SUBSEQUENT images are the CLOTHING ITEMS (The Outfit):
 {garment_descriptions}
 
 GOAL:
-Create a stunning, commercially appealing fashion photograph used for an online store or luxury magazine editorial. The goal is to make the outfit look desirable and INCREASE PURCHASE INTENT.
+Create a highly realistic, "shoppable" fashion image. The result must look like a high-budget marketing campaign that makes people want to buy the clothes immediately.
 
-STRICT EXECUTION STEPS:
-1. **Virtual Try-On**: Dress the model in the provided clothing items. Replace the model's original clothes entirely with these items.
-2. **Identity Preservation**: KEEP the model's face, skin tone, hair, pose, and background EXACTLY as they are in the first image.
-3. **Realistic Fit & Physics**: 
-   - The clothes must wrap naturally around the body's curves.
-   - Respect gravity, tucks, folds, and natural draping.
-   - If there is a "skirt" or "dress", ensure it flows naturally with the model's stance.
-   - If there is a "hat", place it correctly on the head, adjusting hair if necessary (e.g., flattening hair under the hat).
-   - If there are "shoes", replace the original footwear completely and realistically, matching perspective.
-4. **Commercial Aesthetics (Make it Beautiful)**:
-   - **Lighting**: Apply professional studio lighting logic. Ensure the lighting on the new clothes matches the lighting on the model's skin and face (shadows, highlights, color temperature). Add subtle rim lighting if it enhances the look.
-   - **Texture**: Emphasize the high-quality texture of the fabrics (e.g., the weave of cotton, the sheen of silk, the roughness of denim).
-   - **Color**: Ensure colors are vibrant yet realistic.
+*** CRITICAL RULE: FACE & IDENTITY PRESERVATION ***
+- **DO NOT CHANGE THE FACE:** The model's face, facial features, expression (thần thái), makeup, and hair style MUST remain 100% IDENTICAL to the original image.
+- Treat the face area as a "protected mask". Do not redraw the eyes, nose, or mouth.
+- You may only adjust the lighting on the face *slightly* to match the new environment, but the identity must be undeniable.
 
-The final image should look like a seamless, high-end catalog shot. No artifacts, no blurry edges, no "photoshop cutout" look. Make the person look like a fashion icon wearing these exact items.
+EXECUTION STEPS:
+1. **Virtual Try-On**: Dress the model in the provided clothing items. Replace the original clothes completely.
+2. **Fit & Physics**:
+   - Ensure clothes fit naturally (tucks, drapes, folds).
+   - Pants/Skirts should sit at the correct waistline.
+   - Shoes must respect the perspective of the floor.
+   - If there is a "hat", place it correctly on the head, adjusting hair if necessary.
+3. **Commercial "Glow-Up" (Make it Sell)**:
+   - **Lighting**: Upgrade the lighting. Use soft, high-end studio lighting that highlights the fabric textures.
+   - **Color Grading**: Apply a subtle, professional color grade that makes the image pop (e.g., slightly warmer skin tones, deeper blacks, vibrant fabrics).
+   - **Vibe**: The image should feel "expensive" and "polished". 
+   - If the original background is messy, you may blur it slightly or clean it up to focus attention on the outfit, but keep the context if it fits the fashion vibe.
+
+OUTPUT:
+A photorealistic fashion photo. No AI artifacts. The model looks exactly like themselves, just dressed better and photographed perfectly.
 """
     
     try:
@@ -536,8 +649,152 @@ The final image should look like a seamless, high-end catalog shot. No artifacts
         raise
 
 
+
 # ==========================================================
-# 🎨 API TẠO ẢNH THỜI TRANG VỚI GEMINI (2-STEP PROCESS)
+# 👗 API GHÉP TRANG PHỤC VÀO NGƯỜI MẪU (MIX OUTFIT)
+# ==========================================================
+@app.route('/ai_mix_outfit', methods=['POST'])
+def ai_mix_outfit():
+    """
+    API để ghép các trang phục đã tách vào người mẫu
+    
+    Input form-data:
+    - model_image: file (required) - Ảnh người mẫu
+    - extracted_garments: JSON string (required) - Danh sách các garment đã extract
+      Format: [{"type": "shirt", "name": "áo", "image_base64": "data:image/png;base64,..."}, ...]
+      
+    Hoặc upload trực tiếp files:
+    - model_image: file (required)
+    - shirt_extracted: file (optional)
+    - pants_extracted: file (optional)
+    - shoes_extracted: file (optional)
+    - hat_extracted: file (optional)
+    - dress_extracted: file (optional)
+    - jacket_extracted: file (optional)
+    - skirt_extracted: file (optional)
+    - accessories_extracted: file (optional)
+    """
+    try:
+        from PIL import Image
+        import io
+        
+        # Get model image
+        model_file = request.files.get('model_image')
+        if not model_file:
+            return jsonify({"error": "Missing model_image file"}), 400
+        
+        # Save model image
+        saved_files = []
+        model_ext = os.path.splitext(model_file.filename)[1] or '.png'
+        model_filename = f"model_{uuid.uuid4().hex[:8]}{model_ext}"
+        model_path = os.path.join(IMAGES_DIR, model_filename)
+        model_file.save(model_path)
+        saved_files.append(model_path)
+        
+        # Get extracted garments - Method 1: JSON string
+        extracted_garments = []
+        garments_json = request.form.get('extracted_garments')
+        
+        outfit_types = {
+            'shirt': 'áo',
+            'pants': 'quần', 
+            'shoes': 'giày',
+            'hat': 'mũ',
+            'accessories': 'phụ kiện',
+            'dress': 'váy',
+            'jacket': 'áo khoác',
+            'skirt': 'chân váy'
+        }
+        
+        if garments_json:
+            # Parse JSON
+            try:
+                garments_data = json.loads(garments_json)
+                for garment in garments_data:
+                    # Decode base64 image
+                    image_data = garment['image_base64']
+                    if image_data.startswith('data:image'):
+                        image_data = image_data.split(',')[1]
+                    
+                    image_bytes = base64.b64decode(image_data)
+                    img = Image.open(io.BytesIO(image_bytes))
+                    
+                    # Save extracted image
+                    extracted_filename = f"extracted_{garment['type']}_{uuid.uuid4().hex[:8]}.png"
+                    extracted_path = os.path.join(IMAGES_DIR, extracted_filename)
+                    img.save(extracted_path)
+                    saved_files.append(extracted_path)
+                    
+                    extracted_garments.append({
+                        'type': garment['type'],
+                        'name': garment.get('name', outfit_types.get(garment['type'], garment['type'])),
+                        'extracted_path': extracted_path
+                    })
+            except Exception as e:
+                cleanup_media_files(saved_files)
+                return jsonify({"error": f"Failed to parse extracted_garments JSON: {str(e)}"}), 400
+        
+        else:
+            # Method 2: Direct file upload
+            for key, vietnamese_name in outfit_types.items():
+                file = request.files.get(f'{key}_extracted')
+                if file:
+                    extracted_ext = os.path.splitext(file.filename)[1] or '.png'
+                    extracted_filename = f"extracted_{key}_{uuid.uuid4().hex[:8]}{extracted_ext}"
+                    extracted_path = os.path.join(IMAGES_DIR, extracted_filename)
+                    file.save(extracted_path)
+                    saved_files.append(extracted_path)
+                    
+                    extracted_garments.append({
+                        'type': key,
+                        'name': vietnamese_name,
+                        'extracted_path': extracted_path
+                    })
+        
+        if not extracted_garments:
+            cleanup_media_files(saved_files)
+            return jsonify({
+                "error": "No extracted garments provided. Use 'extracted_garments' JSON or upload files with '_extracted' suffix"
+            }), 400
+        
+        # Generate outfit mix
+        try:
+            print(f"[INFO] Mixing {len(extracted_garments)} garments onto model")
+            final_image_path = generate_outfit_mix(
+                model_image_path=model_path,
+                extracted_garments=extracted_garments
+            )
+            print(f"[SUCCESS] Final image generated -> {final_image_path}")
+            
+        except Exception as e:
+            cleanup_media_files(saved_files)
+            return jsonify({"error": f"Failed to mix outfit: {str(e)}"}), 500
+        
+        # Cleanup intermediate files (keep final image)
+        cleanup_media_files(saved_files)
+        
+        # Return result
+        result_data = {
+            "success": True,
+            "image_path": final_image_path,
+            "applied_items": [{"type": g['type'], "name": g['name']} for g in extracted_garments]
+        }
+        
+        # Convert image to base64 for response
+        if os.path.exists(final_image_path):
+            with open(final_image_path, "rb") as f:
+                image_base64 = base64.b64encode(f.read()).decode("utf-8")
+                result_data["image_base64"] = f"data:image/png;base64,{image_base64}"
+        
+        return jsonify(result_data), 200
+        
+    except Exception as e:
+        print(f"[ERROR] ai_mix_outfit: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ==========================================================
+# 🎨 API TẠO ẢNH THỜI TRANG VỚI GEMINI (2-STEP PROCESS - LEGACY)
 # ==========================================================
 @app.route('/ai_generate_fashion', methods=['POST'])
 def ai_generate_fashion():
@@ -612,10 +869,11 @@ def ai_generate_fashion():
         for item in outfit_items:
             try:
                 print(f"[INFO] Extracting {item['name']} from {item['path']}")
-                extracted_path = extract_garment(
+                extracted_path = extract_garment_internal(
                     garment_image_path=item['path'],
                     garment_type=item['key'],
-                    garment_name=item['name']
+                    garment_name=item['name'],
+                    custom_prompt=None
                 )
                 saved_files.append(extracted_path)
                 extracted_garments.append({

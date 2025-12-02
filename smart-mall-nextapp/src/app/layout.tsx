@@ -11,6 +11,7 @@ import ClearLegacyStorage from "@/components/ClearLegacyStorage";
 import ChatWidget from "@/components/ChatWidget";
 import ChatUserSync from "@/components/ChatUserSync";
 import Chatbot from "@/components/Chatbot";
+import VirtualTryOnWidget from "@/components/VirtualTryOnWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,6 +54,7 @@ export default function RootLayout({
                     {children}
                     <ChatWidget />
                     <Chatbot />
+                    <VirtualTryOnWidget />
                   </CartProvider>
                 </UserProfileProvider>
               </AuthProvider>

@@ -14,6 +14,7 @@ export { default as addressService } from './AddressService';
 export { locationService } from './LocationService';
 export { default as dashboardService } from './DashboardService';
 export { default as walletService } from './WalletService';
+export { VirtualTryOnService } from './VirtualTryOnService';
 
 // New API services based on backend controllers
 export { orderApiService } from './OrderApiService';
