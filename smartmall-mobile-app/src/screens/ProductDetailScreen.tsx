@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { productService, ProductDetail } from '../services/productService';
+import CartService from '../services/CartService';
 import { getCloudinaryUrl } from '../config/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -26,6 +27,9 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   useEffect(() => {
     loadProductDetail();
@@ -38,6 +42,10 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
       
       if (response.success && response.data) {
         setProduct(response.data);
+        // Auto-select first variant if available
+        if (response.data.variants && response.data.variants.length > 0) {
+          setSelectedVariantId(response.data.variants[0].id);
+        }
       } else {
         Alert.alert('Error', response.message);
         navigation.goBack();
@@ -50,6 +58,44 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
       setIsLoading(false);
     }
   };
+
+  const handleAddToCart = async () => {
+    if (!selectedVariantId) {
+      Alert.alert('Select Variant', 'Please select a product variant first');
+      return;
+    }
+
+    setIsAddingToCart(true);
+    try {
+      const response = await CartService.addItem({
+        variantId: selectedVariantId,
+        quantity: quantity,
+      });
+
+      if (response.success) {
+        Alert.alert(
+          'Added to Cart',
+          `${product?.name} has been added to your cart`,
+          [
+            { text: 'Continue Shopping', style: 'cancel' },
+            { 
+              text: 'View Cart', 
+              onPress: () => navigation.navigate('Cart')
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', response.message || 'Failed to add item to cart');
+      }
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  const selectedVariant = product?.variants?.find(v => v.id === selectedVariantId);
 
   if (isLoading || !product) {
     return (
@@ -166,6 +212,93 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
           </TouchableOpacity>
         </TouchableOpacity>
 
+        {/* Variant Selection */}
+        {product.variants && product.variants.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Select Variant</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.variantsList}>
+              {product.variants.map((variant) => {
+                const isSelected = selectedVariantId === variant.id;
+                const isOutOfStock = variant.stock === 0;
+                const attributesText = variant.attributes
+                  ?.map(attr => `${attr.attributeName}: ${attr.attributeValue}`)
+                  .join(', ');
+                
+                return (
+                  <TouchableOpacity
+                    key={variant.id}
+                    style={[
+                      styles.variantCard,
+                      isSelected && styles.variantCardSelected,
+                      isOutOfStock && styles.variantCardDisabled,
+                    ]}
+                    onPress={() => !isOutOfStock && setSelectedVariantId(variant.id)}
+                    disabled={isOutOfStock}
+                  >
+                    <Text style={[
+                      styles.variantSku,
+                      isSelected && styles.variantSkuSelected,
+                    ]}>
+                      {variant.sku}
+                    </Text>
+                    {attributesText && (
+                      <Text style={[
+                        styles.variantAttributes,
+                        isSelected && styles.variantAttributesSelected,
+                      ]} numberOfLines={1}>
+                        {attributesText}
+                      </Text>
+                    )}
+                    <Text style={[
+                      styles.variantPrice,
+                      isSelected && styles.variantPriceSelected,
+                    ]}>
+                      {variant.price.toLocaleString('vi-VN')}đ
+                    </Text>
+                    <Text style={[
+                      styles.variantStock,
+                      isOutOfStock && styles.variantStockOut,
+                    ]}>
+                      {isOutOfStock ? 'Out of stock' : `Stock: ${variant.stock}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Quantity Selection */}
+        {selectedVariant && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quantity</Text>
+            <View style={styles.quantitySelector}>
+              <TouchableOpacity
+                style={styles.quantityBtn}
+                onPress={() => setQuantity(Math.max(1, quantity - 1))}
+              >
+                <Text style={styles.quantityBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{quantity}</Text>
+              <TouchableOpacity
+                style={styles.quantityBtn}
+                onPress={() => setQuantity(Math.min(selectedVariant.stock, quantity + 1))}
+                disabled={quantity >= selectedVariant.stock}
+              >
+                <Text style={[
+                  styles.quantityBtnText,
+                  quantity >= selectedVariant.stock && styles.quantityBtnTextDisabled,
+                ]}>
+                  +
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.stockInfo}>
+                {selectedVariant.stock} available
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Description */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Description</Text>
@@ -233,8 +366,19 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
           <Text style={styles.chatIcon}>💬</Text>
           <Text style={styles.chatText}>Chat</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.addToCartButton}>
-          <Text style={styles.addToCartText}>Add to Cart</Text>
+        <TouchableOpacity 
+          style={[
+            styles.addToCartButton,
+            (!selectedVariantId || isAddingToCart) && styles.addToCartButtonDisabled,
+          ]}
+          onPress={handleAddToCart}
+          disabled={!selectedVariantId || isAddingToCart}
+        >
+          {isAddingToCart ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.addToCartText}>Add to Cart</Text>
+          )}
         </TouchableOpacity>
         <TouchableOpacity style={styles.buyNowButton}>
           <Text style={styles.buyNowText}>Buy Now</Text>
@@ -577,10 +721,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  addToCartButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
   addToCartText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  variantsList: {
+    flexDirection: 'row',
+  },
+  variantCard: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 12,
+    minWidth: 140,
+    backgroundColor: '#fff',
+  },
+  variantCardSelected: {
+    borderColor: '#2563eb',
+    borderWidth: 2,
+    backgroundColor: '#eff6ff',
+  },
+  variantCardDisabled: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.6,
+  },
+  variantSku: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  variantSkuSelected: {
+    color: '#2563eb',
+  },
+  variantAttributes: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 6,
+  },
+  variantAttributesSelected: {
+    color: '#2563eb',
+  },
+  variantPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ff4757',
+    marginBottom: 4,
+  },
+  variantPriceSelected: {
+    color: '#2563eb',
+  },
+  variantStock: {
+    fontSize: 11,
+    color: '#10b981',
+  },
+  variantStockOut: {
+    color: '#ff4757',
+  },
+  quantitySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  quantityBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  quantityBtnText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  quantityBtnTextDisabled: {
+    color: '#ccc',
+  },
+  quantityText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  stockInfo: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
   },
   buyNowButton: {
     flex: 1.5,

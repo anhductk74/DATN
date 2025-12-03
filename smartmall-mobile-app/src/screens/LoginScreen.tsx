@@ -85,6 +85,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem('accessToken', response.data.accessToken);
         await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        // Lưu user info
+        await AsyncStorage.setItem('userInfo', JSON.stringify(response.data.userInfo));
         navigation.replace('Home');
       } else {
         Alert.alert('Error', response.message || 'Invalid verification code');
@@ -114,6 +116,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem('accessToken', response.data.accessToken);
         await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        // Lưu user info
+        await AsyncStorage.setItem('userInfo', JSON.stringify(response.data.userInfo));
         
         // Save credentials if remember me is checked
         if (rememberMe) {

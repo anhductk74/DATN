@@ -11,8 +11,8 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { userService, Address } from '../services/userService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import addressService, { Address, AddressType } from '../services/addressService';
+import { locationService, Province, District, Ward } from '../services/locationService';
 
 interface AddressesScreenProps {
   navigation: any;
@@ -23,33 +23,64 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
-  
-  // Form state
-  const [recipientName, setRecipientName] = useState('');
-  const [recipientPhone, setRecipientPhone] = useState('');
+
+  // Form state (match addressService fields)
+  const [recipient, setRecipient] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [street, setStreet] = useState('');
-  const [ward, setWard] = useState('');
+  const [commune, setCommune] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+  // Location state
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districtsList, setDistrictsList] = useState<District[]>([]);
+  const [wardsList, setWardsList] = useState<Ward[]>([]);
+  const [showProvinceModal, setShowProvinceModal] = useState(false);
+  const [showDistrictModal, setShowDistrictModal] = useState(false);
+  const [showWardModal, setShowWardModal] = useState(false);
 
   useEffect(() => {
     loadAddresses();
+    loadProvinces();
   }, []);
+
+  const loadProvinces = async () => {
+    try {
+      const data = await locationService.getProvinces();
+      setProvinces(data || []);
+    } catch (err) {
+      console.error('Failed loading provinces', err);
+    }
+  };
+
+  const loadDistricts = async (provinceCode: string) => {
+    try {
+      const data = await locationService.getDistricts(provinceCode);
+      setDistrictsList(data || []);
+    } catch (err) {
+      console.error('Failed loading districts', err);
+      setDistrictsList([]);
+    }
+  };
+
+  const loadWards = async (districtCode: string) => {
+    try {
+      const data = await locationService.getWards(districtCode);
+      setWardsList(data || []);
+    } catch (err) {
+      console.error('Failed loading wards', err);
+      setWardsList([]);
+    }
+  };
 
   const loadAddresses = async () => {
     try {
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) {
-        navigation.replace('Login');
-        return;
-      }
-
-      const response = await userService.getAddresses(token);
+      const response = await addressService.getAddresses();
       if (response.success && response.data) {
         setAddresses(response.data);
       } else {
-        Alert.alert('Error', response.message);
+        Alert.alert('Error', response.message || 'Failed to load addresses');
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
@@ -60,10 +91,10 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
   };
 
   const resetForm = () => {
-    setRecipientName('');
-    setRecipientPhone('');
+    setRecipient('');
+    setPhoneNumber('');
     setStreet('');
-    setWard('');
+    setCommune('');
     setDistrict('');
     setCity('');
     setIsDefault(false);
@@ -77,43 +108,41 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
 
   const openEditModal = (address: Address) => {
     setEditingAddress(address);
-    setRecipientName(address.recipientName);
-    setRecipientPhone(address.recipientPhone);
-    setStreet(address.street);
-    setWard(address.ward);
-    setDistrict(address.district);
-    setCity(address.city);
-    setIsDefault(address.isDefault);
+    setRecipient(address.recipient || '');
+    setPhoneNumber(address.phoneNumber || '');
+    setStreet(address.street || '');
+    setCommune(address.commune || '');
+    setDistrict(address.district || '');
+    setCity(address.city || '');
+    setIsDefault(!!address.isDefault);
     setShowModal(true);
   };
 
   const handleSaveAddress = async () => {
-    if (!recipientName.trim() || !recipientPhone.trim() || !street.trim() || 
-        !ward.trim() || !district.trim() || !city.trim()) {
+    if (!recipient.trim() || !phoneNumber.trim() || !street.trim() || 
+        !commune.trim() || !district.trim() || !city.trim()) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
     try {
       setIsLoading(true);
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) return;
-
       const addressData = {
-        recipientName,
-        recipientPhone,
+        recipient,
+        phoneNumber,
         street,
-        ward,
+        commune,
         district,
         city,
         isDefault,
+        addressType: 'HOME' as AddressType,
       };
 
       let response;
       if (editingAddress) {
-        response = await userService.updateAddress(token, editingAddress.id, addressData);
+        response = await addressService.updateAddress(editingAddress.id, addressData);
       } else {
-        response = await userService.addAddress(token, addressData);
+        response = await addressService.createAddress(addressData);
       }
 
       if (response.success) {
@@ -122,7 +151,7 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
         loadAddresses();
         Alert.alert('Success', editingAddress ? 'Address updated successfully' : 'Address added successfully');
       } else {
-        Alert.alert('Error', response.message);
+        Alert.alert('Error', response.message || 'Failed to save address');
       }
     } catch (error) {
       console.error('Error saving address:', error);
@@ -144,15 +173,12 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
           onPress: async () => {
             try {
               setIsLoading(true);
-              const token = await AsyncStorage.getItem('accessToken');
-              if (!token) return;
-
-              const response = await userService.deleteAddress(token, addressId);
+              const response = await addressService.deleteAddress(addressId);
               if (response.success) {
                 loadAddresses();
                 Alert.alert('Success', 'Address deleted successfully');
               } else {
-                Alert.alert('Error', response.message);
+                Alert.alert('Error', response.message || 'Failed to delete address');
               }
             } catch (error) {
               console.error('Error deleting address:', error);
@@ -169,15 +195,13 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
   const handleSetDefault = async (addressId: string) => {
     try {
       setIsLoading(true);
-      const token = await AsyncStorage.getItem('accessToken');
-      if (!token) return;
-
-      const response = await userService.setDefaultAddress(token, addressId);
+      // Server should unset other defaults when this is set
+      const response = await addressService.updateAddress(addressId, { isDefault: true });
       if (response.success) {
         loadAddresses();
         Alert.alert('Success', 'Default address updated');
       } else {
-        Alert.alert('Error', response.message);
+        Alert.alert('Error', response.message || 'Failed to set default address');
       }
     } catch (error) {
       console.error('Error setting default address:', error);
@@ -191,7 +215,7 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
     <View key={address.id} style={styles.addressCard}>
       <View style={styles.addressHeader}>
         <View style={styles.addressHeaderLeft}>
-          <Text style={styles.recipientName}>{address.recipientName}</Text>
+          <Text style={styles.recipientName}>{address.recipient}</Text>
           {address.isDefault && (
             <View style={styles.defaultBadge}>
               <Text style={styles.defaultText}>Default</Text>
@@ -200,9 +224,9 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
         </View>
       </View>
       
-      <Text style={styles.recipientPhone}>{address.recipientPhone}</Text>
+      <Text style={styles.recipientPhone}>{address.phoneNumber}</Text>
       <Text style={styles.addressText}>
-        {address.street}, {address.ward}, {address.district}, {address.city}
+        {address.street}, {address.commune || ''} {address.district}, {address.city}
       </Text>
 
       <View style={styles.addressActions}>
@@ -284,13 +308,13 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Recipient Name *</Text>
                 <TextInput
                   style={styles.input}
-                  value={recipientName}
-                  onChangeText={setRecipientName}
+                  value={recipient}
+                  onChangeText={setRecipient}
                   placeholder="Enter recipient name"
                   placeholderTextColor="#999"
                 />
@@ -300,54 +324,59 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
                 <Text style={styles.label}>Phone Number *</Text>
                 <TextInput
                   style={styles.input}
-                  value={recipientPhone}
-                  onChangeText={setRecipientPhone}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
                   placeholder="Enter phone number"
                   placeholderTextColor="#999"
                   keyboardType="phone-pad"
                 />
               </View>
 
+            
+
               <View style={styles.inputContainer}>
+                <Text style={styles.label}>Province / City *</Text>
+                <TouchableOpacity style={[styles.input, styles.selector]} onPress={() => setShowProvinceModal(true)} activeOpacity={0.8} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={{ color: city ? '#000' : '#999' }}>{city || 'Select province/city'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>District *</Text>
+                <TouchableOpacity
+                  style={[styles.input, styles.selector]}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => {
+                    if (!city) return Alert.alert('Please select province/city first');
+                    setShowDistrictModal(true);
+                  }}
+                >
+                  <Text style={{ color: district ? '#000' : '#999' }}>{district || 'Select district'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Ward / Commune *</Text>
+                <TouchableOpacity
+                  style={[styles.input, styles.selector]}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => {
+                    if (!district) return Alert.alert('Please select district first');
+                    setShowWardModal(true);
+                  }}
+                >
+                  <Text style={{ color: commune ? '#000' : '#999' }}>{commune || 'Select ward/commune'}</Text>
+                </TouchableOpacity>
+              </View>
+                <View style={styles.inputContainer}>
                 <Text style={styles.label}>Street Address *</Text>
                 <TextInput
                   style={styles.input}
                   value={street}
                   onChangeText={setStreet}
                   placeholder="House number, street name"
-                  placeholderTextColor="#999"
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Ward *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={ward}
-                  onChangeText={setWard}
-                  placeholder="Enter ward"
-                  placeholderTextColor="#999"
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>District *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={district}
-                  onChangeText={setDistrict}
-                  placeholder="Enter district"
-                  placeholderTextColor="#999"
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>City *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="Enter city"
                   placeholderTextColor="#999"
                 />
               </View>
@@ -371,6 +400,83 @@ export default function AddressesScreen({ navigation }: AddressesScreenProps) {
                   {isLoading ? 'Saving...' : 'Save Address'}
                 </Text>
               </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      {/* Province modal */}
+      <Modal visible={showProvinceModal} transparent animationType="slide" onRequestClose={() => setShowProvinceModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Province / City</Text>
+              <TouchableOpacity onPress={() => setShowProvinceModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+              {provinces.map(p => (
+                <TouchableOpacity key={p.code} style={styles.listItem} activeOpacity={0.8} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => {
+                  setCity(p.name);
+                  setDistrict('');
+                  setCommune('');
+                  // load districts by province code
+                  loadDistricts(p.code);
+                  setShowProvinceModal(false);
+                }}>
+                  <Text style={styles.listItemText}>{p.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* District modal */}
+      <Modal visible={showDistrictModal} transparent animationType="slide" onRequestClose={() => setShowDistrictModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select District</Text>
+              <TouchableOpacity onPress={() => setShowDistrictModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+              {districtsList.map(d => (
+                <TouchableOpacity key={d.code} style={styles.listItem} activeOpacity={0.8} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => {
+                  setDistrict(d.name);
+                  setCommune('');
+                  loadWards(d.code);
+                  setShowDistrictModal(false);
+                }}>
+                  <Text style={styles.listItemText}>{d.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Ward modal */}
+      <Modal visible={showWardModal} transparent animationType="slide" onRequestClose={() => setShowWardModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Ward / Commune</Text>
+              <TouchableOpacity onPress={() => setShowWardModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+              {wardsList.map(w => (
+                <TouchableOpacity key={w.code} style={styles.listItem} activeOpacity={0.8} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => {
+                  setCommune(w.name);
+                  setShowWardModal(false);
+                }}>
+                  <Text style={styles.listItemText}>{w.name}</Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -532,6 +638,19 @@ const styles = StyleSheet.create({
     padding: 24,
     maxHeight: '90%',
   },
+  modalBody: {
+    padding: 8,
+  },
+  listItem: {
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  listItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -563,6 +682,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+  },
+  selector: {
+    justifyContent: 'center',
+    height: 44,
   },
   checkboxContainer: {
     flexDirection: 'row',

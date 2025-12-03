@@ -10,8 +10,36 @@ import AddressesScreen from '../screens/AddressesScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import ProductListScreen from '../screens/ProductListScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
+import CartScreen from '../screens/CartScreen';
+import CheckoutScreen from '../screens/CheckoutScreen';
+import OrdersScreen from '../screens/OrdersScreen';
+import OrderSearchScreen from '../screens/OrderSearchScreen';
+import OrderDetailScreen from '../screens/OrderDetailScreen';
+import OrderTrackingDetailScreen from '../screens/OrderTrackingDetailScreen';
+import ReviewScreen from '../screens/ReviewScreen';
+import OrderReturnRequestScreen from '../screens/OrderReturnRequestScreen';
+import type { CartItem } from '../services/CartService';
 
-const Stack = createStackNavigator();
+export type RootStackParamList = {
+  Login: undefined;
+  Register: undefined;
+  Home: undefined;
+  Profile: undefined;
+  Addresses: undefined;
+  Categories: undefined;
+  ProductList: { categoryId: string; categoryName: string };
+  ProductDetail: { productId: string };
+  Cart: undefined;
+  Checkout: { items: CartItem[] };
+  Orders: undefined;
+  OrderSearch: undefined;
+  OrderDetail: { orderId: string };
+  OrderTrackingDetail: { orderId: string; orderStatus: string; trackingNumber?: string };
+  Review: { orderId: string };
+  OrderReturnRequest: { orderId: string };
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   return (
@@ -91,6 +119,70 @@ export default function AppNavigator() {
           component={ProductDetailScreen}
           options={{
             title: 'Product Detail',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Cart"
+          component={CartScreen}
+          options={{
+            title: 'Shopping Cart',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Checkout"
+          component={CheckoutScreen}
+          options={{
+            title: 'Checkout',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Orders"
+          component={OrdersScreen}
+          options={{
+            title: 'My Orders',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="OrderSearch"
+          component={OrderSearchScreen}
+          options={{
+            title: 'Search Orders',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="OrderDetail"
+          component={OrderDetailScreen}
+          options={{
+            title: 'Order Detail',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="OrderTrackingDetail"
+          component={OrderTrackingDetailScreen}
+          options={{
+            title: 'Tracking Details',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Review"
+          component={ReviewScreen}
+          options={{
+            title: 'Write Review',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="OrderReturnRequest"
+          component={OrderReturnRequestScreen}
+          options={{
+            title: 'Return Request',
             headerShown: false,
           }}
         />
