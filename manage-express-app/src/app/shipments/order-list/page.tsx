@@ -400,7 +400,7 @@ export default function OrderListPage() {
               setDetailModalVisible(true);
             }}
           />
-          {record.status === OrderStatus.SHIPPING && (
+          {record.status === OrderStatus.CONFIRMED && (
             <Button 
               type="text" 
               icon={<PlusOutlined />} 
@@ -416,7 +416,7 @@ export default function OrderListPage() {
     }
   ];
 
-  const shippingCount = orders.filter(o => o.status === OrderStatus.SHIPPING).length;
+  const shippingCount = orders.filter(o => o.status === OrderStatus.CONFIRMED).length;
   const packedCount = orders.filter(o => o.status === OrderStatus.PACKED).length;
 
   return (

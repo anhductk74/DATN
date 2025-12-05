@@ -5,6 +5,7 @@ import com.example.smart_mall_spring.Dtos.Logistic.ShipmentLog.ShipmentLogReques
 import com.example.smart_mall_spring.Dtos.Logistic.SubShipmentOrder.SubShipmentOrderRequestDto;
 import com.example.smart_mall_spring.Dtos.Logistic.SubShipmentOrder.SubShipmentOrderResponseDto;
 import com.example.smart_mall_spring.Dtos.Logistic.SubShipmentOrder.SubShipmentOrderUpdateDto;
+import com.example.smart_mall_spring.Dtos.Orders.OrderTrackingLog.OrderTrackingLogRequest;
 import com.example.smart_mall_spring.Entities.Logistics.*;
 import com.example.smart_mall_spring.Entities.Orders.Order;
 import com.example.smart_mall_spring.Entities.Orders.OrderStatusHistory;
@@ -14,6 +15,7 @@ import com.example.smart_mall_spring.Enum.StatusOrder;
 import com.example.smart_mall_spring.Repositories.Logistics.*;
 import com.example.smart_mall_spring.Repositories.OrderRepository;
 import com.example.smart_mall_spring.Repositories.OrderStatusHistoryRepository;
+import com.example.smart_mall_spring.Services.Order.OrderTrackingLogService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,7 +40,7 @@ public class SubShipmentOrderService {
     private final WarehouseInventoryService warehouseInventoryService;
     private final ShipmentReportService shipmentReportService;
     private final ShipmentLogService shipmentLogService;
-
+    private final OrderTrackingLogService  orderTrackingLogService;
 
     private SubShipmentOrderResponseDto toResponseDto(SubShipmentOrder entity) {
         return SubShipmentOrderResponseDto.builder()
@@ -139,6 +141,22 @@ public class SubShipmentOrderService {
                         .note("Cập nhật trạng thái vận chuyển đơn hàng")
                         .build()
         );
+
+        // --- Ghi log cho user (OrderTrackingLog) ---
+        if (sub.getShipmentOrder().getOrder() != null) {
+            orderTrackingLogService.recordTrackingLog(
+                    sub.getShipmentOrder().getOrder(),
+                    OrderTrackingLogRequest.builder()
+                            .carrier(sub.getShipper() != null ? sub.getShipper().getFullName() : "Giao hàng tiết kiệm")
+                            .trackingNumber(sub.getShipmentOrder().getTrackingCode() != null
+                                    ? sub.getShipmentOrder().getTrackingCode()
+                                    : "")
+                            .currentLocation(sub.getToWarehouse() != null ? sub.getToWarehouse().getName() : "Khách")
+                            .statusDescription(getTrackingDescription(sub))
+                            .build()
+            );
+        }
+
 
         // Xử lý inventory
         if (oldStatus != ShipmentStatus.DELIVERED && sub.getStatus() == ShipmentStatus.DELIVERED) {
@@ -339,6 +357,36 @@ public class SubShipmentOrderService {
             }
         }
     }
+    private String getTrackingDescription(SubShipmentOrder sub) {
+        ShipmentStatus status = sub.getStatus();
+        int sequence = sub.getSequence();
+        String fromWarehouse = sub.getFromWarehouse() != null ? sub.getFromWarehouse().getName() : "";
+        String toWarehouse = sub.getToWarehouse() != null ? sub.getToWarehouse().getName() : "";
 
+        switch (sequence) {
+            case 1: // Sub 1: Shop -> Kho 1
+                if (status == ShipmentStatus.PICKING_UP)
+                    return "Shipper đang đi lấy hàng tại shop";
+                if (status == ShipmentStatus.DELIVERED)
+                    return "Đơn hàng đã đến kho: " + toWarehouse;
+                break;
+            case 2: // Sub 2: Kho 1 -> Kho 2
+                if (status == ShipmentStatus.IN_TRANSIT)
+                    return "Đơn hàng đang vận chuyển từ kho: " + fromWarehouse + " đến kho: " + toWarehouse;
+                if (status == ShipmentStatus.DELIVERED)
+                    return "Đơn hàng đã đến kho: " + toWarehouse;
+                break;
+            case 3: // Sub 3: Kho -> Khách
+                if (status == ShipmentStatus.IN_TRANSIT)
+                    return "Đơn hàng đang giao từ kho: " + fromWarehouse + " đến khách hàng";
+                if (status == ShipmentStatus.DELIVERED)
+                    return "Đơn hàng đã giao thành công đến khách hàng";
+                break;
+            default:
+                return status.name();
+        }
+
+        return status.name();
+    }
 
 }

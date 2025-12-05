@@ -7,32 +7,40 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  ImageBackground,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { categoryService, Category } from '../services/categoryService';
 import { productService, Product } from '../services/productService';
+import CartService from '../services/CartService';
 import { getCloudinaryUrl } from '../config/config';
 
 interface HomeScreenProps {
   navigation: any;
 }
 
-// Mock data
-const categories = [
-  { id: '1', name: 'Electronics', icon: '📱' },
-  { id: '2', name: 'Fashion', icon: '👕' },
-  { id: '3', name: 'Home', icon: '🏠' },
-  { id: '4', name: 'Beauty', icon: '💄' },
-  { id: '5', name: 'Sports', icon: '⚽' },
-  { id: '6', name: 'Books', icon: '📚' },
-];
+// Map category names to local asset images
+const getCategoryImage = (categoryName: string) => {
+  const name = categoryName.toLowerCase();
+  if (name.includes('camera')) return require('../../assets/camera.png');
+  if (name.includes('cuộc sống gia đình')) return require('../../assets/cuocsonggiadinh.png');
+  if (name.includes('điện thoại')) return require('../../assets/phone.png');
+  if (name.includes('điện tử')) return require('../../assets/dientu.png');
+  if (name.includes('dụng cụ bếp')) return require('../../assets/dungcubep.png');
+  if (name.includes('gimbal')) return require('../../assets/gimbal.png');
+  if (name.includes('nội thất')) return require('../../assets/noithat.png');
+  if (name.includes('phòng tắm')) return require('../../assets/bathroom.png'); // fallback to icon
+  return null;
+};
 
+// use local banner images from assets
 const banners = [
-  { id: '1', title: 'Summer Sale', subtitle: 'Up to 50% off', color: '#ff6b6b' },
-  { id: '2', title: 'New Arrivals', subtitle: 'Check out latest products', color: '#4ecdc4' },
-  { id: '3', title: 'Flash Deal', subtitle: 'Limited time offer', color: '#f9ca24' },
+  { id: '1', title: '', subtitle: '', image: require('../../assets/banner2.jpg') },
+  { id: '2', title: '', subtitle: '', image: require('../../assets/banner1.jpg') },
+  { id: '3', title: '', subtitle: '', image: require('../../assets/banner3.jpg') },
 ];
 
 const featuredProducts = [
@@ -106,10 +114,19 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [featuredProductsReal, setFeaturedProductsReal] = useState<Product[]>([]);
   const [flashDealsReal, setFlashDealsReal] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     loadHomeData();
+    loadCartCount();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadCartCount();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const loadHomeData = async () => {
     try {
@@ -142,21 +159,38 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
   };
 
+  const loadCartCount = async () => {
+    try {
+      const response = await CartService.getCartCount();
+      if (response.success && response.data !== null) {
+        setCartCount(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+    }
+  };
+
   const renderCategory = ({ item }: any) => {
-    const isRealCategory = item.image !== undefined;
+    const localImage = getCategoryImage(item.name);
+    
     return (
       <TouchableOpacity 
         style={styles.categoryItem}
         onPress={() => navigation.navigate('ProductList', { categoryId: item.id, categoryName: item.name })}
       >
         <View style={styles.categoryIcon}>
-          {isRealCategory && item.image ? (
+          {localImage ? (
+            <Image 
+              source={localImage}
+              style={styles.categoryIconImage}
+            />
+          ) : item.image ? (
             <Image 
               source={{ uri: getCloudinaryUrl(item.image) }} 
               style={styles.categoryIconImage}
             />
           ) : (
-            <Text style={styles.categoryEmoji}>{item.icon || '📋'}</Text>
+            <MaterialCommunityIcons name="shape-outline" size={32} color="#2563eb" />
           )}
         </View>
         <Text style={styles.categoryName}>{item.name}</Text>
@@ -183,7 +217,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             />
           ) : (
             <View style={styles.productImagePlaceholder}>
-              <Text style={styles.productImageText}>📦</Text>
+              <Ionicons name="cube-outline" size={48} color="#999" />
             </View>
           )}
           {product.discount && product.discount > 0 && (
@@ -197,7 +231,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             {product.name}
           </Text>
           <View style={styles.ratingContainer}>
-            <Text style={styles.ratingStar}>⭐</Text>
+            <AntDesign name="star" size={12} color="#f59e0b" />
             <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
           </View>
           <View style={styles.priceContainer}>
@@ -218,7 +252,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     >
       <View style={styles.flashDealImageContainer}>
         <View style={styles.flashDealImagePlaceholder}>
-          <Text style={styles.flashDealImageText}>⚡</Text>
+          <Ionicons name="flash" size={48} color="#f59e0b" />
         </View>
       </View>
       <View style={styles.flashDealInfo}>
@@ -241,7 +275,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.soldText}>{deal.soldPercentage}% sold</Text>
         </View>
         <View style={styles.timerContainer}>
-          <Text style={styles.timerIcon}>⏱️</Text>
+          <MaterialCommunityIcons name="timer-outline" size={14} color="#ff4757" />
           <Text style={styles.timerText}>{deal.timeLeft}</Text>
         </View>
       </View>
@@ -256,17 +290,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <Text style={styles.logo}>Smart Mall</Text>
           <View style={styles.headerIcons}>
             <TouchableOpacity style={styles.iconButton}>
-              <Text style={styles.icon}>🔔</Text>
+              <Ionicons name="notifications-outline" size={24} color="#333" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton}>
-              <Text style={styles.icon}>💬</Text>
+              <Ionicons name="chatbubble-outline" size={24} color="#333" />
             </TouchableOpacity>
           </View>
         </View>
         
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={20} color="#999" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search products..."
@@ -274,11 +308,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity style={styles.cartButton}>
-            <Text style={styles.cartIcon}>🛒</Text>
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>3</Text>
-            </View>
+          <TouchableOpacity 
+            style={styles.cartButton}
+            onPress={() => navigation.navigate('Cart')}
+          >
+            <Ionicons name="cart-outline" size={24} color="#333" />
+            {cartCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -302,16 +341,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             snapToAlignment="center"
           >
             {banners.map((banner) => (
-              <View
+              <ImageBackground
                 key={banner.id}
-                style={[styles.banner, { backgroundColor: banner.color, width: bannerWidth, marginRight: bannerSpacing }]}
+                source={banner.image}
+                style={[styles.banner, { width: bannerWidth, marginRight: bannerSpacing }]}
+                imageStyle={{ borderRadius: 12 }}
               >
-                <Text style={styles.bannerTitle}>{banner.title}</Text>
-                <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                <TouchableOpacity style={styles.bannerButton}>
-                  <Text style={styles.bannerButtonText}>Shop Now</Text>
-                </TouchableOpacity>
-              </View>
+                <View style={styles.bannerOverlay} />
+                <View style={styles.bannerContent}>
+                  <Text style={styles.bannerTitle}>{banner.title}</Text>
+                  <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
+                  <TouchableOpacity style={styles.bannerButton}>
+                    <Text style={styles.bannerButtonText}>Shop Now</Text>
+                  </TouchableOpacity>
+                </View>
+              </ImageBackground>
             ))}
           </ScrollView>
           <View style={styles.bannerDots}>
@@ -337,11 +381,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
           {isLoading ? (
             <ActivityIndicator size="small" color="#2563eb" style={{ padding: 20 }} />
+          ) : realCategories.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={{ color: '#666' }}>No categories available</Text>
+            </View>
           ) : (
             <FlatList
-              data={realCategories.length > 0 ? realCategories : categories as any}
+              data={realCategories}
               renderItem={renderCategory}
-              keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item) => String(item.id)}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.categoriesList}
@@ -353,7 +401,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.flashDealHeader}>
-              <Text style={styles.flashDealIcon}>⚡</Text>
+              <Ionicons name="flash" size={22} color="#f59e0b" />
               <Text style={styles.sectionTitle}>Flash Deals</Text>
             </View>
             <TouchableOpacity>
@@ -397,26 +445,29 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>🏠</Text>
+          <Ionicons name="home" size={24} color="#2563eb" />
           <Text style={[styles.navLabel, styles.navLabelActive]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
           onPress={() => navigation.navigate('Categories')}
         >
-          <Text style={styles.navIcon}>📂</Text>
+          <MaterialCommunityIcons name="view-grid" size={24} color="#999" />
           <Text style={styles.navLabel}>Categories</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>❤️</Text>
+          <Ionicons name="heart-outline" size={24} color="#999" />
           <Text style={styles.navLabel}>Wishlist</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>📦</Text>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate('Orders')}
+        >
+          <Ionicons name="cube-outline" size={24} color="#999" />
           <Text style={styles.navLabel}>Orders</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-          <Text style={styles.navIcon}>👤</Text>
+          <Ionicons name="person-outline" size={24} color="#999" />
           <Text style={styles.navLabel}>Profile</Text>
         </TouchableOpacity>
       </View>
@@ -512,6 +563,19 @@ const styles = StyleSheet.create({
     padding: 20,
     justifyContent: 'center',
   },
+  bannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 12,
+  },
+  bannerContent: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    top: 20,
+    bottom: 20,
+    justifyContent: 'center',
+  },
   bannerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -592,9 +656,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   categoryIconImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: '75%',
+    height: '75%',
+    resizeMode: 'contain',
   },
   categoryEmoji: {
     fontSize: 28,

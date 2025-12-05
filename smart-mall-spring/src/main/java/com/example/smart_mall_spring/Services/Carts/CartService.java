@@ -152,11 +152,16 @@ public class CartService {
         if (cartItem.getVariant().getProduct().getImages() != null && !cartItem.getVariant().getProduct().getImages().isEmpty()) {
             productImage = cartItem.getVariant().getProduct().getImages().get(0);
         }
+        String shopId = null;
+        if (cartItem.getVariant().getProduct().getShop() != null) {
+            shopId = cartItem.getVariant().getProduct().getShop().getId().toString();
+        }
         
         return CartItemResponseDto.builder()
                 .id(cartItem.getId())
                 .variant(variantDto)
                 .productName(productName)
+                .productShopId(shopId)
                 .productImage(productImage)
                 .quantity(cartItem.getQuantity())
                 .subtotal(subtotal)

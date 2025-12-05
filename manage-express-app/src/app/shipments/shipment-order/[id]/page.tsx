@@ -73,9 +73,10 @@ export default function ShipmentOrderDetailPage() {
   const [subShipmentDrawerVisible, setSubShipmentDrawerVisible] = useState(false);
   const [warehouses, setWarehouses] = useState<WarehouseResponseDto[]>([]);
   const [shippers, setShippers] = useState<ShipperResponseDto[]>([]);
-  const [shopAddressAsWarehouse, setShopAddressAsWarehouse] = useState<{id: string, name: string, address: string} | null>(null);
+  const [shopAddressAsWarehouse, setShopAddressAsWarehouse] = useState<{id: string, name: string, phone: string, address: string} | null>(null);
   const [userAddressAsWarehouse, setUserAddressAsWarehouse] = useState<{id: string, name: string, address: string} | null>(null);
   const [subShipmentForm] = Form.useForm();
+  const [activeTabKey, setActiveTabKey] = useState('1');
 
   // Fetch shipment detail
   const fetchShipmentDetail = async () => {
@@ -163,13 +164,16 @@ export default function ShipmentOrderDetailPage() {
       // 3. Get shop detail by shop ID
       const shopDetail = await shopService.getShopById(orderDetail.shopId);
       
+      
       if (shopDetail.data && shopDetail.data.address) {
         const shop = shopDetail.data;
         const fullAddress = `${shop.address.street}, ${shop.address.commune}, ${shop.address.district}, ${shop.address.city}`;
         
+    
         setShopAddressAsWarehouse({
           id: `shop-${shop.id}`,
           name: shop.name,
+          phone: shop.numberPhone || '',
           address: fullAddress
         });
       }
@@ -251,6 +255,9 @@ export default function ShipmentOrderDetailPage() {
       // Refresh sub-shipments list and logs
       await fetchSubShipments();
       await fetchShipmentLogs();
+      
+      // Chuyển sang tab "Các chặng vận chuyển" (key="3")
+      setActiveTabKey('3');
       
     } catch (error) {
       console.error('Error creating sub-shipment:', error);
@@ -483,7 +490,32 @@ export default function ShipmentOrderDetailPage() {
                 </Descriptions>
               </Card>
             </Col>
-
+  {/* Delivery Dates */}
+            <Col xs={24} lg={12}>
+              <Card 
+                title={<><CalendarOutlined /> Thông tin thời gian</>} 
+                size="small"
+                style={{ height: '100%' }}
+              >
+                <Descriptions bordered column={1} size="small">
+                  <Descriptions.Item label="Dự kiến giao hàng">
+                    {shipment.estimatedDelivery
+                      ? new Date(shipment.estimatedDelivery).toLocaleString('vi-VN')
+                      : <Text type="secondary">Chưa xác định</Text>}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Thời gian giao hàng">
+                    {shipment.deliveredAt
+                      ? new Date(shipment.deliveredAt).toLocaleString('vi-VN')
+                      : <Text type="secondary">Chưa giao</Text>}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Thời gian hoàn trả">
+                    {shipment.returnedAt
+                      ? new Date(shipment.returnedAt).toLocaleString('vi-VN')
+                      : <Text type="secondary">Không có</Text>}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            </Col>
             {/* Pickup Information */}
             <Col xs={24} lg={12}>
               <Card 
@@ -492,6 +524,22 @@ export default function ShipmentOrderDetailPage() {
                 style={{ height: '100%' }}
               >
                 <Descriptions bordered column={1} size="small">
+                  {shopAddressAsWarehouse && (
+                    <>
+                      <Descriptions.Item label="Tên shop">
+                        <Space>
+                          <ShopOutlined style={{ color: '#1890ff' }} />
+                          <Text strong>{shopAddressAsWarehouse.name}</Text>
+                        </Space>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Số điện thoại">
+                        <Space>
+                          <PhoneOutlined style={{ color: '#52c41a' }} />
+                          <Text copyable>{shopAddressAsWarehouse.phone}</Text>
+                        </Space>
+                      </Descriptions.Item>
+                    </>
+                  )}
                   <Descriptions.Item label="Địa chỉ lấy hàng">
                     {shipment.pickupAddress}
                   </Descriptions.Item>
@@ -523,32 +571,7 @@ export default function ShipmentOrderDetailPage() {
               </Card>
             </Col>
 
-            {/* Delivery Dates */}
-            <Col xs={24} lg={12}>
-              <Card 
-                title={<><CalendarOutlined /> Thông tin thời gian</>} 
-                size="small"
-                style={{ height: '100%' }}
-              >
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="Dự kiến giao hàng">
-                    {shipment.estimatedDelivery
-                      ? new Date(shipment.estimatedDelivery).toLocaleString('vi-VN')
-                      : <Text type="secondary">Chưa xác định</Text>}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Thời gian giao hàng">
-                    {shipment.deliveredAt
-                      ? new Date(shipment.deliveredAt).toLocaleString('vi-VN')
-                      : <Text type="secondary">Chưa giao</Text>}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Thời gian hoàn trả">
-                    {shipment.returnedAt
-                      ? new Date(shipment.returnedAt).toLocaleString('vi-VN')
-                      : <Text type="secondary">Không có</Text>}
-                  </Descriptions.Item>
-                </Descriptions>
-              </Card>
-            </Col>
+          
           </Row>
         </div>
       )
@@ -1023,7 +1046,8 @@ export default function ShipmentOrderDetailPage() {
       {/* Tabs */}
       <Card style={{ borderRadius: '8px' }}>
         <Tabs 
-          defaultActiveKey="1" 
+          activeKey={activeTabKey}
+          onChange={setActiveTabKey}
           items={tabItems}
           size="large"
         />
@@ -1100,43 +1124,51 @@ export default function ShipmentOrderDetailPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item 
-            label="Kho nhận (Điểm đến)" 
-            name="toWarehouseId"
-            rules={[
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  const sequence = getFieldValue('sequence');
-                  // Sequence 3 không bắt buộc (giao hàng cho người mua)
-                  if (sequence === 3) {
-                    return Promise.resolve();
-                  }
-                  // Các sequence khác bắt buộc chọn warehouse
-                  if (!value) {
-                    return Promise.reject(new Error('Vui lòng chọn kho nhận'));
-                  }
-                  return Promise.resolve();
-                },
-              }),
-            ]}
-            tooltip={subShipmentForm.getFieldValue('sequence') === 3 ? 'Chặng 3 có thể để trống (giao hàng cho người mua)' : undefined}
-          >
-            <Select 
-              placeholder={subShipmentForm.getFieldValue('sequence') === 3 ? "Để trống nếu giao hàng cho người mua" : "Chọn kho nhận"}
-              showSearch
-              allowClear
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                String(option?.children).toLowerCase().includes(input.toLowerCase())
-              }
+          {/* Chỉ hiển thị kho nhận nếu KHÔNG phải chặng 3 */}
+          {subShipmentForm.getFieldValue('sequence') !== 3 && (
+            <Form.Item 
+              label="Kho nhận (Điểm đến)" 
+              name="toWarehouseId"
+              rules={[{ required: true, message: 'Vui lòng chọn kho nhận' }]}
             >
-              {warehouses.map(warehouse => (
-                <Select.Option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name} - {warehouse.address}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+              <Select 
+                placeholder="Chọn kho nhận"
+                showSearch
+                allowClear
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  String(option?.children).toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {warehouses.map(warehouse => (
+                  <Select.Option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name} - {warehouse.address}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
+
+          {/* Hiển thị thông tin địa chỉ giao hàng cho chặng 3 */}
+          {subShipmentForm.getFieldValue('sequence') === 3 && userAddressAsWarehouse && (
+            <div style={{ 
+              marginBottom: '24px',
+              padding: '16px',
+              background: '#f0f9ff',
+              border: '1px solid #bae7ff',
+              borderRadius: '8px'
+            }}>
+              <div style={{ marginBottom: '8px', fontWeight: 600, color: '#1890ff' }}>
+                📍 Điểm đến: Giao hàng cho khách
+              </div>
+              <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                <strong>Người nhận:</strong> {userAddressAsWarehouse.name}
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                <strong>Địa chỉ:</strong> {userAddressAsWarehouse.address}
+              </div>
+            </div>
+          )}
 
           <Form.Item 
             label="Shipper phụ trách" 
