@@ -458,7 +458,7 @@ export default function Header() {
                     setShowUserMenu(!showUserMenu);
                   }}
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl mr-3 flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
                     {resolveAvatar(mergedUser) ? (
                       <Image 
                         src={resolveAvatar(mergedUser) as string} 
@@ -475,7 +475,7 @@ export default function Header() {
                       <UserOutlined className="text-white text-lg" />
                     )}
                   </div>
-                  <div className="flex flex-col items-start">
+                  <div className="flex flex-col items-start ">
                     <span className="text-sm font-semibold text-gray-800 leading-tight">
                       {mergedUser.fullName || mergedUser.email?.split('@')[0]}
                     </span>

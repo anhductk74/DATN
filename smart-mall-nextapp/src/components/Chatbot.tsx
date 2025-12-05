@@ -302,7 +302,7 @@ export default function Chatbot() {
       {/* Floating Button */}
   <button
   onClick={() => setOpen(true)}
-  className={`fixed bottom-22 right-6 z-99 rounded-full w-14 h-14 bg-gradient-to-br bg-white shadow-xl flex items-center justify-center hover:scale-105 hover:shadow-2xl transition-transform duration-300 border-4 border-white/60 ${
+  className={`fixed bottom-22 right-6 z-99 rounded-full w-14 h-14 overflow-hidden shadow-xl flex items-center justify-center hover:scale-105 hover:shadow-2xl transition-transform duration-300 border-2 border-blue-500 ${
     open
       ? "scale-0 opacity-0 pointer-events-none"
       : "scale-100 opacity-100"
@@ -314,7 +314,7 @@ export default function Chatbot() {
     alt="Chatbot"
     width={56}
     height={56}
-    className="rounded-full object-cover drop-shadow-lg"
+    className="w-full h-full object-cover"
   />
 </button>
 

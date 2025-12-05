@@ -646,6 +646,10 @@ export default function FinancePage() {
                           onClick={() => {
                             setCreateCodModalVisible(true);
                             fetchShippers(); // Load shippers when opening modal
+                            // Set initial date value
+                            codForm.setFieldsValue({
+                              date: selectedDate ? dayjs(selectedDate, 'YYYY-MM-DD') : dayjs()
+                            });
                           }}
                         >
                           Tạo đối soát COD
@@ -993,6 +997,9 @@ export default function FinancePage() {
           form={codForm}
           layout="vertical"
           onFinish={handleCreateCodReconciliation}
+          initialValues={{
+            date: selectedDate ? dayjs(selectedDate, 'YYYY-MM-DD') : dayjs()
+          }}
         >
           <Form.Item
             label="Shipper"
@@ -1062,7 +1069,6 @@ export default function FinancePage() {
               style={{ width: '100%' }}
               format="YYYY-MM-DD"
               placeholder="Chọn ngày đối soát"
-              defaultValue={selectedDate ? dayjs(selectedDate, 'YYYY-MM-DD') : null}
             />
           </Form.Item>
         </Form>

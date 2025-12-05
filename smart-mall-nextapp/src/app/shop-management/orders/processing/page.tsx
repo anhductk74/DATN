@@ -203,10 +203,10 @@ export default function ProcessingOrdersPage() {
   const getProcessingStage = (status: OrderStatus) => {
     const stages: Record<OrderStatus, { step: number; text: string; progress: number }> = {
       [OrderStatus.PENDING]: { step: 0, text: 'Pending', progress: 10 },
-      [OrderStatus.CONFIRMED]: { step: 1, text: 'Confirmed', progress: 25 },
-      [OrderStatus.PACKED]: { step: 2, text: 'Packed', progress: 75 },
-      [OrderStatus.SHIPPING]: { step: 3, text: 'Ready to Ship', progress: 100 },
-      [OrderStatus.DELIVERED]: { step: 4, text: 'Delivered', progress: 100 },
+      [OrderStatus.CONFIRMED]: { step: 1, text: 'Confirmed', progress: 50 },
+      [OrderStatus.PACKED]: { step: 2, text: 'Packed', progress: 100 },
+      [OrderStatus.SHIPPING]: { step: 2, text: 'Packed', progress: 100 },
+      [OrderStatus.DELIVERED]: { step: 2, text: 'Delivered', progress: 100 },
       [OrderStatus.CANCELLED]: { step: 0, text: 'Cancelled', progress: 0 },
       [OrderStatus.RETURN_REQUESTED]: { step: 0, text: 'Return Requested', progress: 0 },
       [OrderStatus.RETURNED]: { step: 0, text: 'Returned', progress: 0 },
@@ -252,11 +252,9 @@ export default function ProcessingOrdersPage() {
       
       if (currentStatus === OrderStatus.CONFIRMED) {
         newStatus = OrderStatus.PACKED;
-        successMessage = 'Order status updated - Items are now being packed';
-      } else if (currentStatus === OrderStatus.PACKED) {
-        newStatus = OrderStatus.SHIPPING;
-        successMessage = 'Order status updated - Ready for shipping';
+        successMessage = 'Order packed successfully. Shipping will be handled automatically.';
       } else {
+        // No more manual transitions after PACKED
         return;
       }
 
@@ -274,17 +272,6 @@ export default function ProcessingOrdersPage() {
       ));
 
       message.success(successMessage);
-      
-      // If moved to shipping, remove from processing list after delay
-      if (newStatus === OrderStatus.SHIPPING) {
-        setTimeout(() => {
-          setOrders(prev => prev.filter(order => order.id !== orderId));
-          setPagination(prev => ({
-            ...prev,
-            total: Math.max(0, prev.total - 1)
-          }));
-        }, 1500); // Give user time to see the success message
-      }
       
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update order status';
@@ -462,14 +449,16 @@ export default function ProcessingOrdersPage() {
                 In nhãn
               </Button>
             ) : null}
-            <Button 
-              type="primary"
-              size="small"
-              loading={processing === record.id}
-              onClick={() => handleMoveToNextStage(record.id, record.status)}
-            >
-              {record.status === OrderStatus.CONFIRMED ? 'Start Packing' : 'Start Shipping'}
-            </Button>
+            {record.status === OrderStatus.CONFIRMED && (
+              <Button 
+                type="primary"
+                size="small"
+                loading={processing === record.id}
+                onClick={() => handleMoveToNextStage(record.id, record.status)}
+              >
+                Start Packing
+              </Button>
+            )}
           </Space>
         );
       },
@@ -502,8 +491,7 @@ export default function ProcessingOrdersPage() {
           <h3 className="text-lg font-medium mb-4">Processing Pipeline</h3>
           <Steps current={-1} className="mb-6">
             <Step title="Order Confirmed" description="Payment verified, preparing items" icon={<CheckCircleOutlined />} />
-            <Step title="Packing Items" description="Items being packaged" icon={<InboxOutlined />} />
-            <Step title="Ready to Ship" description="Packed and ready for pickup" icon={<PlayCircleOutlined />} />
+            <Step title="Packing Items" description="Items being packaged, shipping handled automatically" icon={<InboxOutlined />} />
           </Steps>
         </div>
       </Card>
@@ -625,17 +613,19 @@ export default function ProcessingOrdersPage() {
                 In nhãn
               </Button>
             ),
-            <Button 
-              key="next" 
-              type="primary"
-              icon={selectedOrder?.status === OrderStatus.CONFIRMED ? <InboxOutlined /> : <PlayCircleOutlined />}
-              onClick={() => {
-                handleMoveToNextStage(selectedOrder!.id, selectedOrder!.status);
-                setOrderDetailVisible(false);
-              }}
-            >
-              {selectedOrder?.status === OrderStatus.CONFIRMED ? 'Start Packing' : 'Start Shipping'}
-            </Button>
+            selectedOrder?.status === OrderStatus.CONFIRMED && (
+              <Button 
+                key="next" 
+                type="primary"
+                icon={<InboxOutlined />}
+                onClick={() => {
+                  handleMoveToNextStage(selectedOrder!.id, selectedOrder!.status);
+                  setOrderDetailVisible(false);
+                }}
+              >
+                Start Packing
+              </Button>
+            )
           ];
         })()}
       >
@@ -680,8 +670,7 @@ export default function ProcessingOrdersPage() {
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
               <h4 className="text-lg font-medium mb-4 text-center">Processing Pipeline</h4>
               <Steps
-                current={selectedOrder.status === OrderStatus.CONFIRMED ? 0 : 
-                        selectedOrder.status === OrderStatus.PACKED ? 1 : 2}
+                current={selectedOrder.status === OrderStatus.CONFIRMED ? 0 : 1}
                 items={[
                   {
                     title: 'Order Confirmed',
@@ -690,13 +679,8 @@ export default function ProcessingOrdersPage() {
                   },
                   {
                     title: 'Packing Items',
-                    description: selectedOrder.status === OrderStatus.PACKED ? 'Items packed ✓' : 'In progress...',
+                    description: selectedOrder.status === OrderStatus.PACKED ? 'Items packed ✓ - Auto shipping' : 'In progress...',
                     icon: <InboxOutlined />,
-                  },
-                  {
-                    title: 'Ready for Shipping',
-                    description: 'Awaiting pickup',
-                    icon: <PlayCircleOutlined />,
                   }
                 ]}
               />
@@ -896,25 +880,12 @@ export default function ProcessingOrdersPage() {
                           {selectedOrder.status === OrderStatus.PACKED ? 'Items Packed ✓' : 'Packing Items...'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {selectedOrder.status === OrderStatus.PACKED ? 'Completed' : 'In Progress'}
+                          {selectedOrder.status === OrderStatus.PACKED ? 'Completed - Auto shipping' : 'In Progress'}
                         </div>
                         <div className={`text-sm ${selectedOrder.status === OrderStatus.PACKED ? 'text-green-600' : 'text-blue-600'}`}>
                           {selectedOrder.status === OrderStatus.PACKED ? 
-                           'All items have been packed and ready for shipping' : 
+                           'All items have been packed. Shipping will be handled automatically by the system.' : 
                            'Items are being packed by warehouse staff'}
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    color: 'gray',
-                    dot: <PlayCircleOutlined className="text-gray-400" />,
-                    children: (
-                      <div>
-                        <div className="font-medium text-gray-500">Ready for Shipping</div>
-                        <div className="text-sm text-gray-400">Pending</div>
-                        <div className="text-sm text-gray-400">
-                          Awaiting carrier pickup
                         </div>
                       </div>
                     ),

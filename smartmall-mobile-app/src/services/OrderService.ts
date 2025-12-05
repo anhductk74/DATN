@@ -23,6 +23,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   orderNumber: string;
+  shopId: string;
   shopName?: string;
   shopAvatar?: string;
   status: 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'RETURN_REQUESTED';

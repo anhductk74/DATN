@@ -1,31 +1,38 @@
 // Location service for Vietnam provinces, districts, and wards
 export interface Province {
-  code: string;
+  code?: number;  // API trả về code dạng số
+  codename?: string;
+  division_type?: string;
+  phone_code?: number;
   name: string;
-  name_en: string;
-  full_name: string;
-  full_name_en: string;
-  code_name: string;
+  name_en?: string;
+  full_name?: string;
+  full_name_en?: string;
+  code_name?: string;
 }
 
 export interface District {
-  code: string;
+  code?: number;
+  codename?: string;
+  division_type?: string;
   name: string;
-  name_en: string;
-  full_name: string;
-  full_name_en: string;
-  code_name: string;
-  province_code: string;
+  name_en?: string;
+  full_name?: string;
+  full_name_en?: string;
+  code_name?: string;
+  province_code?: string;
 }
 
 export interface Ward {
-  code: string;
+  code?: number;
+  codename?: string;
+  division_type?: string;
   name: string;
-  name_en: string;
-  full_name: string;
-  full_name_en: string;
-  code_name: string;
-  district_code: string;
+  name_en?: string;
+  full_name?: string;
+  full_name_en?: string;
+  code_name?: string;
+  district_code?: string;
 }
 
 export interface LocationResponse<T> {
@@ -61,7 +68,7 @@ class LocationService {
   }
 
   // Fetch districts by province code
-  async getDistricts(provinceCode: string): Promise<District[]> {
+  async getDistricts(provinceCode: number | string): Promise<District[]> {
     try {
       console.log('Fetching districts for province:', provinceCode);
       const response = await fetch(`${this.baseUrl}/p/${provinceCode}?depth=2`);
@@ -84,7 +91,7 @@ class LocationService {
   }
 
   // Fetch wards by district code
-  async getWards(districtCode: string): Promise<Ward[]> {
+  async getWards(districtCode: number | string): Promise<Ward[]> {
     try {
       console.log('Fetching wards for district:', districtCode);
       const response = await fetch(`${this.baseUrl}/d/${districtCode}?depth=2`);

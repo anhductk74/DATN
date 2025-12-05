@@ -18,8 +18,9 @@ import {
   Timeline,
   Divider,
   Descriptions,
-  QRCode,
-  Tooltip
+  Steps,
+  Tooltip,
+  Image
 } from "antd";
 import { 
   SearchOutlined, 
@@ -29,39 +30,38 @@ import {
   EnvironmentOutlined,
   ClockCircleOutlined,
   CopyOutlined,
-  PhoneOutlined
+  PhoneOutlined,
+  CheckCircleOutlined
 } from "@ant-design/icons";
 import type { ColumnsType } from 'antd/es/table';
 import { orderApiService, OrderStatus, PaymentMethod, type OrderResponseDto } from "@/services/OrderApiService";
 import { shopService, type Shop } from "@/services/ShopService";
+import { ShipmentOrderService, ShipmentStatus, type ShipmentOrderResponseDto } from "@/services/ShipmentOrderService";
+import { subShipmentOrderService, type SubShipmentOrderResponseDto } from "@/services/SubShipmentOrderService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
+import { useAntdApp } from "@/hooks/useAntdApp";
 
 const { Search } = Input;
 const { RangePicker } = DatePicker;
-
-interface ShippingInfo {
-  trackingNumber: string;
-  carrier: string;
-  estimatedDelivery: string;
-  currentLocation: string;
-  status: 'in_transit' | 'out_for_delivery' | 'delayed';
-}
+const { Step } = Steps;
 
 export default function ShippingOrdersPage() {
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
+  const { message } = useAntdApp();
   const [searchText, setSearchText] = useState('');
   const [orders, setOrders] = useState<OrderResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderResponseDto | null>(null);
-  const [shippingInfo, setShippingInfo] = useState<{ [key: string]: ShippingInfo }>({});
+  const [shipmentOrders, setShipmentOrders] = useState<Map<string, ShipmentOrderResponseDto>>(new Map());
+  const [subShipments, setSubShipments] = useState<Map<string, SubShipmentOrderResponseDto[]>>(new Map());
   const [orderDetailVisible, setOrderDetailVisible] = useState(false);
-  const [processing, setProcessing] = useState<string | null>(null);
   const [currentShopId, setCurrentShopId] = useState<string | null>(null);
   const [currentShop, setCurrentShop] = useState<Shop | null>(null);
   const [loadingShop, setLoadingShop] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -144,25 +144,8 @@ export default function ShippingOrdersPage() {
         total: response.totalElements || 0
       }));
 
-      // Generate mock shipping info for each order
-      const mockShippingInfo: { [key: string]: ShippingInfo } = {};
-      shippingOrders.forEach((order, index) => {
-        mockShippingInfo[order.id] = {
-          trackingNumber: `VN${Date.now().toString().slice(-9)}${index.toString().padStart(2, '0')}`,
-          carrier: ['Giao Hàng Nhanh', 'Vietnam Post', 'Viettel Post'][index % 3],
-          estimatedDelivery: new Date(Date.now() + (1 + Math.floor(Math.random() * 3)) * 24 * 60 * 60 * 1000).toISOString(),
-          currentLocation: [
-            'Distribution Center - District 1',
-            'Out for Delivery - Phu Nhuan',
-            'Sorting Facility - Tan Binh',
-            'Local Hub - District 7'
-          ][index % 4],
-          status: ['in_transit', 'out_for_delivery', 'in_transit'][index % 3] as 'in_transit' | 'out_for_delivery' | 'delayed'
-        };
-      });
-      setShippingInfo(mockShippingInfo);
-      
-      // Orders loaded successfully - no need to show message for normal operation
+      // Load shipment info for each order
+      await loadShipmentInfo(shippingOrders);
       
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load shipping orders from server';
@@ -170,10 +153,36 @@ export default function ShippingOrdersPage() {
       
       // Clear orders on failure
       setOrders([]);
-      setShippingInfo({});
+      setShipmentOrders(new Map());
       setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadShipmentInfo = async (orders: OrderResponseDto[]) => {
+    const shipmentMap = new Map<string, ShipmentOrderResponseDto>();
+    
+    for (const order of orders) {
+      try {
+        const shipment = await ShipmentOrderService.getByOrderId(order.id);
+        if (shipment) {
+          shipmentMap.set(order.id, shipment);
+        }
+      } catch (error) {
+        // Không có shipment cho order này, bỏ qua
+      }
+    }
+    
+    setShipmentOrders(shipmentMap);
+  };
+
+  const loadSubShipmentsForOrder = async (shipmentId: string) => {
+    try {
+      const subShipmentList = await subShipmentOrderService.getByShipmentOrder(shipmentId);
+      setSubShipments(prev => new Map(prev).set(shipmentId, subShipmentList));
+    } catch (error) {
+      console.error('Failed to load sub-shipments:', error);
     }
   };
 
@@ -184,60 +193,36 @@ export default function ShippingOrdersPage() {
     }).format(amount);
   };
 
-  const handleMarkAsDelivered = async (orderId: string) => {
-    setProcessing(orderId);
-    try {
-      // Call API to update order status to DELIVERED
-      await orderApiService.updateOrderStatus({
-        orderId,
-        status: OrderStatus.DELIVERED
-      });
-
-      // Remove order from shipping list
-      setOrders(prev => prev.filter(order => order.id !== orderId));
-      setPagination(prev => ({
-        ...prev,
-        total: Math.max(0, prev.total - 1)
-      }));
-
-      // Remove shipping info
-      setShippingInfo(prev => {
-        const newInfo = { ...prev };
-        delete newInfo[orderId];
-        return newInfo;
-      });
-
-      message.success('Order marked as delivered successfully');
-      
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to update order status';
-      message.error(errorMessage);
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const getShippingStatusColor = (status: string) => {
+  const getShipmentStatusColor = (status: ShipmentStatus) => {
     const colors = {
-      'in_transit': 'blue',
-      'out_for_delivery': 'orange',
-      'delayed': 'red'
+      [ShipmentStatus.PENDING]: 'default',
+      [ShipmentStatus.REGISTERED]: 'blue',
+      [ShipmentStatus.PICKING_UP]: 'cyan',
+      [ShipmentStatus.IN_TRANSIT]: 'orange',
+      [ShipmentStatus.DELIVERED]: 'green',
+      [ShipmentStatus.RETURNING]: 'red',
+      [ShipmentStatus.RETURNED]: 'volcano',
+      [ShipmentStatus.CANCELLED]: 'red'
     };
-    return colors[status as keyof typeof colors] || 'default';
-  };
-
-  const getShippingStatusText = (status: string) => {
-    const texts = {
-      'in_transit': 'In Transit',
-      'out_for_delivery': 'Out for Delivery',
-      'delayed': 'Delayed'
-    };
-    return texts[status as keyof typeof texts] || 'Unknown';
+    return colors[status] || 'default';
   };
 
   const copyTrackingNumber = (trackingNumber: string) => {
     navigator.clipboard.writeText(trackingNumber);
     message.success('Tracking number copied to clipboard');
+  };
+
+  const handleViewDetails = async (order: OrderResponseDto) => {
+    setSelectedOrder(order);
+    setOrderDetailVisible(true);
+    
+    // Load sub-shipments if shipment exists
+    const shipment = shipmentOrders.get(order.id);
+    if (shipment && shipment.id) {
+      setLoadingDetail(true);
+      await loadSubShipmentsForOrder(shipment.id);
+      setLoadingDetail(false);
+    }
   };
 
   const orderStats = [
@@ -249,19 +234,19 @@ export default function ShippingOrdersPage() {
     },
     {
       title: 'In Transit',
-      value: Object.values(shippingInfo).filter(info => info.status === 'in_transit').length,
-      color: '#52c41a',
+      value: Array.from(shipmentOrders.values()).filter(s => s.status === ShipmentStatus.IN_TRANSIT).length,
+      color: '#fa8c16',
       icon: <EnvironmentOutlined style={{ fontSize: '24px' }} />
     },
     {
-      title: 'Out for Delivery',
-      value: Object.values(shippingInfo).filter(info => info.status === 'out_for_delivery').length,
-      color: '#fa8c16',
+      title: 'Picking Up',
+      value: Array.from(shipmentOrders.values()).filter(s => s.status === ShipmentStatus.PICKING_UP).length,
+      color: '#52c41a',
       icon: <TruckOutlined style={{ fontSize: '24px' }} />
     },
     {
-      title: 'Avg Delivery Time',
-      value: '2.1 days',
+      title: 'Total Shipments',
+      value: shipmentOrders.size,
       color: '#722ed1',
       icon: <ClockCircleOutlined style={{ fontSize: '24px' }} />
     }
@@ -294,19 +279,19 @@ export default function ShippingOrdersPage() {
       dataIndex: 'id',
       key: 'tracking',
       render: (orderId) => {
-        const tracking = shippingInfo[orderId];
-        return tracking ? (
+        const shipment = shipmentOrders.get(orderId);
+        return shipment ? (
           <div>
             <div className="flex items-center">
-              <span className="font-mono text-sm">{tracking.trackingNumber}</span>
+              <span className="font-mono text-sm">{shipment.trackingCode}</span>
               <Button 
                 type="text" 
                 size="small" 
                 icon={<CopyOutlined />}
-                onClick={() => copyTrackingNumber(tracking.trackingNumber)}
+                onClick={() => copyTrackingNumber(shipment.trackingCode)}
               />
             </div>
-            <div className="text-xs text-gray-500">{tracking.carrier}</div>
+            <div className="text-xs text-gray-500">{shipment.shipperName}</div>
           </div>
         ) : (
           <span className="text-gray-400">No tracking</span>
@@ -318,19 +303,19 @@ export default function ShippingOrdersPage() {
       dataIndex: 'id',
       key: 'shippingStatus',
       render: (orderId) => {
-        const tracking = shippingInfo[orderId];
-        return tracking ? (
+        const shipment = shipmentOrders.get(orderId);
+        return shipment ? (
           <div>
             <Badge 
-              color={getShippingStatusColor(tracking.status)}
-              text={getShippingStatusText(tracking.status)}
+              color={getShipmentStatusColor(shipment.status)}
+              text={shipment.status}
             />
             <div className="text-xs text-gray-500 mt-1">
-              {tracking.currentLocation}
+              {shipment.warehouseName}
             </div>
           </div>
         ) : (
-          <Badge color="gray" text="Unknown" />
+          <Badge color="gray" text="No shipment" />
         );
       },
     },
@@ -339,10 +324,10 @@ export default function ShippingOrdersPage() {
       dataIndex: 'id',
       key: 'delivery',
       render: (orderId) => {
-        const tracking = shippingInfo[orderId];
-        if (!tracking) return <span className="text-gray-400">N/A</span>;
+        const shipment = shipmentOrders.get(orderId);
+        if (!shipment || !shipment.estimatedDelivery) return <span className="text-gray-400">N/A</span>;
         
-        const deliveryDate = new Date(tracking.estimatedDelivery);
+        const deliveryDate = new Date(shipment.estimatedDelivery);
         const today = new Date();
         const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         
@@ -373,38 +358,26 @@ export default function ShippingOrdersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 180,
+      width: 100,
       render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="View Details">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              size="small"
-              onClick={() => {
-                setSelectedOrder(record);
-                setOrderDetailVisible(true);
-              }}
-            />
-          </Tooltip>
+        <Tooltip title="View Details">
           <Button 
-            type="primary"
+            type="text" 
+            icon={<EyeOutlined />} 
             size="small"
-            loading={processing === record.id}
-            onClick={() => handleMarkAsDelivered(record.id)}
-          >
-            Mark Delivered
-          </Button>
-        </Space>
+            onClick={() => handleViewDetails(record)}
+          />
+        </Tooltip>
       ),
     },
   ];
 
   const filteredOrders = orders.filter(order => {
     const searchTerm = searchText.toLowerCase();
+    const shipment = shipmentOrders.get(order.id);
     return order.id.toLowerCase().includes(searchTerm) ||
            order.userName.toLowerCase().includes(searchTerm) ||
-           (shippingInfo[order.id]?.trackingNumber?.toLowerCase().includes(searchTerm)) ||
+           shipment?.trackingCode?.toLowerCase().includes(searchTerm) ||
            (order.items?.some(item => 
              item.productName.toLowerCase().includes(searchTerm)
            ));
@@ -481,14 +454,6 @@ export default function ShippingOrdersPage() {
       {/* Orders Table */}
       <Card 
         title={`Shipping Orders (${filteredOrders.length})`}
-        extra={
-          <Button 
-            type="primary" 
-            onClick={() => message.info('Bulk tracking updates coming soon')}
-          >
-            Update Tracking
-          </Button>
-        }
       >
         <Table
           columns={columns}
@@ -527,131 +492,185 @@ export default function ShippingOrdersPage() {
         title={`Shipping Order - #${selectedOrder?.id.slice(-8)}`}
         open={orderDetailVisible}
         onCancel={() => setOrderDetailVisible(false)}
-        width={900}
+        width={1000}
         footer={[
           <Button key="close" onClick={() => setOrderDetailVisible(false)}>
             Close
-          </Button>,
-          <Button 
-            key="delivered" 
-            type="primary"
-            loading={processing === selectedOrder?.id}
-            onClick={() => {
-              if (selectedOrder) {
-                handleMarkAsDelivered(selectedOrder.id);
-                setOrderDetailVisible(false);
-              }
-            }}
-          >
-            Mark as Delivered
           </Button>
         ]}
       >
         {selectedOrder && (
           <div className="space-y-6">
-            {/* Tracking Information */}
-            {shippingInfo[selectedOrder.id] && (
-              <Card title="Tracking Information" size="small">
-                <Row gutter={[16, 16]}>
-                  <Col span={12}>
-                    <div className="text-center">
-                      <QRCode 
-                        value={shippingInfo[selectedOrder.id].trackingNumber} 
-                        size={120}
-                      />
-                      <div className="mt-2 font-mono text-sm">
-                        {shippingInfo[selectedOrder.id].trackingNumber}
-                      </div>
-                    </div>
-                  </Col>
-                  <Col span={12}>
-                    <Descriptions column={1} size="small">
-                      <Descriptions.Item label="Carrier">
-                        {shippingInfo[selectedOrder.id].carrier}
+            {/* Shipment Information */}
+            {(() => {
+              const shipment = shipmentOrders.get(selectedOrder.id);
+              if (shipment) {
+                return (
+                  <Card title="Shipment Information" size="small">
+                    <Descriptions column={2} bordered size="small">
+                      <Descriptions.Item label="Tracking Code" span={2}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-blue-600">{shipment.trackingCode}</span>
+                          <Button 
+                            type="text" 
+                            size="small" 
+                            icon={<CopyOutlined />}
+                            onClick={() => copyTrackingNumber(shipment.trackingCode)}
+                          />
+                        </div>
                       </Descriptions.Item>
-                      <Descriptions.Item label="Status">
+                      <Descriptions.Item label="Shipper" span={1}>
+                        {shipment.shipperName}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Warehouse" span={1}>
+                        {shipment.warehouseName}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Status" span={1}>
                         <Badge 
-                          color={getShippingStatusColor(shippingInfo[selectedOrder.id].status)}
-                          text={getShippingStatusText(shippingInfo[selectedOrder.id].status)}
+                          color={getShipmentStatusColor(shipment.status)}
+                          text={shipment.status}
                         />
                       </Descriptions.Item>
-                      <Descriptions.Item label="Current Location">
-                        {shippingInfo[selectedOrder.id].currentLocation}
+                      <Descriptions.Item label="Estimated Delivery" span={1}>
+                        {shipment.estimatedDelivery ? 
+                          new Date(shipment.estimatedDelivery).toLocaleString('vi-VN', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'N/A'
+                        }
                       </Descriptions.Item>
-                      <Descriptions.Item label="Estimated Delivery">
-                        {new Date(shippingInfo[selectedOrder.id].estimatedDelivery).toLocaleDateString('vi-VN')}
+                      <Descriptions.Item label="COD Amount" span={1}>
+                        <span className="font-medium text-green-600">
+                          {formatCurrency(shipment.codAmount)}
+                        </span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Shipping Fee" span={1}>
+                        <span className="font-medium text-blue-600">
+                          {formatCurrency(shipment.shippingFee)}
+                        </span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Weight" span={2}>
+                        {shipment.weight} kg
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Pickup Address" span={2}>
+                        {shipment.pickupAddress}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Delivery Address" span={2}>
+                        {shipment.deliveryAddress}
                       </Descriptions.Item>
                     </Descriptions>
-                  </Col>
-                </Row>
-              </Card>
-            )}
+                  </Card>
+                );
+              }
+              return (
+                <Card title="Shipment Information" size="small">
+                  <div className="text-center text-gray-500 py-4">
+                    No shipment information available
+                  </div>
+                </Card>
+              );
+            })()}
 
-            {/* Delivery Timeline */}
-            <Card title="Delivery Timeline" size="small">
-              <Timeline
-                items={[
-                  {
-                    color: 'green',
-                    children: (
-                      <div>
-                        <div className="font-medium">Package Shipped</div>
-                        <div className="text-sm text-gray-500">
-                          {new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    color: shippingInfo[selectedOrder.id]?.status === 'in_transit' ? 'blue' : 'green',
-                    children: (
-                      <div>
-                        <div className="font-medium">In Transit</div>
-                        <div className="text-sm text-gray-500">
-                          {shippingInfo[selectedOrder.id]?.currentLocation || 'Processing...'}
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    color: shippingInfo[selectedOrder.id]?.status === 'out_for_delivery' ? 'orange' : 'gray',
-                    children: (
-                      <div>
-                        <div className="font-medium">Out for Delivery</div>
-                        <div className="text-sm text-gray-500">
-                          {shippingInfo[selectedOrder.id]?.status === 'out_for_delivery' ? 'In progress...' : 'Pending'}
-                        </div>
-                      </div>
-                    ),
-                  },
-                  {
-                    color: 'gray',
-                    children: (
-                      <div>
-                        <div className="font-medium">Delivered</div>
-                        <div className="text-sm text-gray-500">
-                          Est. {shippingInfo[selectedOrder.id] ? 
-                            new Date(shippingInfo[selectedOrder.id].estimatedDelivery).toLocaleDateString('vi-VN') : 
-                            'N/A'
-                          }
-                        </div>
-                      </div>
-                    ),
-                  }
-                ]}
-              />
-            </Card>
+            {/* Sub-Shipment Route Timeline */}
+            {(() => {
+              const shipment = shipmentOrders.get(selectedOrder.id);
+              const subShipmentList = shipment ? subShipments.get(shipment.id) : null;
+              
+              if (subShipmentList && subShipmentList.length > 0) {
+                // Sort by sequence
+                const sortedSubShipments = [...subShipmentList].sort((a, b) => a.sequence - b.sequence);
+                
+                return (
+                  <Card title="Shipment Route (Các Chặng Vận Chuyển)" size="small" loading={loadingDetail}>
+                    <Steps
+                      direction="vertical"
+                      current={sortedSubShipments.findIndex(s => 
+                        [ShipmentStatus.IN_TRANSIT, ShipmentStatus.PICKING_UP].includes(s.status)
+                      )}
+                      items={sortedSubShipments.map((sub) => ({
+                        title: (
+                          <div>
+                            <span className="font-medium">Chặng {sub.sequence}: </span>
+                            <span>{sub.fromWarehouseName} → {sub.toWarehouseName}</span>
+                          </div>
+                        ),
+                        description: (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Tag color={getShipmentStatusColor(sub.status)}>
+                                {sub.status}
+                              </Tag>
+                              <span className="text-gray-500 text-sm">Shipper: {sub.shipperName}</span>
+                            </div>
+                            {sub.startTime && (
+                              <div className="text-xs text-gray-500">
+                                Bắt đầu: {new Date(sub.startTime).toLocaleString('vi-VN')}
+                              </div>
+                            )}
+                            {sub.endTime && (
+                              <div className="text-xs text-gray-500">
+                                Kết thúc: {new Date(sub.endTime).toLocaleString('vi-VN')}
+                              </div>
+                            )}
+                          </div>
+                        ),
+                        status: sub.status === ShipmentStatus.DELIVERED ? 'finish' :
+                                sub.status === ShipmentStatus.IN_TRANSIT ? 'process' :
+                                sub.status === ShipmentStatus.CANCELLED ? 'error' : 'wait',
+                        icon: sub.status === ShipmentStatus.DELIVERED ? <CheckCircleOutlined /> :
+                              sub.status === ShipmentStatus.IN_TRANSIT ? <TruckOutlined /> :
+                              <EnvironmentOutlined />
+                      }))}
+                    />
+                  </Card>
+                );
+              }
+              
+              return null;
+            })()}
 
             <Divider />
+
+            {/* Order Information */}
+            <Descriptions bordered column={2} size="small" title="Order Information">
+              <Descriptions.Item label="Order ID" span={1}>
+                <span className="font-mono">{selectedOrder.id}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Customer" span={1}>
+                {selectedOrder.userName}
+              </Descriptions.Item>
+              <Descriptions.Item label="Status" span={1}>
+                <Tag color="blue">Shipping</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Payment Method" span={1}>
+                <Tag color={selectedOrder.paymentMethod === PaymentMethod.COD ? 'orange' : 
+                           selectedOrder.paymentMethod === PaymentMethod.CREDIT_CARD ? 'blue' : 'green'}>
+                  {selectedOrder.paymentMethod === PaymentMethod.COD ? 'Cash on Delivery' :
+                   selectedOrder.paymentMethod === PaymentMethod.CREDIT_CARD ? 'Credit Card' : 'E-Wallet'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Order Date" span={1}>
+                {new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}
+              </Descriptions.Item>
+              <Descriptions.Item label="Shop" span={1}>
+                {selectedOrder.shopName}
+              </Descriptions.Item>
+            </Descriptions>
 
             {/* Shipping Address */}
             <div>
               <h4 className="text-lg font-medium mb-3">Shipping Address</h4>
               {selectedOrder.shippingAddress && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="font-medium">{selectedOrder.shippingAddress.fullName}</div>
-                  <div className="text-gray-600">{selectedOrder.shippingAddress.phone}</div>
-                  <div className="text-gray-600 mt-1">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="font-medium text-lg">{selectedOrder.shippingAddress.fullName}</div>
+                  <div className="text-gray-600 flex items-center gap-2 mt-1">
+                    <PhoneOutlined />
+                    {selectedOrder.shippingAddress.phone}
+                  </div>
+                  <div className="text-gray-600 mt-2">
                     {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.ward}, {' '}
                     {selectedOrder.shippingAddress.district}, {selectedOrder.shippingAddress.province}
                   </div>
@@ -664,18 +683,20 @@ export default function ShippingOrdersPage() {
               <h4 className="text-lg font-medium mb-3">Shipping Items</h4>
               <div className="space-y-3">
                 {selectedOrder.items?.map((item, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-3 border rounded-lg">
-                    <img
+                  <div key={index} className="flex items-start space-x-4 p-3 border rounded-lg">
+                    <Image
+                      width={64}
+                      height={64}
                       src={getCloudinaryUrl(item.productImage)}
                       alt={item.productName}
-                      className="w-16 h-16 object-cover rounded"
-                      onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-size="12" fill="%23666"%3ENo Image%3C/text%3E%3C/svg%3E';
-                      }}
+                      className="rounded"
+                      fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='12' fill='%23666'%3ENo Image%3C/text%3E%3C/svg%3E"
                     />
                     <div className="flex-1">
                       <h5 className="font-medium">{item.productName}</h5>
-                      <p className="text-sm text-gray-500">SKU: {item.variant?.sku || 'N/A'}</p>
+                      <p className="text-sm text-gray-500">
+                        SKU: {item.variant?.sku || 'N/A'}
+                      </p>
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-sm">Quantity: {item.quantity}</span>
                         <span className="font-medium">{formatCurrency(item.subtotal)}</span>
@@ -683,6 +704,31 @@ export default function ShippingOrdersPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Order Summary */}
+            <div>
+              <h4 className="text-lg font-medium mb-3">Order Summary</h4>
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(selectedOrder.totalAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Shipping Fee:</span>
+                  <span>{formatCurrency(selectedOrder.shippingFee)}</span>
+                </div>
+                {selectedOrder.discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount:</span>
+                    <span>-{formatCurrency(selectedOrder.discountAmount)}</span>
+                  </div>
+                )}
+                <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                  <span>Final Amount:</span>
+                  <span className="text-green-600">{formatCurrency(selectedOrder.finalAmount)}</span>
+                </div>
               </div>
             </div>
           </div>

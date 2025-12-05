@@ -650,30 +650,7 @@ export default function ReportsPage() {
         <Divider />
         
         {/* Export Options */}
-        <div className="text-center">
-          <Title level={5}>Xuất báo cáo</Title>
-          <Space size="large">
-            <Button 
-              type="primary" 
-              icon={<FileExcelOutlined />}
-              size="large"
-            >
-              Xuất Excel
-            </Button>
-            <Button 
-              icon={<FilePdfOutlined />}
-              size="large"
-            >
-              Xuất PDF
-            </Button>
-            <Button 
-              icon={<PrinterOutlined />}
-              size="large"
-            >
-              In báo cáo
-            </Button>
-          </Space>
-        </div>
+      
       </Card>
     </div>
     </Spin>

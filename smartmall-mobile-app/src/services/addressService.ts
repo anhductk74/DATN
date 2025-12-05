@@ -49,6 +49,24 @@ export interface ApiResponse<T = any> {
 }
 
 class AddressService {
+  // Convert response từ backend sang frontend format
+  private convertAddress(apiAddress: any): Address {
+    return {
+      id: apiAddress.id,
+      recipient: apiAddress.recipient,
+      phoneNumber: apiAddress.phoneNumber || apiAddress.phone_number,
+      addressType: apiAddress.addressType || apiAddress.address_type,
+      street: apiAddress.street,
+      commune: apiAddress.commune,
+      district: apiAddress.district,
+      city: apiAddress.city,
+      fullAddress: apiAddress.fullAddress || apiAddress.full_address || '',
+      isDefault: apiAddress.default === true || apiAddress.isDefault === true,
+      createdAt: apiAddress.createdAt || apiAddress.created_at,
+      updatedAt: apiAddress.updatedAt || apiAddress.updated_at,
+    };
+  }
+
   // Lấy token
   private async getAuthHeaders() {
     const token = await AsyncStorage.getItem('accessToken');
@@ -61,10 +79,19 @@ class AddressService {
       response.data.success === true ||
       (response.status >= 200 && response.status < 300);
 
+    let data = response.data.data || response.data || null;
+    
+    // Convert address objects
+    if (data && Array.isArray(data)) {
+      data = data.map((item: any) => this.convertAddress(item));
+    } else if (data && typeof data === 'object' && data.id) {
+      data = this.convertAddress(data);
+    }
+
     return {
       success: isSuccess,
       message: response.data.message || 'Success',
-      data: response.data.data || response.data || null,
+      data: data,
     };
   }
 

@@ -93,7 +93,11 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
     try {
       const response = await orderTrackingService.getTrackingLogs(orderId);
       if (response.success && response.data) {
-        setTrackingLogs(response.data);
+        // Sắp xếp theo thời gian mới nhất lên đầu
+        const sortedLogs = [...response.data].sort((a, b) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        setTrackingLogs(sortedLogs);
       }
     } catch (error) {
       console.error('Error loading tracking logs:', error);
@@ -277,7 +281,7 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                   {trackingLogs.length > 0 ? (
                     <View style={styles.trackingInfo}>
                       <Text style={styles.carrierText}>
-                        {trackingLogs[0].carrier}: {order.trackingNumber || 'N/A'}
+                        {trackingLogs[0].carrier} {order.trackingNumber }
                       </Text>
                     </View>
                   ) : (

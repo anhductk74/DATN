@@ -12,6 +12,7 @@ import {
   Image,
   Platform,
   ActionSheetIOS,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ import type { CartItem } from '../services/CartService';
 import addressService, { Address } from '../services/addressService';
 import voucherService, { VoucherResponseDto } from '../services/voucherService';
 import { orderService } from '../services/OrderService';
+import { vnPayService } from '../services/vnPayService';
 import CartService from '../services/CartService';
 import { productService } from '../services/productService';
 import { getCloudinaryUrl } from '../config/config';
@@ -43,7 +45,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
   const [allVouchers, setAllVouchers] = useState<VoucherResponseDto[]>([]);
   const [selectedVouchers, setSelectedVouchers] = useState<VoucherResponseDto[]>([]);
   const [voucherCode, setVoucherCode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'VNPAY'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'CREDIT_CARD'>('COD');
   const [shippingMethod, setShippingMethod] = useState<{ id: string; name: string; cost: number } | null>({ id: 'standard', name: 'Giao Hàng Tiêu Chuẩn', cost: 30000 });
   const [isLoading, setIsLoading] = useState(true);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -241,25 +243,95 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
         const response = await orderService.createOrder(orderData);
         
         if (response.success && response.data) {
-          for (const item of items) {
-            await CartService.removeItem(item.id);
-          }
+          console.log('✅ Order created successfully:', {
+            orderId: response.data.id,
+            orderNumber: response.data.orderNumber,
+            status: response.data.status,
+            fullResponse: response.data
+          });
 
-          Alert.alert(
-            'Order Placed Successfully',
-            `Order #${response.data.orderNumber} has been placed`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Home' }],
-                  });
+          // Nếu chọn CREDIT_CARD (VNPay), gọi API tạo URL thanh toán
+          if (paymentMethod === 'CREDIT_CARD') {
+            const totalAmount = calculateTotal();
+            const orderId = response.data.id; // Get orderId from created order
+            // Format orderInfo theo yêu cầu backend: "OrderId:{uuid}|Thanh toan don hang #{uuid}"
+            const orderInfo = `OrderId:${orderId}|Thanh toan don hang #${orderId}`;
+            
+            console.log('🔄 Calling VNPay API with params:', {
+              amount: totalAmount,
+              orderInfo: orderInfo,
+              userId: userInfo.id,
+            });
+            
+            const vnPayResponse = await vnPayService.createPaymentUrl({
+              amount: totalAmount,
+              orderInfo: orderInfo,  // Backend will extract orderId from this
+              userId: userInfo.id,
+            });
+
+            console.log('📥 VNPay Response:', vnPayResponse);
+
+            if (vnPayResponse.success && vnPayResponse.data) {
+              // Mở trình duyệt để thanh toán
+              const paymentUrl = vnPayResponse.data;
+              const canOpen = await Linking.canOpenURL(paymentUrl);
+              
+              if (canOpen) {
+                await Linking.openURL(paymentUrl);
+                
+                // Xóa giỏ hàng
+                for (const item of items) {
+                  await CartService.removeItem(item.id);
+                }
+
+                // Thông báo cho user
+                Alert.alert(
+                  'Chuyển hướng thanh toán',
+                  'Đang mở trang thanh toán VNPay. Vui lòng hoàn tất thanh toán.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ name: 'Home' }],
+                        });
+                      },
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert('Lỗi', 'Không thể mở trang thanh toán');
+              }
+            } else {
+              console.error('VNPay Error Response:', vnPayResponse);
+              Alert.alert(
+                'Lỗi thanh toán', 
+                vnPayResponse.message || 'Không thể tạo liên kết thanh toán. Vui lòng kiểm tra console để biết chi tiết.'
+              );
+            }
+          } else {
+            // Thanh toán COD
+            for (const item of items) {
+              await CartService.removeItem(item.id);
+            }
+
+            Alert.alert(
+              'Order Placed Successfully',
+              `Order #${response.data.orderNumber} has been placed`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'Home' }],
+                    });
+                  },
                 },
-              },
-            ]
-          );
+              ]
+            );
+          }
         } else {
           Alert.alert('Error', response.message || 'Failed to place order');
         }
@@ -274,7 +346,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
       ActionSheetIOS.showActionSheetWithOptions(
         {
           title: 'Confirm Order',
-          message: `Place order with ${paymentMethod === 'COD' ? 'Cash on Delivery' : 'VNPay'}?`,
+          message: `Place order with ${paymentMethod === 'COD' ? 'Cash on Delivery' : 'VNPay Credit Card'}?`,
           options: ['Cancel', 'Confirm'],
           cancelButtonIndex: 0,
         },
@@ -287,7 +359,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
     } else {
       Alert.alert(
         'Confirm Order',
-        `Place order with ${paymentMethod === 'COD' ? 'Cash on Delivery' : 'VNPay'}?`,
+        `Place order with ${paymentMethod === 'COD' ? 'Cash on Delivery' : 'VNPay Credit Card'}?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -511,9 +583,9 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
       <TouchableOpacity
         style={[
           styles.paymentOption,
-          paymentMethod === 'VNPAY' && styles.paymentOptionSelected,
+          paymentMethod === 'CREDIT_CARD' && styles.paymentOptionSelected,
         ]}
-        onPress={() => setPaymentMethod('VNPAY')}
+        onPress={() => setPaymentMethod('CREDIT_CARD')}
       >
         <View style={styles.paymentOptionLeft}>
           <MaterialCommunityIcons name="credit-card" size={24} color="#333" />
@@ -523,9 +595,9 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
           </View>
         </View>
         <Ionicons
-          name={paymentMethod === 'VNPAY' ? 'radio-button-on' : 'radio-button-off'}
+          name={paymentMethod === 'CREDIT_CARD' ? 'radio-button-on' : 'radio-button-off'}
           size={24}
-          color={paymentMethod === 'VNPAY' ? '#2563eb' : '#999'}
+          color={paymentMethod === 'CREDIT_CARD' ? '#2563eb' : '#999'}
         />
       </TouchableOpacity>
     </View>

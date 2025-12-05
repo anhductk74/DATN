@@ -7,6 +7,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AddressesScreen from '../screens/AddressesScreen';
+import AddEditAddressScreen from '../screens/AddEditAddressScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import ProductListScreen from '../screens/ProductListScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
@@ -19,6 +20,7 @@ import OrderTrackingDetailScreen from '../screens/OrderTrackingDetailScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import OrderReturnRequestScreen from '../screens/OrderReturnRequestScreen';
 import type { CartItem } from '../services/CartService';
+import type { Address } from '../services/addressService';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -26,6 +28,7 @@ export type RootStackParamList = {
   Home: undefined;
   Profile: undefined;
   Addresses: undefined;
+  AddEditAddress: { address?: Address } | undefined;
   Categories: undefined;
   ProductList: { categoryId: string; categoryName: string };
   ProductDetail: { productId: string };
@@ -95,6 +98,14 @@ export default function AppNavigator() {
           component={AddressesScreen}
           options={{
             title: 'My Addresses',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="AddEditAddress"
+          component={AddEditAddressScreen}
+          options={{
+            title: 'Address',
             headerShown: false,
           }}
         />
