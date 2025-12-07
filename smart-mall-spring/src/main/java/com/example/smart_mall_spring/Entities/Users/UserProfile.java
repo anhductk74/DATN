@@ -19,7 +19,7 @@ import lombok.ToString;
 @Getter
 @Setter
 @ToString(exclude = "user")
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = "user")
 public class UserProfile extends BaseEntity {
 
     @Column(name = "full_name")

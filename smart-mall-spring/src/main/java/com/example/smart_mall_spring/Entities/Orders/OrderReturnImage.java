@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Orders;
 
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.UUID;
@@ -23,5 +24,6 @@ public class OrderReturnImage extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_return_request_id", nullable = false)
+    @JsonIgnore
     private OrderReturnRequest orderReturnRequest;
 }

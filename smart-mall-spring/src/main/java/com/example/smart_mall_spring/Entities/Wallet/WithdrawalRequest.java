@@ -3,6 +3,7 @@ package com.example.smart_mall_spring.Entities.Wallet;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Enum.WithdrawalStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,10 +20,12 @@ public class WithdrawalRequest extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", nullable = false)
+    @JsonIgnore
     private Shop shop;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
+    @JsonIgnore
     private ShopWallet wallet;
     
     @Column(nullable = false)

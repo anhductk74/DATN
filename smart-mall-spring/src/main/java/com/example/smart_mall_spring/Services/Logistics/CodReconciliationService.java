@@ -38,7 +38,8 @@ public class CodReconciliationService {
         return CodReconciliationResponseDto.builder()
                 .id(e.getId())
                 .shipperId(e.getShipper().getId())
-                .shipperName(e.getShipper().getFullName())
+                .shipperName(e.getShipper() != null && e.getShipper().getUser() != null && e.getShipper().getUser().getProfile() != null 
+                    ? e.getShipper().getUser().getProfile().getFullName() : null)
                 .totalCollected(e.getTotalCollected())
                 .totalDeposited(e.getTotalDeposited())
                 .difference(e.getDifference())

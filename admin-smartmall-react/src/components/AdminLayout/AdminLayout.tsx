@@ -16,6 +16,7 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
   BellOutlined,
+  CarOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router';
 import { useAuthStore } from '../../stores/authStore';
@@ -38,6 +39,7 @@ export default function AdminLayout() {
     if (path.includes('/products')) openKeys.push('products');
     if (path.includes('/orders')) openKeys.push('orders');
     if (path.includes('/customers')) openKeys.push('customers');
+    if (path.includes('/managers')) openKeys.push('managers');
     if (path.includes('/marketing')) openKeys.push('marketing');
     
     return openKeys;
@@ -124,6 +126,23 @@ export default function AdminLayout() {
       icon: <UserOutlined />,
       label: 'Users Management',
       onClick: () => navigate('/dashboard/users'),
+    },
+    {
+      key: 'managers',
+      icon: <CarOutlined />,
+      label: 'Managers',
+      children: [
+        {
+          key: '/dashboard/managers',
+          label: 'All Managers',
+          onClick: () => navigate('/dashboard/managers'),
+        },
+        {
+          key: '/dashboard/managers/register',
+          label: 'Register Manager',
+          onClick: () => navigate('/dashboard/managers/register'),
+        },
+      ],
     },
     {
       key: 'marketing',

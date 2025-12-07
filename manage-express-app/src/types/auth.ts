@@ -1,5 +1,19 @@
 import { DefaultSession } from "next-auth";
 
+// Company information interface
+export interface CompanyInfo {
+  companyId: string;
+  companyName: string;
+  companyCode: string;
+  contactEmail: string;
+  contactPhone: string;
+  street: string;
+  commune: string;
+  district: string;
+  city: string;
+  fullAddress: string;
+}
+
 // Authentication related types
 declare module "next-auth" {
   interface Session {
@@ -15,6 +29,7 @@ declare module "next-auth" {
       avatar?: string;
       isActive?: boolean;
       roles?: string[];
+      company?: CompanyInfo;
     } & DefaultSession["user"];
   }
 
@@ -30,6 +45,7 @@ declare module "next-auth" {
     roles?: string[];
     accessToken?: string;
     refreshToken?: string;
+    company?: CompanyInfo;
   }
 }
 
@@ -45,6 +61,7 @@ declare module "next-auth/jwt" {
     gender?: "MALE" | "FEMALE" | "OTHER";
     isActive?: boolean;
     roles?: string[];
+    company?: CompanyInfo;
   }
 }
 
@@ -63,6 +80,7 @@ export interface UserInfoDto {
   gender?: string;
   isActive: number;
   roles: string[];
+  company?: CompanyInfo;
 }
 
 export interface ApiResponse<T> {

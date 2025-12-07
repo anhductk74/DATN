@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Entities.Products;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +15,7 @@ public class ReviewMedia extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "review_id", nullable = false)
+    @JsonIgnore
     private Review review;
 
     private String mediaUrl;   // URL ảnh/video lưu trên Cloudinary

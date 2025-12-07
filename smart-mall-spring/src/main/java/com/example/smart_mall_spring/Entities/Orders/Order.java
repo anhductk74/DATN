@@ -6,11 +6,13 @@ import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Entities.Users.UserAddress;
 import com.example.smart_mall_spring.Enum.PaymentMethod;
 import com.example.smart_mall_spring.Enum.StatusOrder;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
+@ToString(exclude = {"user", "shop", "shippingAddress", "items", "payment"})
 public class Order extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -48,21 +51,27 @@ public class Order extends BaseEntity {
     private PaymentMethod paymentMethod;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<OrderItem> items;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<OrderStatusHistory> statusHistories = new ArrayList<>();
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<OrderTrackingLog> trackingLogs = new ArrayList<>();
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<OrderVoucher> vouchers = new ArrayList<>();
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<ShippingFee> shippingFees = new ArrayList<>();
 
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Payment payment;
 
     private LocalDateTime createdAt;

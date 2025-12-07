@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Entities.Products;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -19,6 +20,7 @@ import lombok.NoArgsConstructor;
 public class VariantAttribute extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "variant_id")
+    @JsonIgnore
     private ProductVariant variant;
 
     private String attributeName;

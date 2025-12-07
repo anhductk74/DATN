@@ -3,6 +3,7 @@ package com.example.smart_mall_spring.Entities.Wallet;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Orders.Order;
 import com.example.smart_mall_spring.Enum.TransactionType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,6 +20,7 @@ public class WalletTransaction extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
+    @JsonIgnore
     private ShopWallet wallet;
     
     @Enumerated(EnumType.STRING)
@@ -36,10 +38,12 @@ public class WalletTransaction extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
+    @JsonIgnore
     private Order order; // Liên kết đến đơn hàng (nếu có)
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "withdrawal_request_id")
+    @JsonIgnore
     private WithdrawalRequest withdrawalRequest; // Liên kết đến yêu cầu rút tiền (nếu có)
     
     @Column(length = 1000)

@@ -4,6 +4,7 @@ package com.example.smart_mall_spring.Entities.Orders;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Enum.ReturnStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,10 +23,12 @@ public class OrderReturnRequest extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
     private User user;
 
     @Column(columnDefinition = "TEXT")
@@ -38,5 +41,6 @@ public class OrderReturnRequest extends BaseEntity {
     private LocalDateTime processedDate;
 
     @OneToMany(mappedBy = "orderReturnRequest", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<OrderReturnImage> images = new ArrayList<>();
 }

@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Orders;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Products.ProductVariant;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -10,8 +11,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "order_items")
@@ -22,6 +21,7 @@ import java.math.BigDecimal;
 public class OrderItem extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "order_id")
+    @JsonIgnore
     private Order order;
 
     @ManyToOne

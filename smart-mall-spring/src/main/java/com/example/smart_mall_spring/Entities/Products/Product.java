@@ -5,11 +5,13 @@ import com.example.smart_mall_spring.Entities.Categories.Category;
 import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Enum.Status;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.List;
 
@@ -19,6 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
+@ToString(exclude = {"category", "shop", "variants", "reviews"})
 public class Product extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "category_id")
@@ -45,9 +48,11 @@ public class Product extends BaseEntity {
     private Boolean isDeleted = false;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<ProductVariant> variants;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Review> reviews;
 
 }

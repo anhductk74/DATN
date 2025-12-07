@@ -24,4 +24,6 @@ public class UserInfoDto {
     private String dateOfBirth;
     private int isActive;
     private List<String> roles;
+    private CompanyInfoDto company; // Thông tin công ty cho Manager
+    private ShipperInfoDto shipper; // Thông tin shipper cho Shipper
 }

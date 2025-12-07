@@ -2,11 +2,11 @@ package com.example.smart_mall_spring.Entities.Orders;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import lombok.EqualsAndHashCode;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
 
 
 @Entity
@@ -19,6 +19,7 @@ public class OrderVoucher extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
     @ManyToOne

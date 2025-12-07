@@ -3,13 +3,13 @@ package com.example.smart_mall_spring.Entities.Orders;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Enum.PaymentMethod;
 import com.example.smart_mall_spring.Enum.PaymentStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 public class Payment extends BaseEntity {
     @OneToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
     @Enumerated(EnumType.STRING)

@@ -15,8 +15,7 @@ import {
   Progress,
   Divider,
   Spin,
-  App,
-  message as antdMessage
+  App
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { 
@@ -28,8 +27,7 @@ import {
   RiseOutlined,
   FallOutlined
 } from '@ant-design/icons';
-import ShipmentReportService, { ShipmentReportResponseDto, ShipmentReportSummary } from '@/services/ShipmentReportService';
-import shipperApiService from '@/services/ShipperApiService';
+import ShipmentReportService, { ShipmentReportSummary } from '@/services/ShipmentReportService';
 import ShipmentOrderService, { DashboardStatistics } from '@/services/ShipmentOrderService';
 import type { Dayjs } from 'dayjs';
 
@@ -54,14 +52,13 @@ export default function ReportsPage() {
   const [customDateRange, setCustomDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   
   // Real data from API
-  const [reports, setReports] = useState<ShipmentReportResponseDto[]>([]);
   const [currentSummary, setCurrentSummary] = useState<ShipmentReportSummary | null>(null);
   const [previousSummary, setPreviousSummary] = useState<ShipmentReportSummary | null>(null);
-  const [shipperStats, setShipperStats] = useState<any>(null);
   const [dashboardStats, setDashboardStats] = useState<DashboardStatistics | null>(null);
 
   useEffect(() => {
     fetchReportData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange, reportType]);
 
   const getDateRangeFromSelection = (): { start: string; end: string } => {
@@ -129,13 +126,6 @@ export default function ReportsPage() {
       const currentDates = getDateRangeFromSelection();
       const previousDates = getPreviousPeriodDates(currentDates);
 
-      // Fetch current period reports
-      const currentReports = await ShipmentReportService.getReportsBetween(
-        currentDates.start,
-        currentDates.end
-      );
-      setReports(currentReports);
-
       // Get current period summary
       const currentSum = await ShipmentReportService.getReportSummary(
         currentDates.start,
@@ -149,15 +139,6 @@ export default function ReportsPage() {
         previousDates.end
       );
       setPreviousSummary(previousSum);
-
-      // Fetch shipper statistics (always needed for quick stats)
-      try {
-        const stats = await shipperApiService.getShipperStatistics();
-        setShipperStats(stats);
-      } catch (error) {
-        console.error('Error fetching shipper statistics:', error);
-        // Continue even if shipper stats fail
-      }
 
       // Fetch dashboard statistics based on selected date range
       try {
@@ -207,7 +188,7 @@ export default function ReportsPage() {
   const handleGenerateReport = async () => {
     const dates = getDateRangeFromSelection();
     try {
-      const report = await ShipmentReportService.generateReportForDate(dates.end);
+      await ShipmentReportService.generateReportForDate(dates.end);
       message.success('Tạo báo cáo thành công');
       fetchReportData();
     } catch (error) {
@@ -275,7 +256,17 @@ export default function ReportsPage() {
   ] : [];
 
   // Mock data for different report types
-  const shipperPerformanceData = [
+  interface ShipperPerformanceData {
+    key: string;
+    shipper: string;
+    totalOrders: number;
+    successfulOrders: number;
+    successRate: number;
+    avgDeliveryTime: number;
+    rating: number;
+  }
+
+  const shipperPerformanceData: ShipperPerformanceData[] = [
     {
       key: '1',
       shipper: 'Nguyen Van A',
@@ -305,7 +296,16 @@ export default function ReportsPage() {
     }
   ];
 
-  const warehouseData = [
+  interface WarehouseData {
+    key: string;
+    warehouse: string;
+    totalIn: number;
+    totalOut: number;
+    currentStock: number;
+    utilizationRate: number;
+  }
+
+  const warehouseData: WarehouseData[] = [
     {
       key: '1',
       warehouse: 'Kho Ha Noi Hub',
@@ -378,7 +378,7 @@ export default function ReportsPage() {
       title: 'Thay đổi',
       key: 'change',
       width: 120,
-      render: (_: any, record: ReportData) => (
+      render: (_: unknown, record: ReportData) => (
         <div className={`flex items-center ${getTrendColor(record.change)}`}>
           {getTrendIcon(record.trend)}
           <span className="ml-1">{Math.abs(record.change || 0).toFixed(1)}%</span>
@@ -387,7 +387,7 @@ export default function ReportsPage() {
     }
   ];
 
-  const shipperColumns: ColumnsType<any> = [
+  const shipperColumns: ColumnsType<ShipperPerformanceData> = [
     {
       title: 'Shipper',
       dataIndex: 'shipper',
@@ -428,7 +428,7 @@ export default function ReportsPage() {
     }
   ];
 
-  const warehouseColumns: ColumnsType<any> = [
+  const warehouseColumns: ColumnsType<WarehouseData> = [
     {
       title: 'Kho',
       dataIndex: 'warehouse',

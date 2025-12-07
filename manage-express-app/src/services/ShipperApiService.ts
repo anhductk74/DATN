@@ -15,6 +15,42 @@ export interface ShipperRequestDto {
   region: string;
 }
 
+export interface ShipperRegisterDto {
+  email: string;
+  password: string;
+  fullName: string;
+  phoneNumber: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  dateOfBirth?: string;
+  street: string;
+  commune: string;
+  district: string;
+  city: string;
+  shippingCompanyId: string;
+  idCardNumber?: string;
+  driverLicenseNumber?: string;
+  vehicleType?: string;
+  licensePlate?: string;
+  vehicleBrand?: string;
+  vehicleColor?: string;
+  operationalCommune: string;
+  operationalDistrict: string;
+  operationalCity: string;
+  maxDeliveryRadius?: number;
+}
+
+export interface ShipperUpdateDto {
+  status?: ShipperStatus;
+  vehicleType?: string;
+  licensePlate?: string;
+  vehicleBrand?: string;
+  vehicleColor?: string;
+  operationalCommune?: string;
+  operationalDistrict?: string;
+  operationalCity?: string;
+  maxDeliveryRadius?: number;
+}
+
 export interface ShipperResponseDto {
   id: string;
   fullName: string;
@@ -26,10 +62,26 @@ export interface ShipperResponseDto {
   vehicleType: string;
   licensePlate: string;
   region: string;
+  operationalCommune?: string;
+  operationalDistrict?: string;
+  operationalCity?: string;
+  operationalRegionFull?: string;
+  maxDeliveryRadius?: number;
+  idCardNumber?: string;
+  idCardFrontImage?: string;
+  idCardBackImage?: string;
+  driverLicenseNumber?: string;
+  driverLicenseImage?: string;
+  vehicleBrand?: string;
+  vehicleColor?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  avatar?: string;
   shippingCompanyId: string;
   shippingCompanyName: string;
   userId: string;
   username: string;
+  address?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -86,7 +138,85 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
 
   // Get shipper by ID
   async getShipperById(id: string): Promise<ShipperResponseDto> {
-    const response = await apiClient.get<ShipperResponseDto>(`/api/logistics/shippers/${id}`);
+    const response = await apiClient.get<ShipperResponseDto>(`/api/managers/shippers/${id}`);
+    return response.data;
+  },
+
+  // Register new shipper (creates User + Shipper) with multipart/form-data
+  async registerShipper(
+    registerData: ShipperRegisterDto, 
+    files?: {
+      idCardFrontImage?: File;
+      idCardBackImage?: File;
+      driverLicenseImage?: File;
+    }
+  ): Promise<ShipperResponseDto> {
+    // Validate required fields
+    const requiredFields = ['email', 'password', 'fullName', 'phoneNumber', 'street', 'commune', 'district', 'city', 'shippingCompanyId', 'operationalCommune', 'operationalDistrict', 'operationalCity'];
+    for (const field of requiredFields) {
+      if (!registerData[field as keyof ShipperRegisterDto]) {
+        console.error(`Missing required field: ${field}`);
+        throw new Error(`Thiếu trường bắt buộc: ${field}`);
+      }
+    }
+    
+    // NEW API STRUCTURE: dataInfo (JSON) + dataImage (files)
+    const formData = new FormData();
+    
+    // 1. Append dataInfo as JSON string
+    const dataInfo = {
+      email: registerData.email,
+      password: registerData.password,
+      fullName: registerData.fullName,
+      phoneNumber: registerData.phoneNumber,
+      gender: registerData.gender,
+      dateOfBirth: registerData.dateOfBirth,
+      street: registerData.street,
+      commune: registerData.commune,
+      district: registerData.district,
+      city: registerData.city,
+      shippingCompanyId: registerData.shippingCompanyId,
+      idCardNumber: registerData.idCardNumber,
+      driverLicenseNumber: registerData.driverLicenseNumber,
+      vehicleType: registerData.vehicleType,
+      licensePlate: registerData.licensePlate,
+      vehicleBrand: registerData.vehicleBrand,
+      vehicleColor: registerData.vehicleColor,
+      operationalCommune: registerData.operationalCommune,
+      operationalDistrict: registerData.operationalDistrict,
+      operationalCity: registerData.operationalCity,
+      maxDeliveryRadius: registerData.maxDeliveryRadius
+    };
+    
+    console.log('dataInfo JSON:', dataInfo);
+    formData.append('dataInfo', JSON.stringify(dataInfo));
+    
+    // 2. Append image files separately
+    if (files?.idCardFrontImage) {
+      console.log('Appending idCardFrontImage:', files.idCardFrontImage.name, files.idCardFrontImage.size, 'bytes');
+      formData.append('idCardFrontImage', files.idCardFrontImage);
+    }
+    if (files?.idCardBackImage) {
+      console.log('Appending idCardBackImage:', files.idCardBackImage.name, files.idCardBackImage.size, 'bytes');
+      formData.append('idCardBackImage', files.idCardBackImage);
+    }
+    if (files?.driverLicenseImage) {
+      console.log('Appending driverLicenseImage:', files.driverLicenseImage.name, files.driverLicenseImage.size, 'bytes');
+      formData.append('driverLicenseImage', files.driverLicenseImage);
+    }
+    
+    // Log FormData contents for debugging
+    console.log('FormData entries:');
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`  ${key}: [File] ${value.name} (${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}:`, value);
+      }
+    }
+    
+    // No need to set Content-Type header - axios will handle it for FormData
+    const response = await apiClient.post<ShipperResponseDto>('/api/managers/shippers/register', formData);
     return response.data;
   },
 
@@ -97,42 +227,42 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
   },
 
   // Update shipper
-  async updateShipper(id: string, shipperData: ShipperRequestDto): Promise<ShipperResponseDto> {
-    const response = await apiClient.put<ShipperResponseDto>(`/api/logistics/shippers/${id}`, shipperData);
+  async updateShipper(id: string, shipperData: ShipperUpdateDto): Promise<ShipperResponseDto> {
+    const response = await apiClient.put<ShipperResponseDto>(`/api/managers/shippers/${id}`, shipperData);
     return response.data;
   },
 
   // Delete shipper
   async deleteShipper(id: string): Promise<void> {
-    await apiClient.delete(`/api/logistics/shippers/${id}`);
+    await apiClient.delete(`/api/managers/shippers/${id}`);
   },
 
   // Get shippers by company
   async getShippersByCompany(companyId: string): Promise<ShipperResponseDto[]> {
-    const response = await apiClient.get<ShipperResponseDto[]>(`/api/logistics/shippers/company/${companyId}`);
+    const response = await apiClient.get<ShipperResponseDto[]>(`/api/managers/shippers?companyId=${companyId}`);
     return response.data;
   },
 
   // Get shippers by region
   async getShippersByRegion(region: string): Promise<ShipperResponseDto[]> {
-    const response = await apiClient.get<ShipperResponseDto[]>(`/api/logistics/shippers/region/${region}`);
+    const response = await apiClient.get<ShipperResponseDto[]>(`/api/managers/shippers?region=${region}`);
     return response.data;
   },
 
   // Get shippers by status
   async getShippersByStatus(status: ShipperStatus): Promise<ShipperResponseDto[]> {
-    const response = await apiClient.get<ShipperResponseDto[]>(`/api/logistics/shippers/status/${status}`);
+    const response = await apiClient.get<ShipperResponseDto[]>(`/api/managers/shippers?status=${status}`);
     return response.data;
   },
 
   // Update shipper location
   async updateShipperLocation(id: string, latitude: number, longitude: number): Promise<void> {
-    await apiClient.put(`/api/logistics/shippers/${id}/location`, { latitude, longitude });
+    await apiClient.put(`/api/managers/shippers/${id}/location`, { latitude, longitude });
   },
 
   // Update shipper status
   async updateShipperStatus(id: string, status: ShipperStatus): Promise<void> {
-    await apiClient.put(`/api/logistics/shippers/${id}/status`, { status });
+    await apiClient.put(`/api/managers/shippers/${id}/status`, { status });
   },
 
   // Get shipper statistics
@@ -151,7 +281,7 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
       inactive: number;
       onLeave: number;
       suspended: number;
-    }>('/api/logistics/shippers/statistics');
+    }>('/api/managers/shippers/statistics');
     return response.data;
   },
 
@@ -172,7 +302,7 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
       successfulDeliveries: number;
       failedDeliveries: number;
       successRate: number;
-    }>(`/api/logistics/shippers/${shipperId}/delivery-statistics`);
+    }>(`/api/managers/shippers/${shipperId}/delivery-statistics`);
     return response.data;
   },
 
@@ -200,4 +330,4 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
     return colorMap[status] || 'default';
   },
 };
-export default shipperApiService;
+export { shipperApiService, ShipperStatus, ShipperRequestDto, ShipperRegisterDto, ShipperUpdateDto, ShipperResponseDto };

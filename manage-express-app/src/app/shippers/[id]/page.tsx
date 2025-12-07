@@ -27,7 +27,7 @@ import {
   ShoppingOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import shipperApiService, { ShipperResponseDto } from '@/services/ShipperApiService';
+import { shipperApiService, ShipperResponseDto } from '@/services/ShipperApiService';
 import ShipmentOrderService, { ShipmentOrderResponseDto, ShipmentStatus } from '@/services/ShipmentOrderService';
 import shipperTransactionApiService, { ShipperTransactionResponseDto, TransactionType } from '@/services/ShipperTransactionApiService';
 
@@ -61,6 +61,20 @@ export default function ShipperDetailPage() {
     if (shipperId) {
       fetchShipperDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipperId]);
+
+  // Refetch when window gains focus (e.g., coming back from list page)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (shipperId) {
+        fetchShipperDetails();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shipperId]);
 
   const fetchShipperDetails = async () => {
@@ -353,10 +367,17 @@ export default function ShipperDetailPage() {
                 </span>
               </Space>
               <div className="mt-2 text-gray-600">
+                <div>🧑 {shipper.username}</div>
                 <div>📞 {shipper.phoneNumber}</div>
-                <div>✉️ {shipper.email}</div>
                 <div>🏢 {shipper.shippingCompanyName}</div>
-                <div>📍 {shipper.region}</div>
+                {shipper.operationalCommune && shipper.operationalDistrict && shipper.operationalCity ? (
+                  <div>📍 {shipper.operationalCommune}, {shipper.operationalDistrict}, {shipper.operationalCity}</div>
+                ) : (
+                  <div>📍 {shipper.region}</div>
+                )}
+                {shipper.maxDeliveryRadius && (
+                  <div className="text-blue-600">🎯 Bán kính: {shipper.maxDeliveryRadius}km</div>
+                )}
               </div>
             </div>
           </div>
@@ -419,13 +440,33 @@ export default function ShipperDetailPage() {
                 <Descriptions.Item label="Username">{shipper.username}</Descriptions.Item>
                 <Descriptions.Item label="Họ và tên">{shipper.fullName}</Descriptions.Item>
                 <Descriptions.Item label="Số điện thoại">{shipper.phoneNumber}</Descriptions.Item>
-                <Descriptions.Item label="Email">{shipper.email}</Descriptions.Item>
                 <Descriptions.Item label="Công ty vận chuyển">{shipper.shippingCompanyName}</Descriptions.Item>
                 <Descriptions.Item label="Loại phương tiện">
                   {getVehicleIcon(shipper.vehicleType)} {getVehicleText(shipper.vehicleType)}
                 </Descriptions.Item>
                 <Descriptions.Item label="Biển số xe">{shipper.licensePlate}</Descriptions.Item>
-                <Descriptions.Item label="Khu vực">{shipper.region}</Descriptions.Item>
+                {shipper.vehicleBrand && (
+                  <Descriptions.Item label="Hãng xe">{shipper.vehicleBrand}</Descriptions.Item>
+                )}
+                {shipper.vehicleColor && (
+                  <Descriptions.Item label="Màu xe">{shipper.vehicleColor}</Descriptions.Item>
+                )}
+                <Descriptions.Item label="Khu vực hoạt động" span={2}>
+                  {shipper.operationalCommune && shipper.operationalDistrict && shipper.operationalCity ? (
+                    <div>
+                      <div className="font-medium text-blue-600">
+                        {shipper.operationalCommune}, {shipper.operationalDistrict}, {shipper.operationalCity}
+                      </div>
+                      {shipper.maxDeliveryRadius && (
+                        <div className="text-gray-500 text-sm mt-1">
+                          📍 Bán kính giao hàng tối đa: {shipper.maxDeliveryRadius} km
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span>{shipper.region || 'Chưa cập nhật'}</span>
+                  )}
+                </Descriptions.Item>
                 <Descriptions.Item label="Trạng thái">
                   <Tag color={shipperApiService.getStatusColor(shipper.status)}>
                     {shipperApiService.formatStatus(shipper.status)}

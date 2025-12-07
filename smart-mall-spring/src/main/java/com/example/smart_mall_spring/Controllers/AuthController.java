@@ -1,11 +1,15 @@
 package com.example.smart_mall_spring.Controllers;
 
+import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.example.smart_mall_spring.Dtos.Auth.*;
+import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,7 +33,16 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponseDto>> register(@Valid @RequestBody RegisterRequestDto request) {
         try {
-            AuthResponseDto response = authService.register(request);
+            // Lấy thông tin user hiện tại (nếu đăng nhập)
+            User currentUser = null;
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() 
+                    && authentication.getPrincipal() instanceof CustomUserDetails) {
+                CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+                currentUser = userDetails.getUser();
+            }
+            
+            AuthResponseDto response = authService.register(request, currentUser);
             return ResponseEntity.ok(ApiResponse.success("Registration successful", response));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
@@ -81,6 +94,26 @@ public class AuthController {
         try {
             AuthResponseDto response = authService.verifyMobileLoginCode(request);
             return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // Đăng ký Manager (chỉ ADMIN)
+    @PostMapping("/register-manager")
+    public ResponseEntity<ApiResponse<ManagerRegisterResponseDto>> registerManager(@Valid @RequestBody ManagerRegisterDto request) {
+        try {
+            // Lấy thông tin user hiện tại (phải là ADMIN)
+            User currentUser = null;
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() 
+                    && authentication.getPrincipal() instanceof CustomUserDetails) {
+                CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+                currentUser = userDetails.getUser();
+            }
+            
+            ManagerRegisterResponseDto response = authService.registerManager(request, currentUser);
+            return ResponseEntity.ok(ApiResponse.success("Manager registered successfully", response));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }

@@ -4,6 +4,7 @@ package com.example.smart_mall_spring.Entities.Logistics;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 
 import com.example.smart_mall_spring.Enum.ReconciliationStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,14 +13,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "cod_reconciliation")
+@Table(name = "cod_reconciliations")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 public class CodReconciliation extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "shipper_id", nullable = false)
+    @JsonIgnore
     private Shipper shipper;
 
     private BigDecimal totalCollected;   // Tổng COD shipper thu

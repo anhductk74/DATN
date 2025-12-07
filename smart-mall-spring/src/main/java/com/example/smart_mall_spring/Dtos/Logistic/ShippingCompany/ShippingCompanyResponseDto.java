@@ -18,7 +18,14 @@ public class ShippingCompanyResponseDto {
     private String code;
     private String contactEmail;
     private String contactPhone;
-    private String headquartersAddress;
+    
+    // Địa chỉ trụ sở
+    private String street;
+    private String commune;
+    private String district;
+    private String city;
+    private String fullAddress; // Địa chỉ đầy đủ (tổng hợp)
+    
     private ShippingCompanyStatus status;
     private List<ShipperResponseDto> shippers;
     private List<WarehouseResponseDto> warehouses;

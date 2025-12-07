@@ -54,7 +54,8 @@ public class SubShipmentOrderService {
                 .toWarehouseId(entity.getToWarehouse() != null ? entity.getToWarehouse().getId() : null)
                 .toWarehouseName(entity.getToWarehouse() != null ? entity.getToWarehouse().getName() : null)
                 .shipperId(entity.getShipper() != null ? entity.getShipper().getId() : null)
-                .shipperName(entity.getShipper() != null ? entity.getShipper().getFullName() : null)
+                .shipperName(entity.getShipper() != null && entity.getShipper().getUser() != null && entity.getShipper().getUser().getProfile() != null 
+                    ? entity.getShipper().getUser().getProfile().getFullName() : null)
                 .status(entity.getStatus())
                 .sequence(entity.getSequence())
                 .startTime(entity.getStartTime())
@@ -147,7 +148,8 @@ public class SubShipmentOrderService {
             orderTrackingLogService.recordTrackingLog(
                     sub.getShipmentOrder().getOrder(),
                     OrderTrackingLogRequest.builder()
-                            .carrier(sub.getShipper() != null ? sub.getShipper().getFullName() : "Giao hàng tiết kiệm")
+                            .carrier(sub.getShipper() != null && sub.getShipper().getUser() != null && sub.getShipper().getUser().getProfile() != null 
+                                ? sub.getShipper().getUser().getProfile().getFullName() : "Giao hàng tiết kiệm")
                             .trackingNumber(sub.getShipmentOrder().getTrackingCode() != null
                                     ? sub.getShipmentOrder().getTrackingCode()
                                     : "")

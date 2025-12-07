@@ -25,4 +25,16 @@ public class RegisterRequestDto {
     private String phoneNumber;
     
     private String role; // USER, MANAGER, SHIPPER (default: USER)
+    
+    // Thông tin công ty vận chuyển (bắt buộc khi role = MANAGER)
+    private String companyName;
+    private String companyCode;
+    private String companyContactEmail;
+    private String companyContactPhone;
+    
+    // Địa chỉ trụ sở công ty (kế thừa Address)
+    private String companyStreet;
+    private String companyCommune;
+    private String companyDistrict;
+    private String companyCity;
 }

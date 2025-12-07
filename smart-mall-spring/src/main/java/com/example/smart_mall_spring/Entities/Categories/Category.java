@@ -3,6 +3,7 @@ package com.example.smart_mall_spring.Entities.Categories;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Products.Product;
 import com.example.smart_mall_spring.Enum.Status;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,11 +25,14 @@ public class Category extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "parent_id")
+    @JsonIgnore
     private Category parent;
 
     @OneToMany(mappedBy = "parent")
+    @JsonIgnore
     private List<Category> subCategories;
 
     @OneToMany(mappedBy = "category")
+    @JsonIgnore
     private List<Product> products;
 }

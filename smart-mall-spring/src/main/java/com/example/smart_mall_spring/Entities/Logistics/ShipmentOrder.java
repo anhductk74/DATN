@@ -4,6 +4,7 @@ package com.example.smart_mall_spring.Entities.Logistics;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Orders.Order;
 import com.example.smart_mall_spring.Enum.ShipmentStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,14 +21,17 @@ public class ShipmentOrder extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
     @ManyToOne
     @JoinColumn(name = "shipper_id")
+    @JsonIgnore
     private Shipper shipper;
 
     @ManyToOne
     @JoinColumn(name = "warehouse_id")
+    @JsonIgnore
     private Warehouse warehouse;
 
     private String pickupAddress;

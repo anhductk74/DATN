@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Carts;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Products.ProductVariant;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -20,6 +21,7 @@ import lombok.NoArgsConstructor;
 public class CartItem extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "cart_id")
+    @JsonIgnore
     private Cart cart;
 
     @ManyToOne

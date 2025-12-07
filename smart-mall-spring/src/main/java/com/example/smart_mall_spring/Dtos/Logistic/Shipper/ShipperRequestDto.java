@@ -19,7 +19,14 @@ public class ShipperRequestDto {
     // Thông tin phương tiện
     private String vehicleType;
     private String licensePlate;
+    private String vehicleBrand;
+    private String vehicleColor;
+    
+    // Bán kính giao hàng tối đa (km)
+    private Double maxDeliveryRadius;
 
-    // Khu vực hoạt động
-    private String region;
+    // Khu vực hoạt động (không cần street)
+    private String operationalCommune;
+    private String operationalDistrict;
+    private String operationalCity;
 }

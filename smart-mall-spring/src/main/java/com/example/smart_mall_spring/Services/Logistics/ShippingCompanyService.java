@@ -7,6 +7,7 @@ import com.example.smart_mall_spring.Dtos.Logistic.ShippingCompany.ShippingCompa
 import com.example.smart_mall_spring.Dtos.Logistic.ShippingCompany.ShippingCompanyRequestDto;
 import com.example.smart_mall_spring.Dtos.Logistic.ShippingCompany.ShippingCompanyResponseDto;
 import com.example.smart_mall_spring.Dtos.Logistic.Warehouse.WarehouseResponseDto;
+import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Entities.Logistics.ShippingCompany;
 import com.example.smart_mall_spring.Enum.ShippingCompanyStatus;
 
@@ -33,7 +34,17 @@ public class ShippingCompanyService {
         entity.setCode(dto.getCode());
         entity.setContactEmail(dto.getContactEmail());
         entity.setContactPhone(dto.getContactPhone());
-        entity.setHeadquartersAddress(dto.getHeadquartersAddress());
+        
+        // Tạo address nếu có đủ thông tin
+        if (dto.getCommune() != null && dto.getDistrict() != null && dto.getCity() != null) {
+            Address address = new Address();
+            address.setStreet(dto.getStreet() != null ? dto.getStreet() : "");
+            address.setCommune(dto.getCommune());
+            address.setDistrict(dto.getDistrict());
+            address.setCity(dto.getCity());
+            entity.setHeadquartersAddress(address);
+        }
+        
         entity.setStatus(dto.getStatus() != null ? dto.getStatus() : ShippingCompanyStatus.ACTIVE);
 
         ShippingCompany saved = shippingCompanyRepository.save(entity);
@@ -49,7 +60,22 @@ public class ShippingCompanyService {
         existing.setCode(dto.getCode());
         existing.setContactEmail(dto.getContactEmail());
         existing.setContactPhone(dto.getContactPhone());
-        existing.setHeadquartersAddress(dto.getHeadquartersAddress());
+        
+        // Cập nhật address
+        if (dto.getCommune() != null && dto.getDistrict() != null && dto.getCity() != null) {
+            Address address = existing.getHeadquartersAddress();
+            if (address == null) {
+                address = new Address();
+            }
+            address.setStreet(dto.getStreet() != null ? dto.getStreet() : "");
+            address.setCommune(dto.getCommune());
+            address.setDistrict(dto.getDistrict());
+            address.setCity(dto.getCity());
+            existing.setHeadquartersAddress(address);
+        } else {
+            existing.setHeadquartersAddress(null);
+        }
+        
         existing.setStatus(dto.getStatus());
 
         ShippingCompany updated = shippingCompanyRepository.save(existing);
@@ -89,32 +115,77 @@ public class ShippingCompanyService {
 
     //  Mapping entity → DTO
     private ShippingCompanyResponseDto toResponseDto(ShippingCompany entity) {
+        Address address = entity.getHeadquartersAddress();
+        String fullAddress = null;
+        
+        if (address != null) {
+            StringBuilder sb = new StringBuilder();
+            if (address.getStreet() != null && !address.getStreet().isEmpty()) {
+                sb.append(address.getStreet()).append(", ");
+            }
+            sb.append(address.getCommune()).append(", ")
+              .append(address.getDistrict()).append(", ")
+              .append(address.getCity());
+            fullAddress = sb.toString();
+        }
+        
         return ShippingCompanyResponseDto.builder()
                 .id(entity.getId())
                 .name(entity.getName())
                 .code(entity.getCode())
                 .contactEmail(entity.getContactEmail())
                 .contactPhone(entity.getContactPhone())
-                .headquartersAddress(entity.getHeadquartersAddress())
+                .street(address != null ? address.getStreet() : null)
+                .commune(address != null ? address.getCommune() : null)
+                .district(address != null ? address.getDistrict() : null)
+                .city(address != null ? address.getCity() : null)
+                .fullAddress(fullAddress)
                 .status(entity.getStatus())
                 // 🧩 Danh sách Shipper object
                 .shippers(entity.getShippers() != null
-                        ? entity.getShippers().stream().map(s -> ShipperResponseDto.builder()
-                                .id(s.getId())
-                                .fullName(s.getFullName())
-                                .phoneNumber(s.getPhoneNumber())
-                                .email(s.getEmail())
-                                .status(s.getStatus())
-                                .latitude(s.getLatitude())
-                                .longitude(s.getLongitude())
-                                .vehicleType(s.getVehicleType())
-                                .licensePlate(s.getLicensePlate())
-                                .region(s.getRegion())
-                                .shippingCompanyId(entity.getId())
-                                .shippingCompanyName(entity.getName())
-                                .userId(s.getUser() != null ? s.getUser().getId() : null)
-                                .username(s.getUser() != null ? s.getUser().getUsername() : null)
-                                .build())
+                        ? entity.getShippers().stream().map(s -> {
+                                var profile = s.getUser() != null ? s.getUser().getProfile() : null;
+                                
+                                // Lấy khu vực hoạt động
+                                Address opRegion = s.getOperationalRegion();
+                                String operationalCommune = opRegion != null ? opRegion.getCommune() : null;
+                                String operationalDistrict = opRegion != null ? opRegion.getDistrict() : null;
+                                String operationalCity = opRegion != null ? opRegion.getCity() : null;
+                                String operationalRegionFull = null;
+                                if (opRegion != null) {
+                                    operationalRegionFull = String.format("%s, %s, %s", 
+                                        operationalCommune != null ? operationalCommune : "",
+                                        operationalDistrict != null ? operationalDistrict : "",
+                                        operationalCity != null ? operationalCity : "").replaceAll("^, |, $", "");
+                                }
+                                
+                                return ShipperResponseDto.builder()
+                                        .id(s.getId())
+                                        .fullName(profile != null ? profile.getFullName() : null)
+                                        .phoneNumber(profile != null ? profile.getPhoneNumber() : null)
+                                        .avatar(profile != null ? profile.getAvatar() : null)
+                                        .gender(profile != null ? profile.getGender() : null)
+                                        .dateOfBirth(profile != null ? profile.getDateOfBirth() : null)
+                                        .status(s.getStatus())
+                                        .currentLatitude(s.getCurrentLatitude())
+                                        .currentLongitude(s.getCurrentLongitude())
+                                        .vehicleType(s.getVehicleType())
+                                        .licensePlate(s.getLicensePlate())
+                                        .vehicleBrand(s.getVehicleBrand())
+                                        .vehicleColor(s.getVehicleColor())
+                                        .operationalCommune(operationalCommune)
+                                        .operationalDistrict(operationalDistrict)
+                                        .operationalCity(operationalCity)
+                                        .operationalRegionFull(operationalRegionFull)
+                                        .maxDeliveryRadius(s.getMaxDeliveryRadius())
+                                        .idCardNumber(s.getIdCardNumber())
+                                        .driverLicenseNumber(s.getDriverLicenseNumber())
+                                        .shippingCompanyId(entity.getId())
+                                        .shippingCompanyName(entity.getName())
+                                        .userId(s.getUser() != null ? s.getUser().getId() : null)
+                                        .username(s.getUser() != null ? s.getUser().getUsername() : null)
+                                        .build();
+                            })
                         .collect(Collectors.toList())
                         : null)
                 // 🧩 Danh sách Warehouse object

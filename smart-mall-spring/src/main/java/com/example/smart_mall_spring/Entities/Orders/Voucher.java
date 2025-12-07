@@ -4,6 +4,7 @@ import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Shop;
 import com.example.smart_mall_spring.Enum.DiscountType;
 import com.example.smart_mall_spring.Enum.VoucherType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -44,6 +45,7 @@ public class Voucher extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "shop_id")
+    @JsonIgnore
     private Shop shop; // nếu null → là voucher toàn sàn
 
     private LocalDateTime startDate;

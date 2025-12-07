@@ -5,11 +5,13 @@ import com.example.smart_mall_spring.Dtos.Products.VariantAttributeDto;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Carts.CartItem;
 import com.example.smart_mall_spring.Entities.Orders.OrderItem;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.List;
 
@@ -19,9 +21,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
+@ToString(exclude = {"product", "attributes", "orderItems", "cartItems"})
 public class ProductVariant extends BaseEntity {
     @ManyToOne
     @JoinColumn(name = "product_id")
+    @JsonIgnore
     private Product product;
 
     private String sku;
@@ -33,12 +37,15 @@ public class ProductVariant extends BaseEntity {
 
 
     @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<VariantAttribute> attributes;
 
     @OneToMany(mappedBy = "variant", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<OrderItem> orderItems;
 
     @OneToMany(mappedBy = "variant", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<CartItem> cartItems;
 
     public ProductVariantDto toDto() {

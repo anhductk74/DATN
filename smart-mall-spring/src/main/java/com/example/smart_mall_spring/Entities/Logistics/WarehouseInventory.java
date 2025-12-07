@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Entities.Logistics;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Products.Product;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,10 +15,12 @@ public class WarehouseInventory extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "warehouse_id", nullable = false)
+    @JsonIgnore
     private Warehouse warehouse;
 
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
+    @JsonIgnore
     private Product product;
 
     @Column(nullable = false)

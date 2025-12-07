@@ -1,0 +1,43 @@
+.managers-container {
+  padding: 24px;
+}
+
+.managers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.managers-container .ant-table-wrapper {
+  background: #fff;
+}
+
+.managers-container .ant-avatar {
+  border: 2px solid #f0f0f0;
+}
+
+.managers-container .ant-badge-dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+}
+
+@media (max-width: 768px) {
+  .managers-container {
+    padding: 16px;
+  }
+
+  .managers-header {
+    flex-direction: column;
+  }
+
+  .managers-header > div:first-child {
+    width: 100%;
+  }
+
+  .managers-header button {
+    width: 100%;
+  }
+}

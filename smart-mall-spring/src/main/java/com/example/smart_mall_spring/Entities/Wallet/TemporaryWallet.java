@@ -3,6 +3,7 @@ package com.example.smart_mall_spring.Entities.Wallet;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Orders.Order;
 import com.example.smart_mall_spring.Entities.Shop;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,10 +20,12 @@ public class TemporaryWallet extends BaseEntity {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", nullable = false)
+    @JsonIgnore
     private Shop shop;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
     
     @Column(nullable = false)

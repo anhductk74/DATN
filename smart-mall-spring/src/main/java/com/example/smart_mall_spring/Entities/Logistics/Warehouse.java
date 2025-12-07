@@ -3,6 +3,7 @@
 
     import com.example.smart_mall_spring.Entities.BaseEntity;
     import com.example.smart_mall_spring.Enum.WarehouseStatus;
+    import com.fasterxml.jackson.annotation.JsonIgnore;
     import jakarta.persistence.*;
     import lombok.*;
 
@@ -14,10 +15,12 @@
     @NoArgsConstructor
     @AllArgsConstructor
     @EqualsAndHashCode(callSuper = true)
+    @ToString(exclude = {"shippingCompany"})
     public class Warehouse extends BaseEntity {
 
         @ManyToOne
         @JoinColumn(name = "shipping_company_id", nullable = false)
+        @com.fasterxml.jackson.annotation.JsonIgnore
         private ShippingCompany shippingCompany;
 
         @Column(length = 100)
@@ -55,5 +58,6 @@
 
         // Liên kết với hàng hóa
         @OneToMany(mappedBy = "warehouse", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+        @JsonIgnore
         private List<WarehouseInventory> items;
     }
