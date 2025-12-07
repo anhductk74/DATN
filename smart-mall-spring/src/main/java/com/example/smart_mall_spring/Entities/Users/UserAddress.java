@@ -13,7 +13,8 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = "user")
+@ToString(exclude = "user")
 public class UserAddress extends BaseEntity {
 
     @ManyToOne

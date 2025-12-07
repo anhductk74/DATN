@@ -11,6 +11,12 @@ public class ShippingCompanyRequestDto {
     private String code;
     private String contactEmail;
     private String contactPhone;
-    private String headquartersAddress;
+    
+    // Địa chỉ trụ sở
+    private String street;
+    private String commune;
+    private String district;
+    private String city;
+    
     private ShippingCompanyStatus status;
 }

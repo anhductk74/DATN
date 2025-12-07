@@ -38,7 +38,8 @@ public class ShipperBalanceHistoryService {
         return ShipperBalanceHistoryResponseDto.builder()
                 .id(h.getId())
                 .shipperId(h.getShipper().getId())
-                .shipperName(h.getShipper().getFullName())
+                .shipperName(h.getShipper() != null && h.getShipper().getUser() != null && h.getShipper().getUser().getProfile() != null 
+                    ? h.getShipper().getUser().getProfile().getFullName() : null)
                 .openingBalance(h.getOpeningBalance())
                 .collected(h.getCollected())
                 .deposited(h.getDeposited())

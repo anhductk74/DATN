@@ -17,6 +17,9 @@ public interface ShippingCompanyRepository extends JpaRepository<ShippingCompany
     // Tìm theo mã code
     @Query("SELECT sc FROM ShippingCompany sc WHERE sc.code = :code")
     Optional<ShippingCompany> findByCode(@Param("code") String code);
+    
+    // Kiểm tra code đã tồn tại
+    boolean existsByCode(String code);
 
     // Tìm theo tên gần đúng (dùng LIKE)
     @Query("SELECT sc FROM ShippingCompany sc WHERE LOWER(sc.name) LIKE LOWER(CONCAT('%', :name, '%'))")

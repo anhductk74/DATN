@@ -35,6 +35,10 @@ export const authOptions: NextAuthOptions = {
 
           const response = await authService.login(loginData);
           
+          console.log('Auth Response:', JSON.stringify(response, null, 2));
+          console.log('User Info:', JSON.stringify(response.data?.userInfo, null, 2));
+          console.log('Company Info:', JSON.stringify(response.data?.userInfo?.company, null, 2));
+          
           if (response.status === 200 && response.data) {
             const { accessToken, refreshToken, userInfo } = response.data;
             
@@ -47,22 +51,40 @@ export const authOptions: NextAuthOptions = {
               return null;
             }
             
-            return {
+            console.log('Creating user object with company:', userInfo.company);
+            
+            const userObject = {
               id: userInfo.id,
               email: userInfo.username,
               name: userInfo.fullName,
               username: userInfo.username,
               fullName: userInfo.fullName,
               phoneNumber: userInfo.phoneNumber,
-              isActive: Boolean(userInfo.isActive), // Convert to boolean
+              isActive: Boolean(userInfo.isActive),
               roles: userInfo.roles,
               accessToken,
-              refreshToken
+              refreshToken,
+              company: userInfo.company ? {
+                companyId: userInfo.company.companyId,
+                companyName: userInfo.company.companyName,
+                companyCode: userInfo.company.companyCode,
+                contactEmail: userInfo.company.contactEmail,
+                contactPhone: userInfo.company.contactPhone,
+                street: userInfo.company.street,
+                commune: userInfo.company.commune,
+                district: userInfo.company.district,
+                city: userInfo.company.city,
+                fullAddress: userInfo.company.fullAddress
+              } : undefined
             };
+            
+            console.log('Final user object:', JSON.stringify(userObject, null, 2));
+            
+            return userObject;
           }
           
           return null;
-        } catch (error) {
+        } catch {
           return null;
         }
       }
@@ -122,6 +144,7 @@ export const authOptions: NextAuthOptions = {
             user.roles = userInfo.roles;
             user.accessToken = accessToken;
             user.refreshToken = refreshToken;
+            user.company = userInfo.company; // Add company info for MANAGER
             
             return true;
           }
@@ -137,6 +160,9 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       // Initial sign in
       if (user) {
+        console.log('JWT Callback - User object:', JSON.stringify(user, null, 2));
+        console.log('JWT Callback - User company:', user.company);
+        
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.id = user.id;
@@ -147,12 +173,18 @@ export const authOptions: NextAuthOptions = {
         token.gender = user.gender;
         token.isActive = user.isActive;
         token.roles = user.roles;
+        token.company = user.company;
+        
+        console.log('JWT Callback - Token after assignment:', JSON.stringify(token, null, 2));
       }
 
       return token;
     },
 
     async session({ session, token }) {
+      console.log('Session Callback - Token:', JSON.stringify(token, null, 2));
+      console.log('Session Callback - Token company:', token.company);
+      
       // Send properties to the client
       session.accessToken = token.accessToken;
       session.refreshToken = token.refreshToken;
@@ -164,6 +196,9 @@ export const authOptions: NextAuthOptions = {
       session.user.gender = token.gender;
       session.user.isActive = token.isActive;
       session.user.roles = token.roles;
+      session.user.company = token.company;
+      
+      console.log('Session Callback - Session after assignment:', JSON.stringify(session, null, 2));
 
       return session;
     },

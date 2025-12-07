@@ -20,6 +20,8 @@ public class ShipperRequestDto {
     private String vehicleType;
     private String licensePlate;
 
-    // Khu vực hoạt động
-    private String region;
+    // Khu vực hoạt động (không cần street)
+    private String operationalCommune;
+    private String operationalDistrict;
+    private String operationalCity;
 }

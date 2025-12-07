@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Logistics;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,10 +14,12 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 public class ShipperBalanceHistory extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "shipper_id")
+    @JsonIgnore
     private Shipper shipper;
 
     private BigDecimal openingBalance;   // công nợ đầu ngày

@@ -1,0 +1,47 @@
+.register-manager-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.register-manager-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.register-manager-card .ant-card-body {
+  padding: 32px;
+}
+
+.register-manager-card .ant-divider {
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.register-manager-card .ant-alert {
+  border-radius: 6px;
+}
+
+.register-manager-card .ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.register-manager-card .ant-input-affix-wrapper,
+.register-manager-card .ant-input {
+  border-radius: 6px;
+}
+
+.register-manager-card .ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .register-manager-container {
+    padding: 16px;
+  }
+
+  .register-manager-card .ant-card-body {
+    padding: 20px;
+  }
+}

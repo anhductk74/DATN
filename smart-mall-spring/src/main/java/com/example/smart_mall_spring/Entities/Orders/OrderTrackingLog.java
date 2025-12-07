@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Entities.Orders;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class OrderTrackingLog extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
     private String carrier; // GHN, GHTK, J&T, Shopee Express...

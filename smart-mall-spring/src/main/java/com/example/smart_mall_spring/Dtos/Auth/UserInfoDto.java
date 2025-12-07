@@ -24,4 +24,5 @@ public class UserInfoDto {
     private String dateOfBirth;
     private int isActive;
     private List<String> roles;
+    private CompanyInfoDto company; // Thông tin công ty cho Manager
 }

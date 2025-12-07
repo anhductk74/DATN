@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   Card, 
   Table, 
@@ -19,7 +20,10 @@ import {
   Col,
   Statistic,
   App,
-  Spin
+  Spin,
+  Alert,
+  Upload,
+  message as antdMessage
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { 
@@ -30,21 +34,26 @@ import {
   CarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  StopOutlined
+  StopOutlined,
+  UploadOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
-import shipperApiService, { 
+import { 
+  shipperApiService,
   ShipperResponseDto, 
   ShipperStatus, 
-  ShipperRequestDto 
+  ShipperRequestDto,
+  ShipperRegisterDto
 } from '@/services/ShipperApiService';
 import ShippingCompanyService, { ShippingCompanyListDto } from '@/services/ShippingCompanyService';
-import { userService, UserListDto } from '@/services/UserService';
+import { locationService, type Province, type District, type Ward } from '@/services/LocationService';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 export default function ShippersPage() {
   const { message } = App.useApp();
   const router = useRouter();
+  const { data: session } = useSession();
   const [searchText, setSearchText] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
@@ -55,7 +64,6 @@ export default function ShippersPage() {
   const [loading, setLoading] = useState(false);
   const [shippers, setShippers] = useState<ShipperResponseDto[]>([]);
   const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyListDto[]>([]);
-  const [users, setUsers] = useState<UserListDto[]>([]);
   const [statistics, setStatistics] = useState({
     total: 0,
     active: 0,
@@ -75,6 +83,25 @@ export default function ShippersPage() {
     failedDeliveries: number;
     successRate: number;
   }>>({});
+  
+  // Address selection states
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
+  const [availableDistricts, setAvailableDistricts] = useState<District[]>([]);
+  const [availableWards, setAvailableWards] = useState<Ward[]>([]);
+  
+  // Shipping company location states
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedCompany, setSelectedCompany] = useState<ShippingCompanyListDto | null>(null);
+  const [companyProvince, setCompanyProvince] = useState<Province | null>(null);
+  const [companyDistrict, setCompanyDistrict] = useState<District | null>(null);
+  const [availableWardsInCompanyDistrict, setAvailableWardsInCompanyDistrict] = useState<Ward[]>([]);
+  
+  // Image upload states
+  const [idCardFrontFile, setIdCardFrontFile] = useState<File | null>(null);
+  const [idCardBackFile, setIdCardBackFile] = useState<File | null>(null);
+  const [driverLicenseFile, setDriverLicenseFile] = useState<File | null>(null);
 
   // Fetch shippers data
   const fetchShippers = async (page = 1, pageSize = 10) => {
@@ -128,33 +155,9 @@ export default function ShippersPage() {
     }
   };
 
-  // Fetch users with role SHIPPER and domain @ghtk.vn
-  const fetchUsers = async () => {
-    try {
-      // Call API with both role and domain parameters
-      // Backend will filter users with SHIPPER role AND @ghtk.vn domain
-      // AND exclude users who already exist in Shipper table
-      const users = await userService.getUsersByRoleAndDomain('SHIPPER', '@ghtk.vn');
-      
-      setUsers(users);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      message.error('Không thể tải danh sách người dùng');
-    }
-  };
 
-  // Fetch delivery stats for a shipper
-  const fetchDeliveryStats = async (shipperId: string) => {
-    try {
-      const stats = await shipperApiService.getShipperDeliveryStats(shipperId);
-      setDeliveryStats(prev => ({
-        ...prev,
-        [shipperId]: stats
-      }));
-    } catch (error) {
-      console.error('Error fetching delivery stats:', error);
-    }
-  };
+
+
 
   // Fetch delivery stats for all shippers
   const fetchAllDeliveryStats = async (shipperList: ShipperResponseDto[]) => {
@@ -162,11 +165,11 @@ export default function ShippersPage() {
     try {
       const statsPromises = shipperList.map(shipper => 
         shipperApiService.getShipperDeliveryStats(shipper.id)
-          .then(stats => {
+          .then((stats: { totalDeliveries: number; successfulDeliveries: number; failedDeliveries: number; successRate: number }) => {
             
             return { shipperId: shipper.id, stats };
           })
-          .catch(error => {
+          .catch((error: Error) => {
             console.error(`Error fetching stats for shipper ${shipper.id}:`, error);
             return { 
               shipperId: shipper.id, 
@@ -176,10 +179,10 @@ export default function ShippersPage() {
       );
       
       const allStats = await Promise.all(statsPromises);
-      const statsMap = allStats.reduce((acc, { shipperId, stats }) => {
+      const statsMap = allStats.reduce((acc: Record<string, { totalDeliveries: number; successfulDeliveries: number; failedDeliveries: number; successRate: number }>, { shipperId, stats }: { shipperId: string; stats: { totalDeliveries: number; successfulDeliveries: number; failedDeliveries: number; successRate: number } }) => {
         acc[shipperId] = stats;
         return acc;
-      }, {} as Record<string, any>);
+      }, {});
       
       
       setDeliveryStats(statsMap);
@@ -188,12 +191,59 @@ export default function ShippersPage() {
     }
   };
 
+  // Fetch provinces on mount
+  const fetchProvinces = async () => {
+    try {
+      const data = await locationService.getProvinces();
+      setProvinces(data);
+    } catch (error) {
+      console.error('Error fetching provinces:', error);
+      message.error('Không thể tải danh sách tỉnh/thành phố');
+    }
+  };
+
   useEffect(() => {
     fetchShippers();
     fetchStatistics();
     fetchShippingCompanies();
-    fetchUsers();
+    fetchProvinces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-fill company info from session when modal opens
+  useEffect(() => {
+    if (createModalVisible && session?.user?.company && shippingCompanies.length > 0 && provinces.length > 0) {
+      const company = session.user.company;
+      
+      // Find matching shipping company by ID or name
+      const matchingCompany = shippingCompanies.find(
+        c => c.id === company.companyId || c.name === company.companyName
+      );
+      
+      if (matchingCompany) {
+        // Set company ID and operational fields in form
+        createForm.setFieldsValue({
+          shippingCompanyId: matchingCompany.id,
+          operationalCity: company.city,
+          operationalDistrict: company.district
+        });
+        
+        // Trigger company change to load wards
+        handleCompanyChange(matchingCompany.id);
+      } else if (company.companyId) {
+        // Even if not found in list, set the ID from session
+        createForm.setFieldsValue({
+          shippingCompanyId: company.companyId,
+          operationalCity: company.city,
+          operationalDistrict: company.district
+        });
+        
+        // Trigger company change with session company ID
+        handleCompanyChange(company.companyId);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createModalVisible, session, shippingCompanies, provinces]);
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -201,10 +251,11 @@ export default function ShippersPage() {
     }, 500); // Debounce search
 
     return () => clearTimeout(delaySearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, selectedStatus]);
 
-  const handleTableChange = (newPagination: any) => {
-    fetchShippers(newPagination.current, newPagination.pageSize);
+  const handleTableChange = (newPagination: { current?: number; pageSize?: number }) => {
+    fetchShippers(newPagination.current || 1, newPagination.pageSize || 10);
   };
 
   const handleViewDetails = async (record: ShipperResponseDto) => {
@@ -225,20 +276,20 @@ export default function ShippersPage() {
     });
   };
 
-  const handleUpdate = async (values: any) => {
+  const handleUpdate = async (values: Partial<ShipperRequestDto>) => {
     if (!selectedRecord) return;
 
     try {
       const updateDto: ShipperRequestDto = {
         userId: selectedRecord.userId,
         shippingCompanyId: selectedRecord.shippingCompanyId,
-        fullName: values.fullName,
-        phoneNumber: values.phoneNumber,
-        email: values.email,
-        status: values.status,
-        vehicleType: values.vehicleType,
-        licensePlate: values.licensePlate,
-        region: values.region,
+        fullName: values.fullName!,
+        phoneNumber: values.phoneNumber!,
+        email: values.email!,
+        status: values.status!,
+        vehicleType: values.vehicleType!,
+        licensePlate: values.licensePlate!,
+        region: values.region!,
         latitude: selectedRecord.latitude,
         longitude: selectedRecord.longitude
       };
@@ -254,32 +305,319 @@ export default function ShippersPage() {
     }
   };
 
-  const handleCreate = async (values: any) => {
+  const handleProvinceChange = async (provinceCode: string) => {
+    const province = provinces.find(p => p.code === provinceCode);
+    setSelectedProvince(province || null);
+    setSelectedDistrict(null);
+    setAvailableDistricts([]);
+    setAvailableWards([]);
+    
+    createForm.setFieldsValue({ 
+      city: province?.name,
+      district: undefined, 
+      commune: undefined 
+    });
+
+    if (provinceCode) {
+      try {
+        const districts = await locationService.getDistricts(provinceCode);
+        setAvailableDistricts(districts);
+      } catch (error) {
+        console.error('Error fetching districts:', error);
+        message.error('Không thể tải danh sách quận/huyện');
+      }
+    }
+  };
+
+  const handleDistrictChange = async (districtCode: string) => {
+    const district = availableDistricts.find(d => d.code === districtCode);
+    setSelectedDistrict(district || null);
+    setAvailableWards([]);
+    
+    createForm.setFieldsValue({ 
+      district: district?.name,
+      commune: undefined 
+    });
+
+    if (districtCode) {
+      try {
+        const wards = await locationService.getWards(districtCode);
+        setAvailableWards(wards);
+      } catch (error) {
+        console.error('Error fetching wards:', error);
+        message.error('Không thể tải danh sách phường/xã');
+      }
+    }
+  };
+
+  const handleWardChange = (wardCode: string) => {
+    const ward = availableWards.find(w => w.code === wardCode);
+    createForm.setFieldsValue({ commune: ward?.name });
+  };
+
+  const handleCompanyChange = async (companyId: string) => {
+    const company = shippingCompanies.find(c => c.id === companyId);
+    console.log('=== HANDLE COMPANY CHANGE ===');
+    console.log('Selected company from list:', company);
+    
+    // If company doesn't have address info, try to get from session
+    let cityName = company?.city;
+    let districtName = company?.district;
+    
+    // If session user is manager and selected their own company, use session company info
+    if (session?.user?.company && session.user.company.companyId === companyId) {
+      console.log('Using session company info:', session.user.company);
+      cityName = session.user.company.city;
+      districtName = session.user.company.district;
+    }
+    
+    console.log('Company city:', cityName);
+    console.log('Company district:', districtName);
+    
+    setSelectedCompany(company || null);
+    setCompanyProvince(null);
+    setCompanyDistrict(null);
+    setAvailableWardsInCompanyDistrict([]);
+    createForm.setFieldsValue({ regionWards: undefined, region: undefined });
+    
+    if (!cityName || !districtName) {
+      message.warning('Công ty này chưa có địa chỉ đầy đủ');
+      return;
+    }
+    
     try {
-      const createDto: ShipperRequestDto = {
-        userId: values.userId,
-        shippingCompanyId: values.shippingCompanyId,
+      console.log('Total provinces available:', provinces.length);
+      
+      // Normalize and find province with multiple patterns
+      const normalizedCity = cityName.trim();
+      console.log('Looking for city:', normalizedCity);
+      
+      // Try multiple matching patterns
+      const province = provinces.find(p => {
+        const pName = p.name.trim();
+        const pNameEn = p.name_en?.toLowerCase() || '';
+        const searchCity = normalizedCity.toLowerCase();
+        
+        // Exact match
+        if (pName === normalizedCity) return true;
+        
+        // Case-insensitive match
+        if (pName.toLowerCase() === searchCity) return true;
+        
+        // English name match
+        if (pNameEn === searchCity) return true;
+        
+        // Contains match (e.g., "Đà Nẵng" contains in "Thành phố Đà Nẵng")
+        if (pName.includes(normalizedCity) || normalizedCity.includes(pName)) return true;
+        
+        // Remove "Thành phố", "Tỉnh" prefix
+        const cityWithoutPrefix = normalizedCity
+          .replace(/^(Thành phố|Tỉnh)\s+/i, '')
+          .trim();
+        if (pName.includes(cityWithoutPrefix) || cityWithoutPrefix.includes(pName)) return true;
+        
+        return false;
+      });
+      
+      if (!province) {
+        console.error('Province not found. Available provinces:', provinces.map(p => p.name));
+        message.error(`Không tìm thấy tỉnh/thành phố "${cityName}"`);
+        return;
+      }
+      
+      console.log('✅ Province found:', province);
+      setCompanyProvince(province);
+      
+      // Fetch districts for this province
+      console.log('Fetching districts for province code:', province.code);
+      const districts = await locationService.getDistricts(province.code);
+      console.log('Districts fetched:', districts.length, districts.map(d => d.name));
+      
+      // Normalize and find district with multiple patterns
+      const normalizedDistrict = districtName.trim();
+      console.log('Looking for district:', normalizedDistrict);
+      
+      const district = districts.find(d => {
+        const dName = d.name.trim();
+        const dNameEn = d.name_en?.toLowerCase() || '';
+        const searchDistrict = normalizedDistrict.toLowerCase();
+        
+        // Exact match
+        if (dName === normalizedDistrict) return true;
+        
+        // Case-insensitive match
+        if (dName.toLowerCase() === searchDistrict) return true;
+        
+        // English name match
+        if (dNameEn === searchDistrict) return true;
+        
+        // Contains match
+        if (dName.includes(normalizedDistrict) || normalizedDistrict.includes(dName)) return true;
+        
+        // Remove "Quận", "Huyện", "Thị xã", "Thành phố" prefix
+        const districtWithoutPrefix = normalizedDistrict
+          .replace(/^(Quận|Huyện|Thị xã|Thành phố)\s+/i, '')
+          .trim();
+        const dNameWithoutPrefix = dName
+          .replace(/^(Quận|Huyện|Thị xã|Thành phố)\s+/i, '')
+          .trim();
+        
+        if (districtWithoutPrefix === dNameWithoutPrefix) return true;
+        if (dName.includes(districtWithoutPrefix) || districtWithoutPrefix.includes(dName)) return true;
+        
+        return false;
+      });
+      
+      if (!district) {
+        console.error('District not found. Available districts:', districts.map(d => d.name));
+        message.error(`Không tìm thấy quận "${districtName}" trong ${cityName}`);
+        return;
+      }
+      
+      console.log('✅ District found:', district);
+      setCompanyDistrict(district);
+      
+      // Fetch wards for this district
+      console.log('Fetching wards for district code:', district.code);
+      const wards = await locationService.getWards(district.code);
+      console.log('✅ Wards fetched:', wards.length);
+      
+      if (wards.length === 0) {
+        message.warning(`Không có phường/xã nào trong ${districtName}`);
+        return;
+      }
+      
+      setAvailableWardsInCompanyDistrict(wards);
+      message.success(`Đã tải ${wards.length} phường/xã trong ${districtName}`);
+      
+    } catch (error) {
+      console.error('Error loading company location:', error);
+      message.error('Không thể tải thông tin khu vực của công ty');
+    }
+  };
+
+  const handleWardsChange = (wardNames: string[]) => {
+    // Format: "Phường Bến Nghé, Phường Bến Thành, Phường Cầu Kho"
+    const regionString = wardNames.join(', ');
+    createForm.setFieldsValue({ region: regionString });
+  };
+
+  const handleCreate = async (values: ShipperRegisterDto & { regionWards?: string[] }) => {
+    try {
+      // Use session company if available
+      const companyId = session?.user?.company?.companyId || values.shippingCompanyId;
+      const companyEmail = session?.user?.company?.contactEmail;
+      
+      if (!companyId) {
+        message.error('Vui lòng chọn công ty vận chuyển');
+        return;
+      }
+      
+      // Validate email domain matches company
+      if (companyEmail && values.email) {
+        const companyDomain = companyEmail.substring(companyEmail.indexOf('@'));
+        if (!values.email.endsWith(companyDomain)) {
+          message.error(`Email phải có đuôi ${companyDomain} của công ty`);
+          return;
+        }
+      }
+      
+      // Validate operational region
+      if (!values.operationalCommune) {
+        message.error('Vui lòng chọn phường/xã hoạt động');
+        return;
+      }
+      
+      if (!values.operationalDistrict || !values.operationalCity) {
+        message.error('Không tìm thấy thông tin khu vực hoạt động');
+        return;
+      }
+      
+      // NEW API STRUCTURE: Prepare dataInfo object (will be JSON stringified in service)
+      const registerDto: ShipperRegisterDto = {
+        email: values.email,
+        password: values.password,
         fullName: values.fullName,
         phoneNumber: values.phoneNumber,
-        email: values.email,
-        status: values.status || ShipperStatus.ACTIVE,
+        gender: values.gender,
+        dateOfBirth: values.dateOfBirth,
+        street: values.street,
+        commune: values.commune,
+        district: values.district,
+        city: values.city,
+        shippingCompanyId: companyId,
+        idCardNumber: values.idCardNumber,
+        driverLicenseNumber: values.driverLicenseNumber,
         vehicleType: values.vehicleType,
         licensePlate: values.licensePlate,
-        region: values.region,
-        latitude: values.latitude,
-        longitude: values.longitude
+        vehicleBrand: values.vehicleBrand,
+        vehicleColor: values.vehicleColor,
+        operationalCommune: values.operationalCommune,
+        operationalDistrict: values.operationalDistrict,
+        operationalCity: values.operationalCity,
+        maxDeliveryRadius: values.maxDeliveryRadius ? parseFloat(values.maxDeliveryRadius.toString()) : undefined
       };
 
-      await shipperApiService.createShipper(createDto);
-      message.success('Thêm shipper mới thành công');
+      console.log('📦 Registering shipper with NEW API structure:');
+      console.log('dataInfo (will be JSON):', registerDto);
+      console.log('dataImage (files):', {
+        idCardFrontImage: idCardFrontFile ? `${idCardFrontFile.name} (${idCardFrontFile.size} bytes)` : 'none',
+        idCardBackImage: idCardBackFile ? `${idCardBackFile.name} (${idCardBackFile.size} bytes)` : 'none',
+        driverLicenseImage: driverLicenseFile ? `${driverLicenseFile.name} (${driverLicenseFile.size} bytes)` : 'none'
+      });
+      
+      // Prepare files for upload (dataImage part)
+      const files = {
+        idCardFrontImage: idCardFrontFile || undefined,
+        idCardBackImage: idCardBackFile || undefined,
+        driverLicenseImage: driverLicenseFile || undefined
+      };
+      
+      await shipperApiService.registerShipper(registerDto, files);
+      message.success('Đăng ký shipper mới thành công');
       setCreateModalVisible(false);
       createForm.resetFields();
+      // Reset file states
+      setIdCardFrontFile(null);
+      setIdCardBackFile(null);
+      setDriverLicenseFile(null);
+      // Reset address states
+      setSelectedProvince(null);
+      setSelectedDistrict(null);
+      setAvailableDistricts([]);
+      setAvailableWards([]);
+      // Reset company location states
+      setSelectedCompany(null);
+      setCompanyProvince(null);
+      setCompanyDistrict(null);
+      setAvailableWardsInCompanyDistrict([]);
       fetchShippers(pagination.current, pagination.pageSize);
       fetchStatistics();
-      fetchUsers(); // Refresh user list to exclude newly created shipper
-    } catch (error) {
-      console.error('Error creating shipper:', error);
-      message.error('Không thể tạo shipper mới');
+    } catch (error: unknown) {
+      console.error('Error registering shipper:', error);
+      
+      // Extract error message from response
+      const err = error as { response?: { data?: { message?: string }; status?: number }; message?: string };
+      
+      // Log full error details for debugging
+      console.error('Full error response:', err?.response);
+      console.error('Error status:', err?.response?.status);
+      console.error('Error data:', err?.response?.data);
+      
+      const errorMessage = err?.response?.data?.message || 
+                          err?.message || 
+                          'Không thể đăng ký shipper mới';
+      
+      // Special handling for common errors
+      if (err?.response?.status === 409) {
+        message.error(`Email đã tồn tại: ${errorMessage}`);
+      } else if (err?.response?.status === 400) {
+        message.error(`Dữ liệu không hợp lệ: ${errorMessage}`);
+      } else if (err?.response?.status === 500) {
+        message.error(`Lỗi server: ${errorMessage}`);
+      } else {
+        message.error(errorMessage);
+      }
     }
   };
 
@@ -313,17 +651,20 @@ export default function ShippersPage() {
 
   const columns: ColumnsType<ShipperResponseDto> = [
     {
-      title: 'Shipper ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 120,
-      render: (text: string) => <span className="font-mono text-blue-600">{text.substring(0, 8)}...</span>
+      title: 'STT',
+      key: 'index',
+      width: 60,
+      align: 'center' as const,
+      render: (_: unknown, __: ShipperResponseDto, index: number) => {
+        const pageIndex = (pagination.current - 1) * pagination.pageSize + index + 1;
+        return <span className="font-medium text-gray-600">{pageIndex}</span>;
+      }
     },
     {
       title: 'Thông tin',
       key: 'info',
       width: 220,
-      render: (_: any, record: ShipperResponseDto) => (
+      render: (_: unknown, record: ShipperResponseDto) => (
         <div className="flex items-center space-x-3 gap-1">
           <Avatar size="large" icon={<UserOutlined />} />
           <div>
@@ -338,7 +679,7 @@ export default function ShippersPage() {
       title: 'Phương tiện',
       key: 'vehicle',
       width: 150,
-      render: (_: any, record: ShipperResponseDto) => (
+      render: (_: unknown, record: ShipperResponseDto) => (
         <div>
           <div className="flex items-center space-x-2">
             <span>{getVehicleIcon(record.vehicleType)}</span>
@@ -360,16 +701,28 @@ export default function ShippersPage() {
       )
     },
     {
-      title: 'Khu vực',
-      dataIndex: 'region',
-      key: 'region',
-      width: 150,
+      title: 'Khu vực hoạt động',
+      key: 'operationalRegion',
+      width: 200,
+      render: (_: unknown, record: ShipperResponseDto) => (
+        <div>
+          <div className="text-sm font-medium">{record.operationalCommune || '-'}</div>
+          <div className="text-xs text-gray-500">
+            {record.operationalDistrict}, {record.operationalCity}
+          </div>
+          {record.maxDeliveryRadius && (
+            <div className="text-xs text-blue-600 mt-1">
+              📍 Bán kính: {record.maxDeliveryRadius}km
+            </div>
+          )}
+        </div>
+      )
     },
         {
       title: 'Thống kê',
       key: 'stats',
       width: 120,
-      render: (_: any, record: ShipperResponseDto) => {
+      render: (_: unknown, record: ShipperResponseDto) => {
         const stats = deliveryStats[record.id] || {
           totalDeliveries: 0,
           successfulDeliveries: 0,
@@ -402,7 +755,7 @@ export default function ShippersPage() {
       key: 'actions',
       width: 120,
       fixed: 'right' as const,
-      render: (_: any, record: ShipperResponseDto) => (
+      render: (_: unknown, record: ShipperResponseDto) => (
         <Space>
           <Button 
             type="text" 
@@ -551,66 +904,84 @@ export default function ShippersPage() {
 
       {/* Create Modal */}
       <Modal
-        title="Thêm Shipper mới"
+        title="Đăng ký Shipper mới"
         open={createModalVisible}
         onCancel={() => {
           setCreateModalVisible(false);
           createForm.resetFields();
         }}
         footer={null}
-        width={700}
+        width={900}
       >
         <Form form={createForm} layout="vertical" onFinish={handleCreate}>
-          <Form.Item 
-            label="Người dùng" 
-            name="userId" 
-            rules={[{ required: true, message: 'Vui lòng chọn người dùng' }]}
-          >
-            <Select 
-              placeholder="Chọn người dùng (Role: SHIPPER, Domain: @ghtk.vn)"
-              showSearch
-              loading={users.length === 0}
-              notFoundContent={users.length === 0 ? "Đang tải..." : "Không có dữ liệu"}
-              filterOption={(input, option) =>
-                ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={users.map(user => ({
-                label: `${user.fullName} (${user.username})`,
-                value: user.id
-              }))}
-            />
-          </Form.Item>
+          <Title level={5}>Thông tin tài khoản</Title>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                label="Email" 
+                name="email" 
+                rules={[
+                  { required: true, type: 'email', message: 'Vui lòng nhập email hợp lệ' },
+                  {
+                    validator: async (_, value) => {
+                      if (!value) return Promise.resolve();
+                      
+                      // Get company email domain from session
+                      const companyEmail = session?.user?.company?.contactEmail;
+                      if (!companyEmail) {
+                        return Promise.reject(new Error('Không tìm thấy thông tin email công ty'));
+                      }
+                      
+                      // Extract domain from company email (e.g., "@ghtk.com")
+                      const emailDomain = companyEmail.substring(companyEmail.indexOf('@'));
+                      
+                      // Check if shipper email has same domain
+                      if (!value.endsWith(emailDomain)) {
+                        return Promise.reject(
+                          new Error(`Email phải có đuôi ${emailDomain} của công ty`)
+                        );
+                      }
+                      
+                      return Promise.resolve();
+                    }
+                  }
+                ]}
+                extra={session?.user?.company?.contactEmail ? 
+                  `Email phải có đuôi ${session.user.company.contactEmail.substring(session.user.company.contactEmail.indexOf('@'))}` : 
+                  null
+                }
+              >
+                <Input placeholder={session?.user?.company?.contactEmail ? 
+                  `shipper${session.user.company.contactEmail.substring(session.user.company.contactEmail.indexOf('@'))}` : 
+                  "shipper@company.com"
+                } />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item 
+                label="Mật khẩu" 
+                name="password" 
+                rules={[
+                  { required: true, message: 'Vui lòng nhập mật khẩu' },
+                  { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự' }
+                ]}
+              >
+                <Input.Password placeholder="Tối thiểu 6 ký tự" />
+              </Form.Item>
+            </Col>
+          </Row>
 
+          <Title level={5} style={{ marginTop: '16px' }}>Thông tin cá nhân</Title>
           <Form.Item 
-            label="Công ty vận chuyển" 
-            name="shippingCompanyId" 
-            rules={[{ required: true, message: 'Vui lòng chọn công ty vận chuyển' }]}
-          >
-            <Select 
-              placeholder="Chọn công ty vận chuyển"
-              showSearch
-              loading={shippingCompanies.length === 0}
-              notFoundContent={shippingCompanies.length === 0 ? "Đang tải..." : "Không có dữ liệu"}
-              filterOption={(input, option) =>
-                ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={shippingCompanies.map(company => ({
-                label: `${company.name} (${company.code})`,
-                value: company.id
-              }))}
-            />
-          </Form.Item>
-
-          <Form.Item 
-            label="Tên đầy đủ" 
+            label="Họ và tên" 
             name="fullName" 
-            rules={[{ required: true, message: 'Vui lòng nhập tên' }]}
+            rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
           >
-            <Input placeholder="VD: Nguyễn Văn A" />
+            <Input placeholder="Nguyễn Văn A" />
           </Form.Item>
           
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item 
                 label="Số điện thoại" 
                 name="phoneNumber" 
@@ -619,22 +990,291 @@ export default function ShippersPage() {
                   { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ' }
                 ]}
               >
-                <Input placeholder="VD: 0912345678" />
+                <Input placeholder="0912345678" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item 
-                label="Email" 
-                name="email" 
-                rules={[
-                  { required: true, type: 'email', message: 'Vui lòng nhập email hợp lệ' }
-                ]}
+                label="Giới tính" 
+                name="gender" 
+                rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
               >
-                <Input placeholder="VD: shipper@example.com" />
+                <Select placeholder="Chọn giới tính">
+                  <Select.Option value="MALE">Nam</Select.Option>
+                  <Select.Option value="FEMALE">Nữ</Select.Option>
+                  <Select.Option value="OTHER">Khác</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item 
+                label="Ngày sinh" 
+                name="dateOfBirth" 
+                rules={[{ required: true, message: 'Vui lòng chọn ngày sinh' }]}
+              >
+                <Input type="date" />
               </Form.Item>
             </Col>
           </Row>
 
+          <Title level={5} style={{ marginTop: '16px' }}>Địa chỉ</Title>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item 
+                label="Tỉnh/Thành phố" 
+                name="cityCode"
+                rules={[{ required: true, message: 'Vui lòng chọn tỉnh/thành phố' }]}
+              >
+                <Select 
+                  placeholder="Chọn tỉnh/thành phố"
+                  onChange={handleProvinceChange}
+                  showSearch
+                  filterOption={(input, option) =>
+                    ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={provinces.map(province => ({
+                    label: province.name,
+                    value: province.code
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="city" hidden>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item 
+                label="Quận/Huyện" 
+                name="districtCode"
+                rules={[{ required: true, message: 'Vui lòng chọn quận/huyện' }]}
+              >
+                <Select 
+                  placeholder="Chọn quận/huyện"
+                  onChange={handleDistrictChange}
+                  disabled={!selectedProvince}
+                  showSearch
+                  filterOption={(input, option) =>
+                    ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={availableDistricts.map(district => ({
+                    label: district.name,
+                    value: district.code
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="district" hidden>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item 
+                label="Phường/Xã" 
+                name="wardCode"
+                rules={[{ required: true, message: 'Vui lòng chọn phường/xã' }]}
+              >
+                <Select 
+                  placeholder="Chọn phường/xã"
+                  onChange={handleWardChange}
+                  disabled={!selectedDistrict}
+                  showSearch
+                  filterOption={(input, option) =>
+                    ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={availableWards.map(ward => ({
+                    label: ward.name,
+                    value: ward.code
+                  }))}
+                />
+              </Form.Item>
+              <Form.Item name="commune" hidden>
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item 
+                label="Số nhà, đường" 
+                name="street" 
+                rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
+              >
+                <Input placeholder="123 Đường Lê Lợi" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Title level={5} style={{ marginTop: '16px' }}>Thông tin nghề nghiệp</Title>
+          
+          {session?.user?.company && (
+            <Alert
+              message="Thông tin công ty"
+              description={`${session.user.company.companyName} (${session.user.company.companyCode}) - ${session.user.company.district}, ${session.user.company.city}`}
+              type="info"
+              showIcon
+              icon={<InfoCircleOutlined />}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          
+          <Form.Item 
+            label="Công ty vận chuyển" 
+            name="shippingCompanyId" 
+            rules={[{ required: true, message: 'Vui lòng chọn công ty vận chuyển' }]}
+            hidden={!!session?.user?.company}
+          >
+            <Select 
+              placeholder="Chọn công ty vận chuyển"
+              onChange={handleCompanyChange}
+              showSearch
+              loading={shippingCompanies.length === 0}
+              filterOption={(input, option) =>
+                ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={shippingCompanies.map(company => ({
+                label: `${company.name} (${company.code})${company.district && company.city ? ` - ${company.district}, ${company.city}` : ''}`,
+                value: company.id
+              }))}
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item 
+                label="CMND/CCCD" 
+                name="idCardNumber" 
+                rules={[
+                  { required: true, message: 'Vui lòng nhập số CMND/CCCD' },
+                  { pattern: /^[0-9]{9,12}$/, message: 'Số CMND/CCCD không hợp lệ' }
+                ]}
+              >
+                <Input placeholder="079095001234" />
+              </Form.Item>
+              
+              <Form.Item label="Ảnh CMND/CCCD mặt trước">
+                <Upload
+                  listType="picture-card"
+                  maxCount={1}
+                  beforeUpload={(file) => {
+                    setIdCardFrontFile(file);
+                    return false; // Prevent auto upload
+                  }}
+                  onRemove={() => setIdCardFrontFile(null)}
+                  accept="image/*"
+                >
+                  {!idCardFrontFile && (
+                    <div>
+                      <UploadOutlined />
+                      <div style={{ marginTop: 8 }}>Tải ảnh mặt trước</div>
+                    </div>
+                  )}
+                </Upload>
+              </Form.Item>
+              
+              <Form.Item label="Ảnh CMND/CCCD mặt sau">
+                <Upload
+                  listType="picture-card"
+                  maxCount={1}
+                  beforeUpload={(file) => {
+                    setIdCardBackFile(file);
+                    return false;
+                  }}
+                  onRemove={() => setIdCardBackFile(null)}
+                  accept="image/*"
+                >
+                  {!idCardBackFile && (
+                    <div>
+                      <UploadOutlined />
+                      <div style={{ marginTop: 8 }}>Tải ảnh mặt sau</div>
+                    </div>
+                  )}
+                </Upload>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item 
+                label="Số giấy phép lái xe" 
+                name="driverLicenseNumber" 
+                rules={[{ required: true, message: 'Vui lòng nhập số GPLX' }]}
+              >
+                <Input placeholder="B2-079095001234" />
+              </Form.Item>
+              
+              <Form.Item label="Ảnh giấy phép lái xe">
+                <Upload
+                  listType="picture-card"
+                  maxCount={1}
+                  beforeUpload={(file) => {
+                    setDriverLicenseFile(file);
+                    return false;
+                  }}
+                  onRemove={() => setDriverLicenseFile(null)}
+                  accept="image/*"
+                >
+                  {!driverLicenseFile && (
+                    <div>
+                      <UploadOutlined />
+                      <div style={{ marginTop: 8 }}>Tải ảnh GPLX</div>
+                    </div>
+                  )}
+                </Upload>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Title level={5} style={{ marginTop: '16px' }}>Khu vực hoạt động</Title>
+          <Alert
+            message="Lưu ý"
+            description="Khu vực hoạt động phải cùng quận/huyện với địa chỉ công ty vận chuyển"
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item 
+                label="Tỉnh/Thành phố hoạt động" 
+                name="operationalCity"
+                rules={[{ required: true, message: 'Vui lòng nhập tỉnh/thành phố hoạt động' }]}
+                initialValue={session?.user?.company?.city || ''}
+              >
+                <Input disabled placeholder="Tỉnh/Thành phố hoạt động" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item 
+                label="Quận/Huyện hoạt động" 
+                name="operationalDistrict"
+                rules={[{ required: true, message: 'Vui lòng nhập quận/huyện hoạt động' }]}
+                initialValue={session?.user?.company?.district || ''}
+              >
+                <Input disabled placeholder="Quận/Huyện hoạt động" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item 
+                label="Phường/Xã hoạt động" 
+                name="operationalCommune"
+                rules={[{ required: true, message: 'Vui lòng chọn phường/xã hoạt động' }]}
+              >
+                <Select 
+                  placeholder="Chọn phường/xã hoạt động"
+                  disabled={availableWardsInCompanyDistrict.length === 0}
+                  showSearch
+                  filterOption={(input, option) =>
+                    ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={availableWardsInCompanyDistrict.map(ward => ({
+                    label: ward.name,
+                    value: ward.name
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Title level={5} style={{ marginTop: '16px' }}>Thông tin phương tiện</Title>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item 
@@ -643,10 +1283,9 @@ export default function ShippersPage() {
                 rules={[{ required: true, message: 'Vui lòng chọn loại xe' }]}
               >
                 <Select placeholder="Chọn loại phương tiện">
-                  <Select.Option value="motorbike">🏍️ Xe máy</Select.Option>
-                  <Select.Option value="car">🚗 Ô tô</Select.Option>
-                  <Select.Option value="truck">🚚 Xe tải</Select.Option>
-                  <Select.Option value="bicycle">🚲 Xe đạp</Select.Option>
+                  <Select.Option value="Xe máy">🏍️ Xe máy</Select.Option>
+                  <Select.Option value="Ô tô">🚗 Ô tô</Select.Option>
+                  <Select.Option value="Xe tải">🚚 Xe tải</Select.Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -656,49 +1295,72 @@ export default function ShippersPage() {
                 name="licensePlate" 
                 rules={[{ required: true, message: 'Vui lòng nhập biển số xe' }]}
               >
-                <Input placeholder="VD: 29A-12345" />
+                <Input placeholder="59A-12345" />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item 
-                label="Khu vực" 
-                name="region" 
-                rules={[{ required: true, message: 'Vui lòng nhập khu vực' }]}
-              >
-                <Input placeholder="VD: Hà Nội, TP.HCM" />
+              <Form.Item label="Hãng xe" name="vehicleBrand">
+                <Input placeholder="Honda, Yamaha, Toyota..." />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item 
-                label="Trạng thái" 
-                name="status" 
-                initialValue={ShipperStatus.ACTIVE}
-              >
-                <Select>
-                  <Select.Option value={ShipperStatus.ACTIVE}>Sẵn sàng</Select.Option>
-                  <Select.Option value={ShipperStatus.INACTIVE}>Không hoạt động</Select.Option>
-                </Select>
+              <Form.Item label="Màu xe" name="vehicleColor">
+                <Input placeholder="Đỏ, Xanh, Trắng..." />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Vĩ độ (tùy chọn)" name="latitude">
-                <Input type="number" step="0.000001" placeholder="VD: 21.028511" />
+            <Col span={24}>
+              <Form.Item 
+                label="Các phường/xã hoạt động bổ sung (Tùy chọn)" 
+                name="regionWards"
+                extra={
+                  companyDistrict && companyProvince ? 
+                    `Chọn thêm các phường/xã khác trong ${companyDistrict.name}, ${companyProvince.name}` : 
+                    'Chọn phường/xã hoạt động chính trước'
+                }
+              >
+                <Select 
+                  mode="multiple"
+                  placeholder="Chọn các phường/xã hoạt động bổ sung (nếu có)"
+                  onChange={handleWardsChange}
+                  disabled={availableWardsInCompanyDistrict.length === 0}
+                  maxTagCount="responsive"
+                  showSearch
+                  allowClear
+                  filterOption={(input, option) =>
+                    ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={availableWardsInCompanyDistrict.map(ward => ({
+                    label: ward.name,
+                    value: ward.name
+                  }))}
+                />
               </Form.Item>
+              {availableWardsInCompanyDistrict.length > 0 && (
+                <div className="text-green-600 text-xs mb-2">
+                  ✅ Có {availableWardsInCompanyDistrict.length} phường/xã trong {companyDistrict?.name}
+                </div>
+              )}
             </Col>
-            <Col span={12}>
-              <Form.Item label="Kinh độ (tùy chọn)" name="longitude">
-                <Input type="number" step="0.000001" placeholder="VD: 105.804817" />
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item 
+                label="Bán kính giao hàng tối đa (km)" 
+                name="maxDeliveryRadius"
+              >
+                <Input type="number" placeholder="15.0" min="0" step="0.5" />
               </Form.Item>
             </Col>
           </Row>
 
-          <div className="flex gap-2 pt-4 justify-end">
+          <div className="flex gap-2 pt-4 justify-end" style={{ borderTop: '1px solid #f0f0f0', marginTop: '16px', paddingTop: '16px' }}>
             <Button onClick={() => {
               setCreateModalVisible(false);
               createForm.resetFields();
@@ -706,7 +1368,7 @@ export default function ShippersPage() {
               Hủy
             </Button>
             <Button type="primary" htmlType="submit">
-              Thêm Shipper
+              Đăng ký Shipper
             </Button>
           </div>
         </Form>

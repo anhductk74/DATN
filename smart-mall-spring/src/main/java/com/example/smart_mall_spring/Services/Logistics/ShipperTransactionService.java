@@ -48,7 +48,8 @@ public class ShipperTransactionService {
         return ShipperTransactionResponseDto.builder()
                 .id(entity.getId())
                 .shipperId(entity.getShipper().getId())
-                .shipperName(entity.getShipper().getFullName())
+                .shipperName(entity.getShipper() != null && entity.getShipper().getUser() != null && entity.getShipper().getUser().getProfile() != null 
+                    ? entity.getShipper().getUser().getProfile().getFullName() : null)
                 .shipmentOrderId(shipmentOrderId)
                 .shipmentOrderCode(shipmentOrderCode)
                 .subShipmentOrderId(entity.getSubShipmentOrder() != null ? entity.getSubShipmentOrder().getId() : null)

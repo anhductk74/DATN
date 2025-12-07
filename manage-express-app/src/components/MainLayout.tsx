@@ -10,7 +10,8 @@ import {
   SettingOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  ShopOutlined
 } from '@ant-design/icons';
 import Sidebar from './Sidebar';
 
@@ -102,6 +103,13 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
       key: 'profile',
       icon: <UserOutlined />,
       label: 'Thông tin cá nhân',
+      onClick: () => router.push('/profile'),
+    },
+    {
+      key: 'company',
+      icon: <ShopOutlined />,
+      label: 'Thông tin công ty',
+      onClick: () => router.push('/company'),
     },
     {
       key: 'settings',
@@ -129,7 +137,13 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
         activeMenu={currentPage}
         user={session?.user ? {
           name: session.user.fullName || session.user.username || 'User',
-          email: session.user.email || ''
+          email: session.user.email || '',
+          company: session.user.company ? {
+            companyName: session.user.company.companyName,
+            companyCode: session.user.company.companyCode,
+            district: session.user.company.district,
+            city: session.user.company.city
+          } : undefined
         } : undefined}
       />
       
@@ -159,8 +173,7 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
             lineHeight: '64px'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-        
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <Title 
               level={4} 
               style={{ 
@@ -173,6 +186,37 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
             >
               Express Management
             </Title>
+            
+            {session?.user?.company && (
+              <>
+                <div style={{ 
+                  height: '32px', 
+                  width: '1px', 
+                  backgroundColor: '#d9d9d9' 
+                }} />
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: '2px'
+                }}>
+                  <Text style={{ 
+                    fontSize: '14px', 
+                    fontWeight: 600,
+                    color: '#1890ff',
+                    lineHeight: 1.2
+                  }}>
+                    {session.user.company.companyName}
+                  </Text>
+                  <Text style={{ 
+                    fontSize: '12px', 
+                    color: '#8c8c8c',
+                    lineHeight: 1.2
+                  }}>
+                    {session.user.company.district}, {session.user.company.city}
+                  </Text>
+                </div>
+              </>
+            )}
           </div>
           
           {/* User Menu */}
@@ -215,6 +259,16 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
                 }}>
                   {session?.user?.fullName || session?.user?.username || 'MANAGER EXPRESS'}
                 </div>
+                {session?.user?.company ? (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#1890ff',
+                    fontWeight: 500,
+                    marginBottom: '2px'
+                  }}>
+                    {session.user.company.companyCode}
+                  </div>
+                ) : null}
                 <div style={{ 
                   fontSize: '12px', 
                   color: '#8c8c8c'

@@ -33,7 +33,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         
-        if (request.getServletPath().contains("/api/auth")) {
+        // Skip JWT check for login and Google login only, but allow register to be authenticated
+        String servletPath = request.getServletPath();
+        if (servletPath.equals("/api/auth/login") 
+                || servletPath.equals("/api/auth/google-login")
+                || servletPath.equals("/api/auth/refresh-token")
+                || servletPath.contains("/api/auth/mobile/")) {
             filterChain.doFilter(request, response);
             return;
         }

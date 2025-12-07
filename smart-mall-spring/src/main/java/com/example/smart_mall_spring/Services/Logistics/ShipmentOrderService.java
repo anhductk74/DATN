@@ -50,7 +50,8 @@ public class ShipmentOrderService {
         return ShipmentOrderResponseDto.builder()
                 .id(entity.getId())
                 .orderCode(entity.getOrder() != null ? entity.getOrder().getId().toString() : null)
-                .shipperName(entity.getShipper() != null ? entity.getShipper().getFullName() : null)
+                .shipperName(entity.getShipper() != null && entity.getShipper().getUser() != null && entity.getShipper().getUser().getProfile() != null 
+                    ? entity.getShipper().getUser().getProfile().getFullName() : null)
                 .warehouseName(entity.getWarehouse() != null ? entity.getWarehouse().getName() : null)
                 .pickupAddress(entity.getPickupAddress())
                 .deliveryAddress(entity.getDeliveryAddress())
@@ -222,7 +223,8 @@ public class ShipmentOrderService {
                     map.put("id", sub.getId());
                     map.put("fromWarehouse", sub.getFromWarehouse() != null ? sub.getFromWarehouse().getName() : "Shop");
                     map.put("toWarehouse", sub.getToWarehouse() != null ? sub.getToWarehouse().getName() : "Khách");
-                    map.put("shipper", sub.getShipper() != null ? sub.getShipper().getFullName() : null);
+                    map.put("shipper", sub.getShipper() != null && sub.getShipper().getUser() != null && sub.getShipper().getUser().getProfile() != null 
+                        ? sub.getShipper().getUser().getProfile().getFullName() : null);
                     map.put("status", sub.getStatus());
                     map.put("sequence", sub.getSequence());
                     return map;
@@ -263,7 +265,8 @@ public class ShipmentOrderService {
         ShipmentOrder saved = shipmentOrderRepository.save(shipmentOrder);
 
         createShipmentLog(saved, ShipmentStatus.PICKING_UP, shipmentOrder.getPickupAddress(),
-                "Shipper " + shipper.getFullName() + " assigned to pick up");
+                "Shipper " + (shipper.getUser() != null && shipper.getUser().getProfile() != null 
+                    ? shipper.getUser().getProfile().getFullName() : "Unknown") + " assigned to pick up");
 
         // Cập nhật trạng thái shipper nếu cần
 //        shipper.setStatus(ShipperStatus.BUSY);

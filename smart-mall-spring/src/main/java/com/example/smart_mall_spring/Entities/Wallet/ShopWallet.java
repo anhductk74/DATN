@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Wallet;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Shop;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class ShopWallet extends BaseEntity {
     
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", nullable = false, unique = true)
+    @JsonIgnore
     private Shop shop;
     
     @Column(nullable = false)

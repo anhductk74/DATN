@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Logistics;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Enum.ShipmentStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,10 +18,12 @@ public class ShipmentLog extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "shipment_order_id", nullable = false)
+    @JsonIgnore
     private ShipmentOrder shipmentOrder;
 
     @ManyToOne
     @JoinColumn(name = "sub_shipment_order_id")
+    @JsonIgnore
     private SubShipmentOrder subShipmentOrder;
 
     @Enumerated(EnumType.STRING)

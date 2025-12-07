@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -14,8 +15,8 @@ import lombok.ToString;
 @Table(name = "users")
 @Getter
 @Setter
-@ToString(exclude = "profile")
-@EqualsAndHashCode(callSuper = true)
+@ToString(exclude = {"profile", "addresses", "roles"})
+@EqualsAndHashCode(callSuper = true, exclude = {"profile", "addresses", "roles"})
 public class User extends BaseEntity {
     @Column(name = "username", unique = true, nullable = false)
     private String username;
@@ -38,13 +39,16 @@ public class User extends BaseEntity {
     private int isActive;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private UserProfile profile;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<UserAddress> addresses;
 
     @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @JsonIgnore
     private List<Role> roles;
 
 }

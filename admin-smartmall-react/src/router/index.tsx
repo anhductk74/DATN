@@ -12,6 +12,8 @@ import Stores from '../pages/Stores/Stores';
 import TopShops from '../pages/Stores/TopShops';
 import Customers from '../pages/Customers/Customers';
 import Users from '../pages/Users/Users';
+import Managers from '../pages/Managers/Managers';
+import RegisterManager from '../pages/Managers/RegisterManager';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminLayout from '../components/AdminLayout/AdminLayout';
 
@@ -80,6 +82,15 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: <Users />,
+      },
+      // Managers routes
+      {
+        path: 'managers',
+        element: <Managers />,
+      },
+      {
+        path: 'managers/register',
+        element: <RegisterManager />,
       },
       // Marketing routes
       {

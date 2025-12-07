@@ -43,6 +43,9 @@ export interface ShippingCompanyListDto {
   name: string;
   code: string;
   status: string; // Backend trả "ACTIVE", "INACTIVE", "SUSPENDED" - không phải keyof
+  headquartersAddress?: string; // Địa chỉ trụ sở chính
+  district?: string; // Quận/Huyện của công ty
+  city?: string; // Tỉnh/Thành phố của công ty
 }
 
 export interface ShippingCompanyRequestDto {
@@ -62,6 +65,8 @@ export interface ShippingCompanyResponseDto {
   contactPhone: string;
   headquartersAddress: string;
   status: string; // Backend trả enum dưới dạng string
+  district?: string; // Quận/Huyện - khu vực hoạt động của công ty
+  city?: string; // Tỉnh/Thành phố
   shippers?: ShipperResponseDto[];
   warehouses?: WarehouseResponseDto[];
 }

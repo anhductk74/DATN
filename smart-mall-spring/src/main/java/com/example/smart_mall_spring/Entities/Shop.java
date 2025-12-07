@@ -1,11 +1,13 @@
 package com.example.smart_mall_spring.Entities;
 
 import com.example.smart_mall_spring.Entities.Users.User;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Entity
 @Table(name = "shops")
@@ -13,6 +15,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
+@ToString(exclude = {"owner"})
 public class Shop extends BaseEntity {
     @Column(nullable = false)
     private String name;
@@ -33,5 +36,6 @@ public class Shop extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", referencedColumnName = "id")
+    @JsonIgnore
     private User owner; // Shop owner
 }

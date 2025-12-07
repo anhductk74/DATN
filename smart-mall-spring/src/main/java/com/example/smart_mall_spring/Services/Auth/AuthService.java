@@ -3,6 +3,10 @@ package com.example.smart_mall_spring.Services.Auth;
 import com.example.smart_mall_spring.Config.CustomUserDetails;
 import com.example.smart_mall_spring.Config.EmailValidator;
 import com.example.smart_mall_spring.Dtos.Auth.*;
+import com.example.smart_mall_spring.Entities.Address;
+import com.example.smart_mall_spring.Entities.Logistics.Manager;
+import com.example.smart_mall_spring.Entities.Logistics.ShippingCompany;
+import com.example.smart_mall_spring.Enum.ShippingCompanyStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.example.smart_mall_spring.Entities.Users.Role;
@@ -11,6 +15,8 @@ import com.example.smart_mall_spring.Entities.Users.UserProfile;
 import com.example.smart_mall_spring.Exception.CustomException;
 import com.example.smart_mall_spring.Repositories.RoleRepository;
 import com.example.smart_mall_spring.Repositories.UserRepository;
+import com.example.smart_mall_spring.Repositories.Logistics.ManagerRepository;
+import com.example.smart_mall_spring.Repositories.Logistics.ShippingCompanyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -57,6 +63,12 @@ public class AuthService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private ShippingCompanyRepository shippingCompanyRepository;
+
+    @Autowired
+    private ManagerRepository managerRepository;
+
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
@@ -91,7 +103,21 @@ public class AuthService {
         }
     }
 
-    public AuthResponseDto register(RegisterRequestDto request) {
+    public AuthResponseDto register(RegisterRequestDto request, User currentUser) {
+        // Kiểm tra quyền: Chỉ ADMIN mới đăng ký được MANAGER
+        if (request.getRole() != null && request.getRole().trim().equalsIgnoreCase("MANAGER")) {
+            if (currentUser == null) {
+                throw new CustomException("Bạn cần đăng nhập để đăng ký tài khoản MANAGER");
+            }
+            
+            boolean isAdmin = currentUser.getRoles().stream()
+                    .anyMatch(role -> role.getName().equals("ADMIN"));
+            
+            if (!isAdmin) {
+                throw new CustomException("Chỉ ADMIN mới có quyền đăng ký tài khoản MANAGER");
+            }
+        }
+        
         // Validate username format (must be email, except for admin)
         if (!request.getUsername().equals("admin") && !EmailValidator.isValid(request.getUsername())) {
             throw new CustomException("Username must be a valid email format");
@@ -99,6 +125,16 @@ public class AuthService {
         
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new CustomException("Username already exists");
+        }
+        
+        // Validate company info if role is MANAGER
+        if (request.getRole() != null && request.getRole().trim().equalsIgnoreCase("MANAGER")) {
+            if (request.getCompanyName() == null || request.getCompanyName().trim().isEmpty()) {
+                throw new CustomException("Company name is required for MANAGER role");
+            }
+            if (request.getCompanyCode() == null || request.getCompanyCode().trim().isEmpty()) {
+                throw new CustomException("Company code is required for MANAGER role");
+            }
         }
 
         User user = new User();
@@ -131,6 +167,40 @@ public class AuthService {
         user.setRoles(Collections.singletonList(userRole));
 
         User savedUser = userRepository.save(user);
+        
+        // Create ShippingCompany if role is MANAGER
+        if (roleName.equals("MANAGER")) {
+            // Check if company code already exists
+            if (shippingCompanyRepository.existsByCode(request.getCompanyCode())) {
+                throw new CustomException("Company code already exists: " + request.getCompanyCode());
+            }
+            
+            ShippingCompany company = new ShippingCompany();
+            company.setName(request.getCompanyName());
+            company.setCode(request.getCompanyCode());
+            company.setContactEmail(request.getCompanyContactEmail());
+            company.setContactPhone(request.getCompanyContactPhone());
+            
+            // Create headquarters address if provided
+            if (request.getCompanyCommune() != null && request.getCompanyDistrict() != null 
+                    && request.getCompanyCity() != null) {
+                Address headquartersAddress = new Address();
+                headquartersAddress.setStreet(request.getCompanyStreet() != null ? request.getCompanyStreet() : "");
+                headquartersAddress.setCommune(request.getCompanyCommune());
+                headquartersAddress.setDistrict(request.getCompanyDistrict());
+                headquartersAddress.setCity(request.getCompanyCity());
+                company.setHeadquartersAddress(headquartersAddress);
+            }
+            
+            company.setStatus(ShippingCompanyStatus.ACTIVE);
+            ShippingCompany savedCompany = shippingCompanyRepository.save(company);
+            
+            // Create Manager entity to link User with ShippingCompany
+            Manager manager = new Manager();
+            manager.setUser(savedUser);
+            manager.setShippingCompany(savedCompany);
+            managerRepository.save(manager);
+        }
 
         CustomUserDetails userDetails = new CustomUserDetails(savedUser);
         String accessToken = jwtService.generateToken(userDetails);
@@ -258,6 +328,51 @@ public class AuthService {
 
         UserProfile profile = user.getProfile();
 
+        // Lấy thông tin công ty nếu user là Manager
+        CompanyInfoDto companyInfo = null;
+        boolean isManager = roleNames.contains("MANAGER");
+        
+        if (isManager) {
+            Manager manager = managerRepository.findByUserId(user.getId())
+                    .orElse(null);
+            
+            if (manager != null && manager.getShippingCompany() != null) {
+                ShippingCompany company = manager.getShippingCompany();
+                Address headquarters = company.getHeadquartersAddress();
+                
+                String fullAddress = null;
+                if (headquarters != null) {
+                    StringBuilder addressBuilder = new StringBuilder();
+                    if (headquarters.getStreet() != null && !headquarters.getStreet().isEmpty()) {
+                        addressBuilder.append(headquarters.getStreet()).append(", ");
+                    }
+                    if (headquarters.getCommune() != null) {
+                        addressBuilder.append(headquarters.getCommune()).append(", ");
+                    }
+                    if (headquarters.getDistrict() != null) {
+                        addressBuilder.append(headquarters.getDistrict()).append(", ");
+                    }
+                    if (headquarters.getCity() != null) {
+                        addressBuilder.append(headquarters.getCity());
+                    }
+                    fullAddress = addressBuilder.toString();
+                }
+                
+                companyInfo = CompanyInfoDto.builder()
+                        .companyId(company.getId())
+                        .companyName(company.getName())
+                        .companyCode(company.getCode())
+                        .contactEmail(company.getContactEmail())
+                        .contactPhone(company.getContactPhone())
+                        .street(headquarters != null ? headquarters.getStreet() : null)
+                        .commune(headquarters != null ? headquarters.getCommune() : null)
+                        .district(headquarters != null ? headquarters.getDistrict() : null)
+                        .city(headquarters != null ? headquarters.getCity() : null)
+                        .fullAddress(fullAddress)
+                        .build();
+            }
+        }
+
         return UserInfoDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -266,6 +381,7 @@ public class AuthService {
                 .avatar(profile != null ? profile.getAvatar() : null)
                 .isActive(user.getIsActive())
                 .roles(roleNames)
+                .company(companyInfo)
                 .build();
     }
 
@@ -371,5 +487,107 @@ public class AuthService {
         Random random = new Random();
         int code = 100000 + random.nextInt(900000); // Generate number between 100000 and 999999
         return String.valueOf(code);
+    }
+    
+    // Đăng ký Manager mới (chỉ ADMIN)
+    public ManagerRegisterResponseDto registerManager(ManagerRegisterDto dto, User currentUser) {
+        // 1. Kiểm tra quyền ADMIN
+        if (currentUser == null) {
+            throw new CustomException("Bạn cần đăng nhập để đăng ký tài khoản Manager");
+        }
+        
+        boolean isAdmin = currentUser.getRoles().stream()
+                .anyMatch(role -> role.getName().equals("ADMIN"));
+        
+        if (!isAdmin) {
+            throw new CustomException("Chỉ ADMIN mới có quyền đăng ký tài khoản Manager");
+        }
+        
+        // 2. Kiểm tra email đã tồn tại
+        if (userRepository.existsByUsername(dto.getEmail())) {
+            throw new CustomException("Email đã được sử dụng: " + dto.getEmail());
+        }
+        
+        // 3. Kiểm tra company code đã tồn tại (nếu có)
+        if (dto.getCompanyCode() != null && !dto.getCompanyCode().trim().isEmpty()) {
+            if (shippingCompanyRepository.existsByCode(dto.getCompanyCode())) {
+                throw new CustomException("Mã công ty đã tồn tại: " + dto.getCompanyCode());
+            }
+        }
+        
+        // 4. Tạo User với role MANAGER
+        User user = new User();
+        user.setUsername(dto.getEmail());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setIsActive(1);
+        
+        Role managerRole = roleRepository.findByName("MANAGER")
+                .orElseThrow(() -> new CustomException("Role MANAGER không tồn tại"));
+        user.setRoles(List.of(managerRole));
+        
+        // 5. Tạo UserProfile
+        UserProfile profile = new UserProfile();
+        profile.setFullName(dto.getFullName());
+        profile.setPhoneNumber(dto.getPhoneNumber());
+        profile.setUser(user);
+        user.setProfile(profile);
+        
+        User savedUser = userRepository.save(user);
+        
+        // 6. Tạo Address cho công ty
+        Address companyAddress = new Address();
+        companyAddress.setStreet(dto.getCompanyStreet());
+        companyAddress.setCommune(dto.getCompanyCommune());
+        companyAddress.setDistrict(dto.getCompanyDistrict());
+        companyAddress.setCity(dto.getCompanyCity());
+        
+        // 7. Tạo ShippingCompany
+        ShippingCompany company = new ShippingCompany();
+        company.setName(dto.getCompanyName());
+        company.setCode(dto.getCompanyCode());
+        company.setContactEmail(dto.getCompanyContactEmail());
+        company.setContactPhone(dto.getCompanyContactPhone());
+        company.setHeadquartersAddress(companyAddress);
+        company.setStatus(ShippingCompanyStatus.ACTIVE);
+        
+        ShippingCompany savedCompany = shippingCompanyRepository.save(company);
+        
+        // 8. Tạo Manager entity
+        Manager manager = new Manager();
+        manager.setUser(savedUser);
+        manager.setShippingCompany(savedCompany);
+        Manager savedManager = managerRepository.save(manager);
+        
+        // 9. Generate JWT tokens
+        CustomUserDetails userDetails = new CustomUserDetails(savedUser);
+        String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
+        
+        // 10. Build response
+        String fullAddress = String.format("%s, %s, %s, %s",
+                dto.getCompanyStreet(),
+                dto.getCompanyCommune(),
+                dto.getCompanyDistrict(),
+                dto.getCompanyCity());
+        
+        return ManagerRegisterResponseDto.builder()
+                .userId(savedUser.getId())
+                .username(savedUser.getUsername())
+                .fullName(dto.getFullName())
+                .phoneNumber(dto.getPhoneNumber())
+                .companyId(savedCompany.getId())
+                .companyName(savedCompany.getName())
+                .companyCode(savedCompany.getCode())
+                .companyContactEmail(savedCompany.getContactEmail())
+                .companyContactPhone(savedCompany.getContactPhone())
+                .companyStreet(dto.getCompanyStreet())
+                .companyCommune(dto.getCompanyCommune())
+                .companyDistrict(dto.getCompanyDistrict())
+                .companyCity(dto.getCompanyCity())
+                .companyFullAddress(fullAddress)
+                .managerId(savedManager.getId())
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 }

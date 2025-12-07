@@ -10,6 +10,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 @Entity
 @Table(name = "roles", indexes = {
@@ -17,7 +18,7 @@ import lombok.EqualsAndHashCode;
 })
 @Data
 @EqualsAndHashCode(callSuper = true)
-
+@ToString(exclude = {"users"})
 public class Role extends BaseEntity {
 
     private String code;

@@ -108,13 +108,13 @@ public interface ShipperTransactionRepository extends JpaRepository<ShipperTrans
     // ---- TOP SHIPPERS ----
     @Query("""
     SELECT 
-        t.shipper.fullName AS fullName,
+        t.shipper.user.profile.fullName AS fullName,
         COALESCE(SUM(CASE WHEN t.transactionType = 'COLLECT_COD' THEN t.amount ELSE 0 END), 0) AS codCollected,
         COALESCE(SUM(CASE WHEN t.transactionType = 'COLLECT_COD' THEN t.amount ELSE 0 END), 0)
         - COALESCE(SUM(CASE WHEN t.transactionType = 'DEPOSIT_COD' THEN t.amount ELSE 0 END), 0) AS codRemaining
     FROM ShipperTransaction t
     WHERE t.createdAt BETWEEN :from AND :to
-    GROUP BY t.shipper.id, t.shipper.fullName
+    GROUP BY t.shipper.id, t.shipper.user.profile.fullName
     ORDER BY 
         COALESCE(SUM(CASE WHEN t.transactionType = 'COLLECT_COD' THEN t.amount ELSE 0 END), 0)
         - COALESCE(SUM(CASE WHEN t.transactionType = 'DEPOSIT_COD' THEN t.amount ELSE 0 END), 0) DESC

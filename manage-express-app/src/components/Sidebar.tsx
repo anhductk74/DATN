@@ -30,6 +30,12 @@ interface SidebarProps {
     name: string;
     email: string;
     avatar?: string;
+    company?: {
+      companyName: string;
+      companyCode: string;
+      district: string;
+      city: string;
+    };
   };
 }
 
@@ -176,6 +182,11 @@ export default function Sidebar({ collapsed, onCollapse, onMenuSelect, activeMen
             </div>
             <div>
               <Text strong className="text-lg">Express Hub</Text>
+              {user?.company && (
+                <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '2px' }}>
+                  {user.company.companyCode}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Entities.Orders;
 
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Enum.StatusOrder;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,6 +21,7 @@ public class OrderStatusHistory extends BaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private Order order;
 
     @Enumerated(EnumType.STRING)

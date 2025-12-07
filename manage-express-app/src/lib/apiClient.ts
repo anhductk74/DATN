@@ -20,6 +20,12 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${session.accessToken}`;
       }
     }
+    
+    // If data is FormData, remove Content-Type to let browser set it with boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     return config;
   },
   (error) => {
@@ -50,7 +56,7 @@ apiClient.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return apiClient(originalRequest);
         }
-      } catch (refreshError) {
+      } catch {
         // Refresh failed, redirect to login
         window.location.href = '/login';
       }
