@@ -5,6 +5,7 @@ import com.example.smart_mall_spring.Config.EmailValidator;
 import com.example.smart_mall_spring.Dtos.Auth.*;
 import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Entities.Logistics.Manager;
+import com.example.smart_mall_spring.Entities.Logistics.Shipper;
 import com.example.smart_mall_spring.Entities.Logistics.ShippingCompany;
 import com.example.smart_mall_spring.Enum.ShippingCompanyStatus;
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import com.example.smart_mall_spring.Exception.CustomException;
 import com.example.smart_mall_spring.Repositories.RoleRepository;
 import com.example.smart_mall_spring.Repositories.UserRepository;
 import com.example.smart_mall_spring.Repositories.Logistics.ManagerRepository;
+import com.example.smart_mall_spring.Repositories.Logistics.ShipperRepository;
 import com.example.smart_mall_spring.Repositories.Logistics.ShippingCompanyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,6 +70,9 @@ public class AuthService {
 
     @Autowired
     private ManagerRepository managerRepository;
+    
+    @Autowired
+    private ShipperRepository shipperRepository;
 
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
@@ -330,7 +335,9 @@ public class AuthService {
 
         // Lấy thông tin công ty nếu user là Manager
         CompanyInfoDto companyInfo = null;
+        ShipperInfoDto shipperInfo = null;
         boolean isManager = roleNames.contains("MANAGER");
+        boolean isShipper = roleNames.contains("SHIPPER");
         
         if (isManager) {
             Manager manager = managerRepository.findByUserId(user.getId())
@@ -372,6 +379,42 @@ public class AuthService {
                         .build();
             }
         }
+        
+        // Lấy thông tin shipper nếu user là Shipper
+        if (isShipper) {
+            Shipper shipper = shipperRepository.findByUserId(user.getId())
+                    .orElse(null);
+            
+            if (shipper != null) {
+                Address opRegion = shipper.getOperationalRegion();
+                String operationalRegionFull = null;
+                
+                if (opRegion != null) {
+                    operationalRegionFull = String.format("%s, %s, %s", 
+                        opRegion.getCommune() != null ? opRegion.getCommune() : "",
+                        opRegion.getDistrict() != null ? opRegion.getDistrict() : "",
+                        opRegion.getCity() != null ? opRegion.getCity() : "").replaceAll("^, |, $", "");
+                }
+                
+                shipperInfo = ShipperInfoDto.builder()
+                        .shipperId(shipper.getId())
+                        .status(shipper.getStatus())
+                        .vehicleType(shipper.getVehicleType())
+                        .licensePlate(shipper.getLicensePlate())
+                        .vehicleBrand(shipper.getVehicleBrand())
+                        .vehicleColor(shipper.getVehicleColor())
+                        .currentLatitude(shipper.getCurrentLatitude())
+                        .currentLongitude(shipper.getCurrentLongitude())
+                        .maxDeliveryRadius(shipper.getMaxDeliveryRadius())
+                        .operationalCommune(opRegion != null ? opRegion.getCommune() : null)
+                        .operationalDistrict(opRegion != null ? opRegion.getDistrict() : null)
+                        .operationalCity(opRegion != null ? opRegion.getCity() : null)
+                        .operationalRegionFull(operationalRegionFull)
+                        .shippingCompanyId(shipper.getShippingCompany() != null ? shipper.getShippingCompany().getId() : null)
+                        .shippingCompanyName(shipper.getShippingCompany() != null ? shipper.getShippingCompany().getName() : null)
+                        .build();
+            }
+        }
 
         return UserInfoDto.builder()
                 .id(user.getId())
@@ -382,6 +425,7 @@ public class AuthService {
                 .isActive(user.getIsActive())
                 .roles(roleNames)
                 .company(companyInfo)
+                .shipper(shipperInfo)
                 .build();
     }
 

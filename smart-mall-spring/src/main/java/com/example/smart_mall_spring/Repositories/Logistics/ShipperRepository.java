@@ -9,11 +9,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface ShipperRepository extends JpaRepository<Shipper, UUID> {
 
+    Optional<Shipper> findByUserId(UUID userId);
+    
     List<Shipper> findByShippingCompany_Id(UUID companyId);
     
     Page<Shipper> findByShippingCompanyId(UUID companyId, Pageable pageable);

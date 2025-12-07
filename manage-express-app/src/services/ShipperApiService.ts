@@ -39,6 +39,18 @@ export interface ShipperRegisterDto {
   maxDeliveryRadius?: number;
 }
 
+export interface ShipperUpdateDto {
+  status?: ShipperStatus;
+  vehicleType?: string;
+  licensePlate?: string;
+  vehicleBrand?: string;
+  vehicleColor?: string;
+  operationalCommune?: string;
+  operationalDistrict?: string;
+  operationalCity?: string;
+  maxDeliveryRadius?: number;
+}
+
 export interface ShipperResponseDto {
   id: string;
   fullName: string;
@@ -126,7 +138,7 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
 
   // Get shipper by ID
   async getShipperById(id: string): Promise<ShipperResponseDto> {
-    const response = await apiClient.get<ShipperResponseDto>(`/api/logistics/shippers/${id}`);
+    const response = await apiClient.get<ShipperResponseDto>(`/api/managers/shippers/${id}`);
     return response.data;
   },
 
@@ -204,7 +216,7 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
     }
     
     // No need to set Content-Type header - axios will handle it for FormData
-    const response = await apiClient.post<ShipperResponseDto>('/api/logistics/shippers/register', formData);
+    const response = await apiClient.post<ShipperResponseDto>('/api/managers/shippers/register', formData);
     return response.data;
   },
 
@@ -215,42 +227,42 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
   },
 
   // Update shipper
-  async updateShipper(id: string, shipperData: ShipperRequestDto): Promise<ShipperResponseDto> {
-    const response = await apiClient.put<ShipperResponseDto>(`/api/logistics/shippers/${id}`, shipperData);
+  async updateShipper(id: string, shipperData: ShipperUpdateDto): Promise<ShipperResponseDto> {
+    const response = await apiClient.put<ShipperResponseDto>(`/api/managers/shippers/${id}`, shipperData);
     return response.data;
   },
 
   // Delete shipper
   async deleteShipper(id: string): Promise<void> {
-    await apiClient.delete(`/api/logistics/shippers/${id}`);
+    await apiClient.delete(`/api/managers/shippers/${id}`);
   },
 
   // Get shippers by company
   async getShippersByCompany(companyId: string): Promise<ShipperResponseDto[]> {
-    const response = await apiClient.get<ShipperResponseDto[]>(`/api/logistics/shippers/company/${companyId}`);
+    const response = await apiClient.get<ShipperResponseDto[]>(`/api/managers/shippers?companyId=${companyId}`);
     return response.data;
   },
 
   // Get shippers by region
   async getShippersByRegion(region: string): Promise<ShipperResponseDto[]> {
-    const response = await apiClient.get<ShipperResponseDto[]>(`/api/logistics/shippers/region/${region}`);
+    const response = await apiClient.get<ShipperResponseDto[]>(`/api/managers/shippers?region=${region}`);
     return response.data;
   },
 
   // Get shippers by status
   async getShippersByStatus(status: ShipperStatus): Promise<ShipperResponseDto[]> {
-    const response = await apiClient.get<ShipperResponseDto[]>(`/api/logistics/shippers/status/${status}`);
+    const response = await apiClient.get<ShipperResponseDto[]>(`/api/managers/shippers?status=${status}`);
     return response.data;
   },
 
   // Update shipper location
   async updateShipperLocation(id: string, latitude: number, longitude: number): Promise<void> {
-    await apiClient.put(`/api/logistics/shippers/${id}/location`, { latitude, longitude });
+    await apiClient.put(`/api/managers/shippers/${id}/location`, { latitude, longitude });
   },
 
   // Update shipper status
   async updateShipperStatus(id: string, status: ShipperStatus): Promise<void> {
-    await apiClient.put(`/api/logistics/shippers/${id}/status`, { status });
+    await apiClient.put(`/api/managers/shippers/${id}/status`, { status });
   },
 
   // Get shipper statistics
@@ -269,7 +281,7 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
       inactive: number;
       onLeave: number;
       suspended: number;
-    }>('/api/logistics/shippers/statistics');
+    }>('/api/managers/shippers/statistics');
     return response.data;
   },
 
@@ -290,7 +302,7 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
       successfulDeliveries: number;
       failedDeliveries: number;
       successRate: number;
-    }>(`/api/logistics/shippers/${shipperId}/delivery-statistics`);
+    }>(`/api/managers/shippers/${shipperId}/delivery-statistics`);
     return response.data;
   },
 
@@ -318,4 +330,4 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
     return colorMap[status] || 'default';
   },
 };
-export { shipperApiService, ShipperStatus, ShipperRequestDto, ShipperRegisterDto, ShipperResponseDto };
+export { shipperApiService, ShipperStatus, ShipperRequestDto, ShipperRegisterDto, ShipperUpdateDto, ShipperResponseDto };

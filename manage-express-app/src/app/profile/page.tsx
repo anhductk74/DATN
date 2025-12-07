@@ -230,7 +230,7 @@ export default function ProfilePage() {
               <Descriptions.Item label="Email">
                 <Space>
                   <MailOutlined />
-                  {user.email || user.username}
+                  {user.username}
                 </Space>
               </Descriptions.Item>
               

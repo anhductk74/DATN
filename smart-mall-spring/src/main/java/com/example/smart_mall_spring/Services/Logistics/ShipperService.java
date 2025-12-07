@@ -589,6 +589,9 @@ public class ShipperService {
         if (dto.getLongitude() != null) shipper.setCurrentLongitude(dto.getLongitude());
         if (dto.getVehicleType() != null) shipper.setVehicleType(dto.getVehicleType());
         if (dto.getLicensePlate() != null) shipper.setLicensePlate(dto.getLicensePlate());
+        if (dto.getVehicleBrand() != null) shipper.setVehicleBrand(dto.getVehicleBrand());
+        if (dto.getVehicleColor() != null) shipper.setVehicleColor(dto.getVehicleColor());
+        if (dto.getMaxDeliveryRadius() != null) shipper.setMaxDeliveryRadius(dto.getMaxDeliveryRadius());
         
         // Cập nhật khu vực hoạt động
         if (dto.getOperationalCommune() != null || dto.getOperationalDistrict() != null || dto.getOperationalCity() != null) {
@@ -619,7 +622,6 @@ public class ShipperService {
 
     // Mapper chuyển đổi entity -> DTO
     private ShipperResponseDto mapToDto(Shipper entity) {
-        // Directly build DTO without triggering lazy loads
         ShipperResponseDto.ShipperResponseDtoBuilder builder = ShipperResponseDto.builder()
                 .id(entity.getId())
                 .status(entity.getStatus())
@@ -648,6 +650,58 @@ public class ShipperService {
                 opRegion.getDistrict() != null ? opRegion.getDistrict() : "",
                 opRegion.getCity() != null ? opRegion.getCity() : "").replaceAll("^, |, $", "");
             builder.operationalRegionFull(operationalRegionFull);
+        }
+        
+        // Load User and Profile data using JPQL to avoid lazy loading issues
+        if (entity.getUser() != null) {
+            UUID userId = entity.getUser().getId();
+            try {
+                Object[] userBasicData = (Object[]) entityManager.createQuery(
+                    "SELECT u.id, u.username, p.fullName, p.phoneNumber, p.avatar, p.gender, p.dateOfBirth " +
+                    "FROM User u LEFT JOIN u.profile p WHERE u.id = :userId")
+                    .setParameter("userId", userId)
+                    .getSingleResult();
+                
+                if (userBasicData != null) {
+                    builder.userId((UUID) userBasicData[0])
+                           .username((String) userBasicData[1])
+                           .fullName((String) userBasicData[2])
+                           .phoneNumber((String) userBasicData[3])
+                           .avatar((String) userBasicData[4])
+                           .gender((Gender) userBasicData[5]);
+                    
+                    if (userBasicData[6] != null) {
+                        builder.dateOfBirth(userBasicData[6].toString());
+                    }
+                }
+                
+                // Fetch default address
+                List<?> addressDataList = entityManager.createQuery(
+                    "SELECT a.street, a.commune, a.district, a.city " +
+                    "FROM UserAddress ua JOIN ua.address a WHERE ua.user.id = :userId AND ua.isDefault = true")
+                    .setParameter("userId", userId)
+                    .setMaxResults(1)
+                    .getResultList();
+                
+                if (!addressDataList.isEmpty()) {
+                    Object[] addr = (Object[]) addressDataList.get(0);
+                    String address = String.format("%s, %s, %s, %s", 
+                        addr[0] != null ? addr[0] : "",
+                        addr[1] != null ? addr[1] : "",
+                        addr[2] != null ? addr[2] : "",
+                        addr[3] != null ? addr[3] : "");
+                    builder.address(address);
+                }
+            } catch (Exception e) {
+                // Log error but continue
+                System.err.println("Error loading user data for shipper: " + e.getMessage());
+            }
+        }
+        
+        // Load Shipping Company info
+        if (entity.getShippingCompany() != null) {
+            builder.shippingCompanyId(entity.getShippingCompany().getId())
+                   .shippingCompanyName(entity.getShippingCompany().getName());
         }
         
         return builder.build();

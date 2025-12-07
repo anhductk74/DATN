@@ -7,7 +7,8 @@ import {
   Card, 
   Table, 
   Button, 
-  Input, 
+  Input,
+  InputNumber,
   Select, 
   Space, 
   Tag, 
@@ -42,8 +43,8 @@ import {
   shipperApiService,
   ShipperResponseDto, 
   ShipperStatus, 
-  ShipperRequestDto,
-  ShipperRegisterDto
+  ShipperRegisterDto,
+  ShipperUpdateDto
 } from '@/services/ShipperApiService';
 import ShippingCompanyService, { ShippingCompanyListDto } from '@/services/ShippingCompanyService';
 import { locationService, type Province, type District, type Ward } from '@/services/LocationService';
@@ -62,6 +63,7 @@ export default function ShippersPage() {
   const [form] = Form.useForm();
   const [createForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [shippers, setShippers] = useState<ShipperResponseDto[]>([]);
   const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyListDto[]>([]);
   const [statistics, setStatistics] = useState({
@@ -266,41 +268,44 @@ export default function ShippersPage() {
     setSelectedRecord(record);
     setDrawerVisible(true);
     form.setFieldsValue({
-      fullName: record.fullName,
-      phoneNumber: record.phoneNumber,
-      email: record.email,
       status: record.status,
       vehicleType: record.vehicleType,
       licensePlate: record.licensePlate,
-      region: record.region
+      vehicleBrand: record.vehicleBrand,
+      vehicleColor: record.vehicleColor,
+      operationalCommune: record.operationalCommune,
+      operationalDistrict: record.operationalDistrict,
+      operationalCity: record.operationalCity,
+      maxDeliveryRadius: record.maxDeliveryRadius
     });
   };
 
-  const handleUpdate = async (values: Partial<ShipperRequestDto>) => {
+  const handleUpdate = async (values: ShipperUpdateDto) => {
     if (!selectedRecord) return;
 
     try {
-      const updateDto: ShipperRequestDto = {
-        userId: selectedRecord.userId,
-        shippingCompanyId: selectedRecord.shippingCompanyId,
-        fullName: values.fullName!,
-        phoneNumber: values.phoneNumber!,
-        email: values.email!,
-        status: values.status!,
-        vehicleType: values.vehicleType!,
-        licensePlate: values.licensePlate!,
-        region: values.region!,
-        latitude: selectedRecord.latitude,
-        longitude: selectedRecord.longitude
+      // Parse maxDeliveryRadius to number if it exists
+      const updateData: ShipperUpdateDto = {
+        ...values,
+        maxDeliveryRadius: values.maxDeliveryRadius ? parseFloat(values.maxDeliveryRadius.toString()) : undefined
       };
-
-      await shipperApiService.updateShipper(selectedRecord.id, updateDto);
+      
+      console.log('🔄 Updating shipper ID:', selectedRecord.id);
+      console.log('🔄 Update data:', updateData);
+      
+      const response = await shipperApiService.updateShipper(selectedRecord.id, updateData);
+      console.log('✅ Update response:', response);
+      
       message.success('Cập nhật thông tin shipper thành công');
+      
+      // Wait for data refresh before closing drawer
+      await fetchShippers(pagination.current, pagination.pageSize);
+      await fetchStatistics();
+      
       setDrawerVisible(false);
-      fetchShippers(pagination.current, pagination.pageSize);
-      fetchStatistics();
+      form.resetFields();
     } catch (error) {
-      console.error('Error updating shipper:', error);
+      console.error('❌ Error updating shipper:', error);
       message.error('Không thể cập nhật thông tin shipper');
     }
   };
@@ -503,6 +508,7 @@ export default function ShippersPage() {
   };
 
   const handleCreate = async (values: ShipperRegisterDto & { regionWards?: string[] }) => {
+    setSubmitting(true);
     try {
       // Use session company if available
       const companyId = session?.user?.company?.companyId || values.shippingCompanyId;
@@ -618,6 +624,8 @@ export default function ShippersPage() {
       } else {
         message.error(errorMessage);
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1355,7 +1363,13 @@ export default function ShippersPage() {
                 label="Bán kính giao hàng tối đa (km)" 
                 name="maxDeliveryRadius"
               >
-                <Input type="number" placeholder="15.0" min="0" step="0.5" />
+                <InputNumber 
+                  placeholder="15.0" 
+                  min={0} 
+                  step={0.5}
+                  style={{ width: '100%' }}
+                  precision={1}
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -1364,10 +1378,10 @@ export default function ShippersPage() {
             <Button onClick={() => {
               setCreateModalVisible(false);
               createForm.resetFields();
-            }}>
+            }} disabled={submitting}>
               Hủy
             </Button>
-            <Button type="primary" htmlType="submit">
+            <Button type="primary" htmlType="submit" loading={submitting}>
               Đăng ký Shipper
             </Button>
           </div>
@@ -1380,21 +1394,20 @@ export default function ShippersPage() {
         placement="right"
         onClose={() => setDrawerVisible(false)}
         open={drawerVisible}
-        width={600}
+        width={700}
       >
         <Form form={form} layout="vertical" onFinish={handleUpdate}>
-          <Form.Item label="Tên đầy đủ" name="fullName" rules={[{ required: true, message: 'Vui lòng nhập tên' }]}>
-            <Input />
-          </Form.Item>
-          
-          <Form.Item label="Số điện thoại" name="phoneNumber" rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}>
-            <Input />
-          </Form.Item>
+          {selectedRecord && (
+            <Alert
+              message="Thông tin cơ bản"
+              description={`${selectedRecord.fullName} - ${selectedRecord.phoneNumber} - ${selectedRecord.username}`}
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
-          <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email', message: 'Vui lòng nhập email hợp lệ' }]}>
-            <Input />
-          </Form.Item>
-
+          <Title level={5}>Trạng thái</Title>
           <Form.Item label="Trạng thái" name="status" rules={[{ required: true }]}>
             <Select>
               <Select.Option value={ShipperStatus.ACTIVE}>Sẵn sàng</Select.Option>
@@ -1405,19 +1418,78 @@ export default function ShippersPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item label="Loại phương tiện" name="vehicleType" rules={[{ required: true }]}>
-            <Input placeholder="Ví dụ: motorbike, car, truck" />
-          </Form.Item>
+          <Title level={5} style={{ marginTop: 16 }}>Thông tin phương tiện</Title>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Loại phương tiện" name="vehicleType" rules={[{ required: true }]}>
+                <Select placeholder="Chọn loại phương tiện">
+                  <Select.Option value="MOTORBIKE">🏍️ Xe máy</Select.Option>
+                  <Select.Option value="CAR">🚗 Ô tô</Select.Option>
+                  <Select.Option value="TRUCK">🚚 Xe tải</Select.Option>
+                  <Select.Option value="BICYCLE">🚲 Xe đạp</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Biển số xe" name="licensePlate" rules={[{ required: true, message: 'Vui lòng nhập biển số xe' }]}>
+                <Input placeholder="59A1-12345" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Form.Item label="Biển số xe" name="licensePlate" rules={[{ required: true, message: 'Vui lòng nhập biển số xe' }]}>
-            <Input />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Hãng xe" name="vehicleBrand">
+                <Input placeholder="Honda, Yamaha, Toyota..." />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Màu xe" name="vehicleColor">
+                <Input placeholder="Đỏ, Xanh, Trắng..." />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Form.Item label="Khu vực" name="region" rules={[{ required: true, message: 'Vui lòng nhập khu vực' }]}>
-            <Input placeholder="Ví dụ: Hà Nội, TP.HCM" />
-          </Form.Item>
+          <Title level={5} style={{ marginTop: 16 }}>Khu vực hoạt động</Title>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item label="Phường/Xã hoạt động" name="operationalCommune">
+                <Input placeholder="Phường Bến Thành" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <div className="flex gap-2 pt-4">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Quận/Huyện" name="operationalDistrict">
+                <Input placeholder="Quận 1" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Thành phố" name="operationalCity">
+                <Input placeholder="Hồ Chí Minh" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item 
+                label="Bán kính giao hàng tối đa (km)" 
+                name="maxDeliveryRadius"
+              >
+                <InputNumber 
+                  placeholder="15.0" 
+                  min={0} 
+                  step={0.5}
+                  style={{ width: '100%' }}
+                  precision={1}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <div className="flex gap-2 pt-4" style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 16 }}>
             <Button type="primary" htmlType="submit">
               Cập nhật
             </Button>
