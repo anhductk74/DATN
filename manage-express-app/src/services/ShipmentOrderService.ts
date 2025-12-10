@@ -370,6 +370,26 @@ static async getCodStatistics(): Promise<{
       };
     }
   }
+  // Lấy danh sách Shipment theo công ty (ShippingCompany)
+static async getByCompany(
+  shippingCompanyId: string,
+  filters?: ShipmentFilters
+): Promise<PaginatedResponse<ShipmentOrderResponseDto>> {
+  const params = new URLSearchParams();
+
+  if (filters?.search) params.append('search', filters.search);
+  if (filters?.status) params.append('status', filters.status);
+  if (filters?.page !== undefined) params.append('page', filters.page.toString());
+  if (filters?.size !== undefined) params.append('size', filters.size.toString());
+
+  const query = params.toString() ? `?${params.toString()}` : '';
+
+  const response = await apiClient.get<PaginatedResponse<ShipmentOrderResponseDto>>(
+    `${this.BASE_URL}/company/${shippingCompanyId}${query}`
+  );
+
+  return response.data;
+}
 }
 
 export default ShipmentOrderService;

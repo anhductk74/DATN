@@ -1,6 +1,7 @@
 import apiClient from '../lib/apiClient';
 
 export interface ShipmentReportRequestDto {
+  companyId: string;
   reportDate: string; // ISO date string format (YYYY-MM-DD)
   totalOrders: number;
   deliveredOrders: number;
@@ -12,6 +13,8 @@ export interface ShipmentReportRequestDto {
 
 export interface ShipmentReportResponseDto {
   id: string;
+  companyId: string;
+  companyName: string;
   reportDate: string; // ISO date string format (YYYY-MM-DD)
   totalOrders: number;
   deliveredOrders: number;
@@ -43,6 +46,21 @@ export class ShipmentReportService {
   static async getReportById(id: string): Promise<ShipmentReportResponseDto> {
     const response = await apiClient.get<ShipmentReportResponseDto>(
       `${this.BASE_URL}/${id}`
+    );
+    return response.data;
+  }
+
+  // Lấy báo cáo theo công ty và khoảng thời gian
+  static async getReportsByCompany(
+    companyId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<ShipmentReportResponseDto[]> {
+    const response = await apiClient.get<ShipmentReportResponseDto[]>(
+      `${this.BASE_URL}/company`,
+      {
+        params: { companyId, start: startDate, end: endDate }
+      }
     );
     return response.data;
   }
@@ -123,21 +141,22 @@ export class ShipmentReportService {
   }
 
   // Tạo báo cáo tự động cho ngày hôm qua
-  static async generateYesterdayReport(): Promise<ShipmentReportResponseDto> {
+  static async generateYesterdayReport(companyId: string): Promise<ShipmentReportResponseDto> {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
     
     // Gọi API generate để lấy dữ liệu thật
-    return this.generateReportForDate(yesterdayStr);
+    return this.generateReportForDate(companyId, yesterdayStr);
   }
 
-  // Tạo báo cáo cho ngày cụ thể
-  static async generateReportForDate(date: string): Promise<ShipmentReportResponseDto> {
-    const response = await apiClient.get<ShipmentReportResponseDto>(
-      `${this.BASE_URL}/generate`,
+  // Tạo báo cáo cho ngày cụ thể theo công ty
+  static async generateReportForDate(companyId: string, date: string): Promise<ShipmentReportResponseDto> {
+    const response = await apiClient.post<ShipmentReportResponseDto>(
+      `${this.BASE_URL}/generate/day`,
+      null,
       {
-        params: { date }
+        params: { companyId, date }
       }
     );
     return response.data;
@@ -146,12 +165,15 @@ export class ShipmentReportService {
   // Tính toán thống kê tổng hợp
   static async getReportSummary(
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    companyId?: string
   ): Promise<ShipmentReportSummary> {
     try {
       let reports: ShipmentReportResponseDto[];
       
-      if (startDate && endDate) {
+      if (companyId && startDate && endDate) {
+        reports = await this.getReportsByCompany(companyId, startDate, endDate);
+      } else if (startDate && endDate) {
         reports = await this.getReportsBetween(startDate, endDate);
       } else {
         reports = await this.getAllReports();

@@ -671,7 +671,7 @@ export default function ShippersPage() {
     {
       title: 'Thông tin',
       key: 'info',
-      width: 220,
+      width: 200,
       render: (_: unknown, record: ShipperResponseDto) => (
         <div className="flex items-center space-x-3 gap-1">
           <Avatar size="large" icon={<UserOutlined />} />
@@ -701,7 +701,7 @@ export default function ShippersPage() {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      width: 140,
+      width: 100,
       render: (status: ShipperStatus) => (
         <Tag color={shipperApiService.getStatusColor(status)}>
           {shipperApiService.formatStatus(status)}
@@ -709,21 +709,11 @@ export default function ShippersPage() {
       )
     },
     {
-      title: 'Khu vực hoạt động',
-      key: 'operationalRegion',
-      width: 200,
+      title: 'Email',
+      key: 'username',
+      width: 180,
       render: (_: unknown, record: ShipperResponseDto) => (
-        <div>
-          <div className="text-sm font-medium">{record.operationalCommune || '-'}</div>
-          <div className="text-xs text-gray-500">
-            {record.operationalDistrict}, {record.operationalCity}
-          </div>
-          {record.maxDeliveryRadius && (
-            <div className="text-xs text-blue-600 mt-1">
-              📍 Bán kính: {record.maxDeliveryRadius}km
-            </div>
-          )}
-        </div>
+        <div className="text-sm">{record.username || '-'}</div>
       )
     },
         {
@@ -731,14 +721,24 @@ export default function ShippersPage() {
       key: 'stats',
       width: 120,
       render: (_: unknown, record: ShipperResponseDto) => {
+        // Check if vehicle type is truck
+        const isTruck = record.vehicleType?.toLowerCase().includes('tải') || 
+                       record.vehicleType?.toLowerCase() === 'truck';
+        
+        if (isTruck) {
+          return (
+            <div className="text-sm text-gray-400 italic">
+              Không áp dụng
+            </div>
+          );
+        }
+        
         const stats = deliveryStats[record.id] || {
           totalDeliveries: 0,
           successfulDeliveries: 0,
           failedDeliveries: 0,
           successRate: 0
         };
-        
-    
         
         return (
           <div>
@@ -756,7 +756,7 @@ export default function ShippersPage() {
       title: 'Công ty vận chuyển',
       dataIndex: 'shippingCompanyName',
       key: 'shippingCompanyName',
-      width: 180,
+      width: 240,
     },
     {
       title: 'Hành động',
@@ -892,22 +892,21 @@ export default function ShippersPage() {
 
       {/* Table */}
       <Card>
-        <Spin spinning={loading}>
-          <Table
-            columns={columns}
-            dataSource={filteredData}
-            rowKey="id"
-            scroll={{ x: 1400 }}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} của ${total} shipper`
-            }}
-            onChange={handleTableChange}
-          />
-        </Spin>
+        <Table
+          columns={columns}
+          dataSource={filteredData}
+          rowKey="id"
+          scroll={{ x: 1400 }}
+          loading={loading}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => 
+              `${range[0]}-${range[1]} của ${total} shipper`
+          }}
+          onChange={handleTableChange}
+        />
       </Card>
 
       {/* Create Modal */}

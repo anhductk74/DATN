@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,30 +23,47 @@ public class DashboardService {
     private final ShipmentOrderRepository shipmentRepo;
     private final ShipperTransactionRepository transRepo;
 
-    public DashboardResponseDto getDashboard(LocalDate from, LocalDate to) {
+    public DashboardResponseDto getDashboard(LocalDate from, LocalDate to, UUID companyId) {
 
-        DashboardSummaryDto summary = buildSummary(from, to);
+        DashboardSummaryDto summary = buildSummary(from, to, companyId);
 
-        // Chuyển LocalDate sang LocalDateTime cho chart
         LocalDateTime fromDateTime = from.atStartOfDay();
         LocalDateTime toDateTime = to.atTime(23, 59, 59, 999_999_999);
 
-        List<DashboardChartPointDto> chart = buildChart(fromDateTime, toDateTime);
-        List<TopShipperDto> top = buildTopShippers(fromDateTime, toDateTime);
+        List<DashboardChartPointDto> chart = buildChart(fromDateTime, toDateTime, companyId);
+        List<TopShipperDto> top = buildTopShippers(fromDateTime, toDateTime, companyId);
 
         return new DashboardResponseDto(summary, chart, top);
     }
 
-    private DashboardSummaryDto buildSummary(LocalDate from, LocalDate to) {
+    // ================= SUMMARY =================
+    private DashboardSummaryDto buildSummary(LocalDate from, LocalDate to, UUID companyId) {
 
-        Integer totalShippers = shipperRepo.countActiveShippers();
-        Integer totalOrders = shipmentRepo.countByDateRange(from, to);
+        LocalDateTime startDateTime = from.atStartOfDay();
+        LocalDateTime endDateTime = to.atTime(23, 59, 59, 999_999_999);
 
-        BigDecimal codCollected = transRepo.sumAmountByTypeAndDate(ShipperTransactionType.COLLECT_COD, from, to);
-        BigDecimal codDeposited = transRepo.sumAmountByTypeAndDate(ShipperTransactionType.DEPOSIT_COD, from, to);
-        BigDecimal bonus = transRepo.sumAmountByTypeAndDate(ShipperTransactionType.BONUS, from, to);
+        Integer totalShippers = shipperRepo.countActiveShippersByCompany(companyId);
 
-        BigDecimal shippingFee = shipmentRepo.sumShippingFee(from, to);
+        // Đếm tổng đơn hàng theo LocalDateTime
+        Integer totalOrders = shipmentRepo.countByDateRangeAndCompany(
+                startDateTime, endDateTime, companyId
+        );
+
+        // Tổng phí ship cũng theo LocalDateTime
+        BigDecimal shippingFee = shipmentRepo.sumShippingFeeByCompany(
+                startDateTime, endDateTime, companyId
+        );
+
+        // Repo này dùng LocalDateTime → phải truyền đúng chuẩn
+        BigDecimal codCollected = transRepo.sumAmountByTypeAndDate(
+                ShipperTransactionType.COLLECT_COD, startDateTime, endDateTime, companyId
+        );
+        BigDecimal codDeposited = transRepo.sumAmountByTypeAndDate(
+                ShipperTransactionType.DEPOSIT_COD, startDateTime, endDateTime, companyId
+        );
+        BigDecimal bonus = transRepo.sumAmountByTypeAndDate(
+                ShipperTransactionType.BONUS, startDateTime, endDateTime, companyId
+        );
 
         BigDecimal codRemaining = codCollected.subtract(codDeposited);
 
@@ -59,20 +77,25 @@ public class DashboardService {
                 shippingFee
         );
     }
-    private List<DashboardChartPointDto> buildChart(LocalDateTime from, LocalDateTime to) {
-        return transRepo.getDailyStats(from, to)
+
+
+
+    // ================= CHART =================
+    private List<DashboardChartPointDto> buildChart(LocalDateTime from, LocalDateTime to, UUID companyId) {
+        return transRepo.getDailyStatsByCompany(from, to, companyId)
                 .stream()
                 .map(p -> new DashboardChartPointDto(
-                        p.getDate().toLocalDate().toString(),   // convert java.sql.Date -> LocalDate
+                        p.getDate().toString(),  // p.getDate() đã là String vì query trả đúng DTO
                         p.getCodCollected(),
                         p.getCodDeposited(),
-                        p.getCodRemaining()
+                        p.getBalance()
                 ))
                 .toList();
     }
 
-    private List<TopShipperDto> buildTopShippers(LocalDateTime from, LocalDateTime to) {
-        return transRepo.getTopShippers(from, to)
+    // ================= TOP SHIPPERS =================
+    private List<TopShipperDto> buildTopShippers(LocalDateTime from, LocalDateTime to, UUID companyId) {
+        return transRepo.getTopShippers(from, to, companyId)
                 .stream()
                 .map(p -> new TopShipperDto(
                         p.getFullName(),

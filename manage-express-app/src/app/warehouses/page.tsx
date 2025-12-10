@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { 
   Card, 
   Table, 
@@ -15,23 +16,16 @@ import {
   Typography,
   Row,
   Col,
-  Statistic,
   Progress,
-  Tabs,
-  List,
   message,
-  Spin
+  Alert
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { 
   SearchOutlined, 
   PlusOutlined, 
-  EditOutlined, 
-  EyeOutlined,
-  HomeOutlined,
-  InboxOutlined,
-  WarningOutlined,
-  CheckCircleOutlined
+  EditOutlined,
+  InboxOutlined
 } from '@ant-design/icons';
 import warehouseApiService, {
   WarehouseResponseDto,
@@ -39,11 +33,9 @@ import warehouseApiService, {
   WarehouseInventoryItem,
   WarehouseRequestDto
 } from '@/services/WarehouseApiService';
-import ShippingCompanyService, { ShippingCompanyListDto } from '@/services/ShippingCompanyService';
 import { locationService, Province, District, Ward } from '@/services/LocationService';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 
 // Danh sách khu vực Việt Nam
 const VIETNAM_REGIONS = [
@@ -114,38 +106,38 @@ const VIETNAM_REGIONS = [
 ];
 
 export default function WarehousesPage() {
+  const { data: session } = useSession();
   const [searchText, setSearchText] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [createModalVisible, setCreateModalVisible] = useState<boolean>(false);
   const [selectedRecord, setSelectedRecord] = useState<WarehouseResponseDto | null>(null);
   const [form] = Form.useForm();
   const [createForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<WarehouseResponseDto[]>([]);
-  const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyListDto[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseResponseDto | null>(null);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
-  const [statistics, setStatistics] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-    maintenance: 0,
-    full: 0,
-    temporarilyClosed: 0,
-    totalCapacity: 0,
-    totalCurrentStock: 0
-  });
-  const [inventoryItems, setInventoryItems] = useState<Record<string, WarehouseInventoryItem[]>>({});
+  const [inventoryItems, setInventoryItems] = useState<WarehouseInventoryItem[]>([]);
 
-  // Fetch warehouses
+  // Fetch warehouses by company
   const fetchWarehouses = async () => {
     setLoading(true);
     try {
-      const data = await warehouseApiService.getAllWarehouses();
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        return;
+      }
+      const data = await warehouseApiService.getWarehousesByCompany(companyId);
       setWarehouses(data);
+      
+      // Auto-select first warehouse if available
+      if (data.length > 0 && !selectedWarehouse) {
+        setSelectedWarehouse(data[0]);
+        await fetchInventory(data[0].id);
+      }
     } catch (error) {
       console.error('Error fetching warehouses:', error);
       message.error('Không thể tải danh sách kho');
@@ -154,41 +146,18 @@ export default function WarehousesPage() {
     }
   };
 
-  // Fetch statistics
-  const fetchStatistics = async () => {
-    try {
-      const stats = await warehouseApiService.getWarehouseStatistics();
-      setStatistics(stats);
-    } catch (error) {
-      console.error('Error fetching statistics:', error);
-    }
-  };
-
   // Fetch inventory for a warehouse
   const fetchInventory = async (warehouseId: string) => {
     try {
       const items = await warehouseApiService.getWarehouseInventory(warehouseId);
-      setInventoryItems(prev => ({
-        ...prev,
-        [warehouseId]: items
-      }));
+      setInventoryItems(items);
     } catch (error) {
       console.error('Error fetching inventory:', error);
+      setInventoryItems([]);
     }
   };
 
-  // Fetch shipping companies
-  const fetchShippingCompanies = async () => {
-    try {
-      console.log('Fetching shipping companies...');
-      const companies = await ShippingCompanyService.getActiveCompanies();
-      console.log('Shipping companies loaded:', companies);
-      setShippingCompanies(companies);
-    } catch (error) {
-      console.error('Error fetching shipping companies:', error);
-      message.error('Không thể tải danh sách công ty vận chuyển');
-    }
-  };
+
 
   // Fetch provinces
   const fetchProvinces = async () => {
@@ -225,19 +194,15 @@ export default function WarehousesPage() {
   };
 
   useEffect(() => {
-    fetchWarehouses();
-    fetchStatistics();
-    fetchShippingCompanies();
-    fetchProvinces();
-  }, []);
-
-  const handleViewDetails = async (record: WarehouseResponseDto) => {
-    setSelectedRecord(record);
-    setModalVisible(true);
-    // Fetch inventory when viewing details
-    if (!inventoryItems[record.id]) {
-      await fetchInventory(record.id);
+    if (session?.user?.company?.companyId) {
+      fetchWarehouses();
+      fetchProvinces();
     }
+  }, [session]);
+
+  const handleSelectWarehouse = async (warehouse: WarehouseResponseDto) => {
+    setSelectedWarehouse(warehouse);
+    await fetchInventory(warehouse.id);
   };
 
   const handleEdit = (record: WarehouseResponseDto) => {
@@ -294,7 +259,10 @@ export default function WarehousesPage() {
       message.success('Cập nhật kho thành công');
       setDrawerVisible(false);
       fetchWarehouses();
-      fetchStatistics();
+      // Update selected warehouse if it's the one being edited
+      if (selectedWarehouse?.id === selectedRecord.id) {
+        setSelectedWarehouse({ ...selectedWarehouse, ...updateDto });
+      }
     } catch (error) {
       console.error('Error updating warehouse:', error);
       message.error('Không thể cập nhật kho');
@@ -303,6 +271,12 @@ export default function WarehousesPage() {
 
   const handleCreate = async (values: any) => {
     try {
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        return;
+      }
+
       // Gộp địa chỉ đầy đủ: "Số nhà, Phường, Quận, Tỉnh"
       const fullAddress = [
         values.address, // Địa chỉ chi tiết (số nhà, tên đường)
@@ -312,7 +286,7 @@ export default function WarehousesPage() {
       ].filter(Boolean).join(', ');
 
       const createDto: WarehouseRequestDto = {
-        shippingCompanyId: values.shippingCompanyId,
+        shippingCompanyId: companyId,
         name: values.name,
         address: fullAddress, // Địa chỉ đầy đủ
         region: values.region,
@@ -330,7 +304,6 @@ export default function WarehousesPage() {
       setCreateModalVisible(false);
       createForm.resetFields();
       fetchWarehouses();
-      fetchStatistics();
     } catch (error) {
       console.error('Error creating warehouse:', error);
       message.error('Không thể tạo kho mới');
@@ -361,122 +334,6 @@ export default function WarehousesPage() {
     if (percentage >= 70) return { color: 'orange', text: 'Khá đầy' };
     return { color: 'green', text: 'Bình thường' };
   };
-
-  const columns: ColumnsType<WarehouseResponseDto> = [
-    {
-      title: 'Mã kho',
-      dataIndex: 'id',
-      key: 'id',
-      width: 120,
-      render: (text: string) => <span className="font-mono text-blue-600">{text.substring(0, 8)}...</span>
-    },
-    {
-      title: 'Thông tin kho',
-      key: 'info',
-      width: 250,
-      render: (_: any, record: WarehouseResponseDto) => (
-        <div>
-          <div className="font-medium text-lg">{record.name}</div>
-          <div className="text-sm text-gray-600">{record.address}</div>
-          <div className="text-xs text-gray-500">
-            Quản lý: {record.managerName} | {record.phone}
-          </div>
-        </div>
-      )
-    },
-    {
-      title: 'Sức chứa',
-      key: 'capacity',
-      width: 200,
-      render: (_: any, record: WarehouseResponseDto) => {
-        if (!record.capacity && !record.currentStock) {
-          return (
-            <div className="text-center">
-              <Text type="secondary" italic>Chưa cập nhật</Text>
-            </div>
-          );
-        }
-        
-        // Nếu chỉ có capacity hoặc currentStock
-        if (!record.capacity || !record.currentStock) {
-          return (
-            <div>
-              <Text type="secondary">
-                {record.currentStock ? `Hiện: ${record.currentStock.toLocaleString()}` : ''}
-                {record.capacity ? `Tối đa: ${record.capacity.toLocaleString()}` : ''}
-              </Text>
-            </div>
-          );
-        }
-        
-        // Có đủ cả 2
-        const percentage = (record.currentStock / record.capacity) * 100;
-        const status = getCapacityStatus(record.currentStock, record.capacity);
-        
-        return (
-          <div>
-            <div className="mb-1">
-              <span className="font-medium">{record.currentStock.toLocaleString()}</span>
-              <span className="text-gray-500"> / {record.capacity.toLocaleString()}</span>
-            </div>
-            <Progress 
-              percent={percentage} 
-              strokeColor={status.color}
-              size="small"
-            />
-            <div className="text-xs mt-1" style={{ color: status.color }}>
-              {status.text}
-            </div>
-          </div>
-        );
-      }
-    },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      width: 140,
-      render: (status: WarehouseStatus) => (
-        <Tag color={warehouseApiService.getStatusColor(status)}>
-          {warehouseApiService.formatStatus(status)}
-        </Tag>
-      )
-    },
-    {
-      title: 'Khu vực',
-      dataIndex: 'region',
-      key: 'region',
-      width: 150,
-    },
-    {
-      title: 'Công ty',
-      dataIndex: 'shippingCompanyName',
-      key: 'shippingCompanyName',
-      width: 180,
-    },
-    {
-      title: 'Hành động',
-      key: 'actions',
-      width: 120,
-      fixed: 'right' as const,
-      render: (_: any, record: WarehouseResponseDto) => (
-        <Space>
-          <Button 
-            type="text" 
-            icon={<EyeOutlined />} 
-            size="small"
-            onClick={() => handleViewDetails(record)}
-          />
-          <Button 
-            type="text" 
-            icon={<EditOutlined />} 
-            size="small"
-            onClick={() => handleEdit(record)}
-          />
-        </Space>
-      )
-    }
-  ];
 
   const itemColumns: ColumnsType<WarehouseInventoryItem> = [
     {
@@ -526,222 +383,139 @@ export default function WarehousesPage() {
       item.id.toLowerCase().includes(searchText.toLowerCase()) ||
       item.managerName.toLowerCase().includes(searchText.toLowerCase());
     
-    const matchesStatus = selectedStatus === 'all' || item.status === selectedStatus;
-    
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <Title level={2}>Quản lý Kho</Title>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={() => setCreateModalVisible(true)}
-        >
-          Thêm kho mới
-        </Button>
+        <Title level={3}>Quản lý Kho - {session?.user?.company?.companyName}</Title>
+        <Space>
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />}
+            onClick={() => setCreateModalVisible(true)}
+          >
+            Thêm kho mới
+          </Button>
+        </Space>
       </div>
 
-      {/* Statistics Cards */}
-      <Row gutter={16} className="mb-6">
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Tổng số kho"
-              value={statistics.total}
-              prefix={<HomeOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Kho hoạt động"
-              value={statistics.active}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Tổng sức chứa"
-              value={statistics.totalCapacity}
-              prefix={<InboxOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Đang sử dụng"
-              value={statistics.totalCurrentStock}
-              prefix={<WarningOutlined />}
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Filters */}
-      <Card className="mb-4">
-        <Space className="w-full justify-between flex">
-          <Space>
-            <Input
-              placeholder="Tìm kiếm tên kho, mã kho, quản lý..."
-              prefix={<SearchOutlined />}
-              style={{ width: 300 }}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-            <Select
-              style={{ width: 200 }}
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-            >
-              <Select.Option value="all">Tất cả trạng thái</Select.Option>
-              <Select.Option value={WarehouseStatus.ACTIVE}>Hoạt động</Select.Option>
-              <Select.Option value={WarehouseStatus.INACTIVE}>Không hoạt động</Select.Option>
-              <Select.Option value={WarehouseStatus.MAINTENANCE}>Bảo trì</Select.Option>
-              <Select.Option value={WarehouseStatus.FULL}>Đầy</Select.Option>
-              <Select.Option value={WarehouseStatus.TEMPORARILY_CLOSED}>Tạm đóng</Select.Option>
-            </Select>
-          </Space>
-        </Space>
-      </Card>
-
-      {/* Table */}
-      <Card>
-        <Spin spinning={loading}>
-          <Table
-            columns={columns}
-            dataSource={filteredData}
-            rowKey="id"
-            scroll={{ x: 1400 }}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} của ${total} kho`
-            }}
-          />
-        </Spin>
-      </Card>
-
-      {/* Detail Modal */}
-      <Modal
-        title={`Chi tiết ${selectedRecord?.name}`}
-        open={modalVisible}
-        onCancel={() => setModalVisible(false)}
-        footer={null}
-        width={1000}
-      >
-        {selectedRecord && (
-          <Tabs defaultActiveKey="1">
-            <TabPane tab="Thông tin chung" key="1">
-              <Row gutter={16} className="mb-4">
-                <Col span={12}>
-                  <Card title="Thông tin kho" size="small">
-                    <div className="space-y-2">
-                      <p><strong>Mã kho:</strong> {selectedRecord.id}</p>
-                      <p><strong>Tên:</strong> {selectedRecord.name}</p>
-                      <p><strong>Địa chỉ:</strong> {selectedRecord.address}</p>
-                      <p><strong>Khu vực:</strong> {selectedRecord.region}</p>
-                      <p><strong>Trạng thái:</strong> 
-                        <Tag color={warehouseApiService.getStatusColor(selectedRecord.status)} className="ml-2">
-                          {warehouseApiService.formatStatus(selectedRecord.status)}
-                        </Tag>
-                      </p>
-                    </div>
-                  </Card>
-                </Col>
-                <Col span={12}>
-                  <Card title="Thông tin quản lý" size="small">
-                    <div className="space-y-2">
-                      <p><strong>Quản lý:</strong> {selectedRecord.managerName}</p>
-                      <p><strong>Điện thoại:</strong> {selectedRecord.phone}</p>
-                      <p><strong>Công ty:</strong> {selectedRecord.shippingCompanyName}</p>
-                      {selectedRecord.capacity && (
-                        <p><strong>Sức chứa:</strong> {selectedRecord.capacity.toLocaleString()}</p>
-                      )}
-                     
-                        <p><strong>Đang sử dụng:</strong>  {selectedRecord.currentStock && (selectedRecord.currentStock.toLocaleString())}</p>
-                     
-                    </div>
-                  </Card>
-                </Col>
-              </Row>
-              
-              {selectedRecord.capacity && selectedRecord.currentStock && (
-                <Card title="Tình trạng sức chứa" size="small">
-                  {(() => {
-                    const percentage = (selectedRecord.currentStock / selectedRecord.capacity) * 100;
-                    const status = getCapacityStatus(selectedRecord.currentStock, selectedRecord.capacity);
-                    
-                    return (
-                      <div>
-                        <Progress 
-                          percent={percentage} 
-                          strokeColor={status.color}
-                          format={() => `${percentage.toFixed(1)}%`}
-                        />
-                        <p className="mt-2" style={{ color: status.color }}>
-                          {status.text} - Còn trống: {(selectedRecord.capacity - selectedRecord.currentStock).toLocaleString()} đơn vị
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </Card>
-              )}
-            </TabPane>
-
-            <TabPane tab="Danh sách hàng hóa" key="2">
-              {inventoryItems[selectedRecord.id] ? (
-                <Table
-                  columns={itemColumns}
-                  dataSource={inventoryItems[selectedRecord.id]}
-                  rowKey="id"
-                  size="small"
-                  pagination={{ pageSize: 10 }}
-                  scroll={{ x: 800 }}
-                />
-              ) : (
-                <div className="text-center py-8">
-                  <Spin tip="Đang tải danh sách hàng hóa..." />
+      {selectedWarehouse ? (
+        <>
+          {/* Warehouse Information Card */}
+          <Card 
+            title="Thông tin kho" 
+            extra={
+              <Button 
+                type="text" 
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(selectedWarehouse)}
+              >
+                Chỉnh sửa
+              </Button>
+            }
+            className="mb-4"
+          >
+            <Row gutter={[16, 16]}>
+              <Col span={6}>
+                <div>
+                  <Text type="secondary">Tên kho:</Text>
+                  <div className="font-medium text-lg">{selectedWarehouse.name}</div>
                 </div>
-              )}
-            </TabPane>
-
-            <TabPane tab="Lịch sử hoạt động" key="3">
-              <List
-                size="small"
-                dataSource={[
-                  { time: '2025-11-09 16:30', action: 'Nhập kho 50 sản phẩm IT006', user: 'Admin' },
-                  { time: '2025-11-09 14:20', action: 'Xuất kho 20 sản phẩm IT002', user: 'Staff A' },
-                  { time: '2025-11-09 10:30', action: 'Kiểm kê kho', user: 'Manager' },
-                  { time: '2025-11-08 18:45', action: 'Cập nhật vị trí hàng hóa', user: 'Staff B' }
-                ]}
-                renderItem={(item: any) => (
-                  <List.Item>
-                    <div className="w-full flex justify-between">
-                      <div>
-                        <span className="font-medium">{item.action}</span>
-                        <span className="text-sm text-gray-500 ml-2">bởi {item.user}</span>
+              </Col>
+              <Col span={6}>
+                <div>
+                  <Text type="secondary">Khu vực:</Text>
+                  <div className="font-medium">{selectedWarehouse.region}</div>
+                </div>
+              </Col>
+              <Col span={6}>
+                <div>
+                  <Text type="secondary">Quản lý:</Text>
+                  <div className="font-medium">{selectedWarehouse.managerName}</div>
+                </div>
+              </Col>
+              <Col span={6}>
+                <div>
+                  <Text type="secondary">Trạng thái:</Text>
+                  <div>
+                    <Tag color={warehouseApiService.getStatusColor(selectedWarehouse.status)}>
+                      {warehouseApiService.formatStatus(selectedWarehouse.status)}
+                    </Tag>
+                  </div>
+                </div>
+              </Col>
+              <Col span={12}>
+                <div>
+                  <Text type="secondary">Địa chỉ:</Text>
+                  <div>{selectedWarehouse.address}</div>
+                </div>
+              </Col>
+              <Col span={6}>
+                <div>
+                  <Text type="secondary">Số điện thoại:</Text>
+                  <div className="font-medium">{selectedWarehouse.phone}</div>
+                </div>
+              </Col>
+              <Col span={5}>
+                <div>
+                  <Text type="secondary">Sức chứa kho:</Text>
+                  {selectedWarehouse.capacity !== undefined ? (
+                    <div>
+                      <div className="font-medium text-blue-600">
+                        {selectedWarehouse.currentStock?.toLocaleString() || 0} / {selectedWarehouse.capacity.toLocaleString()} sản phẩm
                       </div>
-                      <span className="text-sm text-gray-400">{item.time}</span>
+                      <div className="text-xs text-green-600 mb-1">
+                        Còn trống: {(selectedWarehouse.capacity - (selectedWarehouse.currentStock || 0)).toLocaleString()}
+                      </div>
+                      <Progress 
+                        percent={Math.round(((selectedWarehouse.currentStock || 0) / selectedWarehouse.capacity) * 100)} 
+                        strokeColor={
+                          ((selectedWarehouse.currentStock || 0) / selectedWarehouse.capacity) >= 0.9 ? '#ff4d4f' :
+                          ((selectedWarehouse.currentStock || 0) / selectedWarehouse.capacity) >= 0.7 ? '#faad14' : '#52c41a'
+                        }
+                        size="small"
+                        status="active"
+                      />
                     </div>
-                  </List.Item>
-                )}
-              />
-            </TabPane>
-          </Tabs>
-        )}
-      </Modal>
+                  ) : (
+                    <div className="text-gray-400">Chưa cập nhật</div>
+                  )}
+                </div>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* Inventory Items Table */}
+          <Card title="Danh sách sản phẩm trong kho">
+            <Table
+              columns={itemColumns}
+              dataSource={inventoryItems}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} của ${total} sản phẩm`
+              }}
+              scroll={{ x: 800 }}
+            />
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <div className="text-center py-12">
+            <InboxOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
+            <div className="mt-4 text-gray-500">
+              {warehouses.length === 0 
+                ? 'Chưa có kho nào. Hãy tạo kho mới.' 
+                : 'Chọn một kho để xem chi tiết'}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Create Modal */}
       <Modal
@@ -755,25 +529,15 @@ export default function WarehousesPage() {
         width={700}
       >
         <Form form={createForm} layout="vertical" onFinish={handleCreate}>
-          <Form.Item 
-            label="Công ty vận chuyển" 
-            name="shippingCompanyId" 
-            rules={[{ required: true, message: 'Vui lòng chọn công ty vận chuyển' }]}
-          >
-            <Select 
-              placeholder="Chọn công ty vận chuyển"
-              showSearch
-              loading={shippingCompanies.length === 0}
-              notFoundContent={shippingCompanies.length === 0 ? "Đang tải..." : "Không có dữ liệu"}
-              filterOption={(input, option) =>
-                ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={shippingCompanies.map(company => ({
-                label: `${company.name} (${company.code})`,
-                value: company.id
-              }))}
+          {session?.user?.company && (
+            <Alert
+              message="Công ty"
+              description={`${session.user.company.companyName} (${session.user.company.companyCode})`}
+              type="info"
+              showIcon
+              className="mb-4"
             />
-          </Form.Item>
+          )}
 
           <Form.Item 
             label="Tên kho" 

@@ -22,8 +22,11 @@ public class CodReconciliationController {
     private final CodReconciliationService codService;
 
     @PostMapping
-    public CodReconciliationResponseDto create(@RequestBody CodReconciliationRequestDto request) {
-        return codService.create(request);
+    public CodReconciliationResponseDto create(
+            @RequestBody CodReconciliationRequestDto request,
+            @RequestParam UUID companyId  // thêm companyId
+    ) {
+        return codService.create(request, companyId);
     }
 
     @GetMapping
@@ -40,9 +43,13 @@ public class CodReconciliationController {
 
         return codService.updateStatus(id, dto);
     }
+
     @PostMapping("/shipper/{shipperId}")
-    public CodReconciliationResponseDto createByShipper(@PathVariable UUID shipperId) {
-        return codService.createByShipper(shipperId);
+    public CodReconciliationResponseDto createByShipper(
+            @PathVariable UUID shipperId,
+            @RequestParam UUID companyId  // thêm companyId
+    ) {
+        return codService.createByShipper(shipperId, companyId);
     }
 
     @PutMapping("/{id}/complete")

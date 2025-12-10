@@ -53,6 +53,7 @@ public class ShipmentOrderService {
                 .shipperName(entity.getShipper() != null && entity.getShipper().getUser() != null && entity.getShipper().getUser().getProfile() != null 
                     ? entity.getShipper().getUser().getProfile().getFullName() : null)
                 .warehouseName(entity.getWarehouse() != null ? entity.getWarehouse().getName() : null)
+                .warehouseId(entity.getWarehouse() != null ? entity.getWarehouse().getId().toString() : null)
                 .pickupAddress(entity.getPickupAddress())
                 .deliveryAddress(entity.getDeliveryAddress())
                 .recipientName(recipientName)
@@ -354,4 +355,19 @@ public class ShipmentOrderService {
                 "orders", orders.stream().map(this::toResponseDto).toList()
         );
     }
+    public Map<String, Object> getShipmentsByCompany(UUID companyId, int page, int size, ShipmentStatus status, String search) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+
+        Page<ShipmentOrder> shipmentPage = shipmentOrderRepository
+                .findByCompanyFilters(companyId, status, search, pageable);
+
+        return Map.of(
+                "data", shipmentPage.getContent().stream().map(this::toResponseDto).toList(),
+                "currentPage", shipmentPage.getNumber(),
+                "totalItems", shipmentPage.getTotalElements(),
+                "totalPages", shipmentPage.getTotalPages()
+        );
+    }
+
 }

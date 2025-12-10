@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { 
   Card, 
   Button, 
@@ -439,6 +440,7 @@ const OperationalStatsSection = ({ summary }: { summary: DashboardSummaryDto }) 
 // ==================== MAIN COMPONENT ====================
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
   const { message } = useAntdApp();
   
   // State management
@@ -450,19 +452,27 @@ export default function DashboardPage() {
 
   // Initialize with today's data
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (session?.user?.company?.companyId) {
+      fetchDashboardData();
+    }
+  }, [session]);
 
   // Fetch dashboard data
   const fetchDashboardData = async (fromDate?: string, toDate?: string) => {
     try {
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        return;
+      }
+
       setLoading(true);
       let data: DashboardResponseDto;
       
       if (fromDate && toDate) {
-        data = await dashboardService.getDashboard(fromDate, toDate);
+        data = await dashboardService.getDashboard(fromDate, toDate, companyId);
       } else {
-        data = await dashboardService.getTodayDashboard();
+        data = await dashboardService.getTodayDashboard(companyId);
       }
       
       setDashboardData(data);
@@ -492,27 +502,33 @@ export default function DashboardPage() {
   // Handle quick period selection
   const handlePeriodChange = async (period: string) => {
     try {
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        return;
+      }
+
       setLoading(true);
       setSelectedPeriod(period);
       let data: DashboardResponseDto;
       
       switch (period) {
         case 'today':
-          data = await dashboardService.getTodayDashboard();
+          data = await dashboardService.getTodayDashboard(companyId);
           setSelectedDateRange(null);
           break;
         case 'week':
-          data = await dashboardService.getWeeklyDashboard();
+          data = await dashboardService.getWeeklyDashboard(companyId);
           const weekRange = dashboardService.getWeekDateRange();
           setSelectedDateRange([weekRange.start, weekRange.end]);
           break;
         case 'month':
-          data = await dashboardService.getCurrentMonthDashboard();
+          data = await dashboardService.getCurrentMonthDashboard(companyId);
           const monthRange = dashboardService.getMonthDateRange();
           setSelectedDateRange([monthRange.start, monthRange.end]);
           break;
         default:
-          data = await dashboardService.getTodayDashboard();
+          data = await dashboardService.getTodayDashboard(companyId);
       }
       
       setDashboardData(data);
@@ -558,7 +574,7 @@ export default function DashboardPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <Title level={3} className="m-0 text-gray-900">
-                🚚 Logistics Dashboard
+                🚚 Logistics Dashboard - {session?.user?.company?.companyName}
               </Title>
               <Text className="text-gray-600 text-xs mt-0.5">
                 Tổng quan hệ thống vận chuyển và COD

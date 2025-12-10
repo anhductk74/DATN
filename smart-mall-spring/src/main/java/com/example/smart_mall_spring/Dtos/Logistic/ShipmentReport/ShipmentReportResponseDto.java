@@ -9,6 +9,8 @@ import java.util.UUID;
 @Builder
 public class ShipmentReportResponseDto {
     private UUID id;
+    private UUID companyId;
+    private String companyName;
     private LocalDate reportDate;
     private Integer totalOrders;
     private Integer deliveredOrders;

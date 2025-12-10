@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { 
   Card, 
   Button, 
@@ -45,6 +46,7 @@ interface ReportData {
 }
 
 export default function ReportsPage() {
+  const { data: session } = useSession();
   const { message } = App.useApp();
   const [reportType, setReportType] = useState<string>('overview');
   const [dateRange, setDateRange] = useState<string>('this_week');
@@ -57,9 +59,11 @@ export default function ReportsPage() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStatistics | null>(null);
 
   useEffect(() => {
-    fetchReportData();
+    if (session?.user?.company?.companyId) {
+      fetchReportData();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, reportType]);
+  }, [dateRange, reportType, session]);
 
   const getDateRangeFromSelection = (): { start: string; end: string } => {
     const now = new Date();
@@ -123,20 +127,29 @@ export default function ReportsPage() {
   const fetchReportData = async () => {
     setLoading(true);
     try {
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        setLoading(false);
+        return;
+      }
+
       const currentDates = getDateRangeFromSelection();
       const previousDates = getPreviousPeriodDates(currentDates);
 
-      // Get current period summary
+      // Get current period summary for company
       const currentSum = await ShipmentReportService.getReportSummary(
         currentDates.start,
-        currentDates.end
+        currentDates.end,
+        companyId
       );
       setCurrentSummary(currentSum);
 
       // Get previous period summary for comparison
       const previousSum = await ShipmentReportService.getReportSummary(
         previousDates.start,
-        previousDates.end
+        previousDates.end,
+        companyId
       );
       setPreviousSummary(previousSum);
 
@@ -186,9 +199,15 @@ export default function ReportsPage() {
   };
 
   const handleGenerateReport = async () => {
+    const companyId = session?.user?.company?.companyId;
+    if (!companyId) {
+      message.error('Không tìm thấy thông tin công ty');
+      return;
+    }
+
     const dates = getDateRangeFromSelection();
     try {
-      await ShipmentReportService.generateReportForDate(dates.end);
+      await ShipmentReportService.generateReportForDate(companyId, dates.end);
       message.success('Tạo báo cáo thành công');
       fetchReportData();
     } catch (error) {
@@ -466,56 +485,24 @@ export default function ReportsPage() {
   ];
 
   const renderReportContent = () => {
-    switch(reportType) {
-      case 'overview':
-        return (
-          <div>
-            <Title level={4}>Báo cáo tổng quan</Title>
-            <Table 
-              columns={overviewColumns}
-              dataSource={overviewData}
-              pagination={false}
-              size="middle"
-            />
-          </div>
-        );
-      
-      case 'shipper':
-        return (
-          <div>
-            <Title level={4}>Báo cáo hiệu suất Shipper</Title>
-            <Table
-              columns={shipperColumns}
-              dataSource={shipperPerformanceData}
-              pagination={false}
-              size="middle"
-            />
-          </div>
-        );
-      
-      case 'warehouse':
-        return (
-          <div>
-            <Title level={4}>Báo cáo hoạt động Kho</Title>
-            <Table
-              columns={warehouseColumns}
-              dataSource={warehouseData}
-              pagination={false}
-              size="middle"
-            />
-          </div>
-        );
-      
-      default:
-        return null;
-    }
+    return (
+      <div>
+        <Title level={4}>Báo cáo tổng quan</Title>
+        <Table 
+          columns={overviewColumns}
+          dataSource={overviewData}
+          pagination={false}
+          size="middle"
+        />
+      </div>
+    );
   };
 
   return (
     <Spin spinning={loading} tip="Đang tải dữ liệu...">
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <Title level={2}>Báo cáo & Thống kê</Title>
+          <Title level={2}>Báo cáo & Thống kê - {session?.user?.company?.companyName}</Title>
         <Space>
           <Button icon={<PrinterOutlined />} onClick={() => window.print()}>In báo cáo</Button>
           <Button icon={<FileExcelOutlined />} type="primary" onClick={handleExportExcel}>
@@ -591,20 +578,6 @@ export default function ReportsPage() {
       {/* Report Filters */}
       <Card className="mb-4">
         <Row gutter={16} align="middle">
-          <Col>
-            <span className="font-medium">Loại báo cáo:</span>
-          </Col>
-          <Col>
-            <Select
-              value={reportType}
-              onChange={setReportType}
-              style={{ width: 200 }}
-            >
-              <Select.Option value="overview">Tổng quan</Select.Option>
-              <Select.Option value="warehouse">Hoạt động Kho</Select.Option>
-              <Select.Option value="customer">Khách hàng</Select.Option>
-            </Select>
-          </Col>
           <Col>
             <span className="font-medium">Thời gian:</span>
           </Col>

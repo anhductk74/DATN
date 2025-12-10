@@ -49,60 +49,73 @@ public interface ShipperTransactionRepository extends JpaRepository<ShipperTrans
     boolean existsByShipmentOrder_IdAndTransactionType(UUID shipmentOrderId, ShipperTransactionType type);
 
     @Query("""
-        SELECT COALESCE(SUM(t.amount), 0)
-        FROM ShipperTransaction t
-        WHERE t.shipper.id = :shipperId
-          AND t.transactionType = :type
-          AND DATE(t.createdAt) = :date
-    """)
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM ShipperTransaction t
+    WHERE t.shipper.id = :shipperId
+      AND t.transactionType = :type
+      AND FUNCTION('DATE', t.createdAt) = :date
+      AND t.shipper.shippingCompany.id = :companyId
+""")
     BigDecimal sumByTypeAndShipperAndDate(
             @Param("shipperId") UUID shipperId,
             @Param("type") ShipperTransactionType type,
-            @Param("date") LocalDate date
+            @Param("date") LocalDate date,
+            @Param("companyId") UUID companyId
     );
 
+
     @Query("""
-        SELECT COALESCE(SUM(t.amount), 0)
-        FROM ShipperTransaction t
-        WHERE t.transactionType = :type
-          AND DATE(t.createdAt) = :date
-    """)
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM ShipperTransaction t
+    WHERE t.transactionType = :type
+      AND FUNCTION('DATE', t.createdAt) = :date
+      AND t.shipper.shippingCompany.id = :companyId
+""")
     BigDecimal sumAllByTypeAndDate(
             @Param("type") ShipperTransactionType type,
-            @Param("date") LocalDate date
+            @Param("date") LocalDate date,
+            @Param("companyId") UUID companyId
     );
 
-    // ---- SUMMARY ----
+
     @Query("""
-        SELECT COALESCE(SUM(t.amount), 0)
-        FROM ShipperTransaction t
-        WHERE t.transactionType = :type
-          AND DATE(t.createdAt) BETWEEN :from AND :to
-    """)
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM ShipperTransaction t
+    WHERE t.transactionType = :type
+      AND FUNCTION('DATE', t.createdAt) BETWEEN :from AND :to
+      AND t.shipper.shippingCompany.id = :companyId
+""")
     BigDecimal sumAmountByTypeAndDate(
             @Param("type") ShipperTransactionType type,
-            @Param("from") LocalDate from,
-            @Param("to") LocalDate to
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("companyId") UUID companyId
     );
+
 
 
     // ---- CHART (không dùng CAST để tránh lỗi FULL_GROUP_BY) ----
     @Query("""
-    SELECT 
-        FUNCTION('DATE', t.createdAt) AS date,
-        COALESCE(SUM(CASE WHEN t.transactionType = 'COLLECT_COD' THEN t.amount ELSE 0 END), 0) AS codCollected,
-        COALESCE(SUM(CASE WHEN t.transactionType = 'DEPOSIT_COD' THEN t.amount ELSE 0 END), 0) AS codDeposited,
-        COALESCE(SUM(CASE WHEN t.transactionType = 'COLLECT_COD' THEN t.amount ELSE 0 END), 0)
-        - COALESCE(SUM(CASE WHEN t.transactionType = 'DEPOSIT_COD' THEN t.amount ELSE 0 END), 0) AS codRemaining
-    FROM ShipperTransaction t
-    WHERE t.createdAt BETWEEN :from AND :to
-    GROUP BY FUNCTION('DATE', t.createdAt)
-    ORDER BY FUNCTION('DATE', t.createdAt)
+SELECT 
+    FUNCTION('DATE', t.createdAt) AS date,
+    COALESCE(SUM(CASE WHEN t.transactionType = com.example.smart_mall_spring.Enum.ShipperTransactionType.COLLECT_COD THEN t.amount ELSE 0 END), 0) AS codCollected,
+    COALESCE(SUM(CASE WHEN t.transactionType = com.example.smart_mall_spring.Enum.ShipperTransactionType.DEPOSIT_COD THEN t.amount ELSE 0 END), 0) AS codDeposited,
+    COALESCE(SUM(CASE WHEN t.transactionType = com.example.smart_mall_spring.Enum.ShipperTransactionType.COLLECT_COD THEN t.amount ELSE 0 END), 0)
+      - COALESCE(SUM(CASE WHEN t.transactionType = com.example.smart_mall_spring.Enum.ShipperTransactionType.DEPOSIT_COD THEN t.amount ELSE 0 END), 0) AS balance
+FROM ShipperTransaction t
+WHERE t.createdAt BETWEEN :from AND :to
+  AND t.shipper.shippingCompany.id = :companyId
+GROUP BY FUNCTION('DATE', t.createdAt)
+ORDER BY FUNCTION('DATE', t.createdAt)
 """)
-    List<DailyStatsProjection> getDailyStats(
+    List<DailyStatsProjection> getDailyStatsByCompany(
             @Param("from") LocalDateTime from,
-            @Param("to") LocalDateTime to
+            @Param("to") LocalDateTime to,
+            @Param("companyId") UUID companyId
     );
+
+
+
 
 
     // ---- TOP SHIPPERS ----
@@ -114,11 +127,45 @@ public interface ShipperTransactionRepository extends JpaRepository<ShipperTrans
         - COALESCE(SUM(CASE WHEN t.transactionType = 'DEPOSIT_COD' THEN t.amount ELSE 0 END), 0) AS codRemaining
     FROM ShipperTransaction t
     WHERE t.createdAt BETWEEN :from AND :to
+      AND t.shipper.shippingCompany.id = :companyId
     GROUP BY t.shipper.id, t.shipper.user.profile.fullName
     ORDER BY 
         COALESCE(SUM(CASE WHEN t.transactionType = 'COLLECT_COD' THEN t.amount ELSE 0 END), 0)
         - COALESCE(SUM(CASE WHEN t.transactionType = 'DEPOSIT_COD' THEN t.amount ELSE 0 END), 0) DESC
 """)
-    List<TopShipperProjection> getTopShippers(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+    List<TopShipperProjection> getTopShippers(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("companyId") UUID companyId
+    );
+
+
+    @Query("""
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM ShipperTransaction t
+    WHERE t.transactionType = :type
+      AND t.shipper.shippingCompany.id = :companyId
+      AND FUNCTION('DATE', t.createdAt) = :date
+""")
+    BigDecimal sumByTypeAndCompanyAndDate(
+            @Param("type") ShipperTransactionType type,
+            @Param("companyId") UUID companyId,
+            @Param("date") LocalDate date
+    );
+
+
+    @Query("""
+    SELECT COALESCE(SUM(t.amount), 0)
+    FROM ShipperTransaction t
+    WHERE t.shipper.id = :shipperId
+      AND t.transactionType = :type
+      AND FUNCTION('DATE', t.createdAt) BETWEEN :from AND :to
+""")
+    BigDecimal sumByTypeAndShipperBetweenDates(
+            @Param("shipperId") UUID shipperId,
+            @Param("type") ShipperTransactionType type,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to
+    );
 
 }

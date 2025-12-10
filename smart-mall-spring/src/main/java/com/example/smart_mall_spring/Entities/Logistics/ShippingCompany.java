@@ -41,7 +41,8 @@ public class ShippingCompany extends BaseEntity {
     @JsonIgnore
     private List<Shipper> shippers;
 
-    @OneToMany(mappedBy = "shippingCompany", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(mappedBy = "shippingCompany", cascade = CascadeType.ALL)
     @JsonIgnore
-    private List<Warehouse> warehouses;
+    private Warehouse warehouse;
+
 }

@@ -13,4 +13,12 @@ public interface CodReconciliationRepository extends JpaRepository<CodReconcilia
     List<CodReconciliation> findByDate(LocalDate date);
 
     Optional<CodReconciliation> findByShipper_IdAndDate(UUID shipperId, LocalDate date);
+
+    List<CodReconciliation> findByShipper_ShippingCompany_IdAndDate(UUID companyId, LocalDate date);
+
+    Optional<CodReconciliation> findByShipper_ShippingCompany_IdAndShipper_IdAndDate(
+            UUID companyId,
+            UUID shipperId,
+            LocalDate date
+    );
 }

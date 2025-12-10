@@ -58,26 +58,26 @@ public class ShipperBalanceHistoryService {
         Shipper shipper = shipperRepo.findById(shipperId)
                 .orElseThrow(() -> new EntityNotFoundException("Shipper không tồn tại: " + shipperId));
 
+        UUID companyId = shipper.getShippingCompany() != null ? shipper.getShippingCompany().getId() : null;
+        if (companyId == null) {
+            throw new EntityNotFoundException("Shipper chưa gán công ty: " + shipperId);
+        }
+
         LocalDate today = LocalDate.now();
 
-        // Lấy giao dịch trong ngày
-        BigDecimal collected = transactionRepo.sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.COLLECT_COD, today);
-        BigDecimal deposited = transactionRepo.sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.DEPOSIT_COD, today);
-        BigDecimal bonus = transactionRepo.sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.BONUS, today);
+        // Lấy giao dịch trong ngày theo công ty
+        BigDecimal collected = transactionRepo.sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.COLLECT_COD, today, companyId);
+        BigDecimal deposited = transactionRepo.sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.DEPOSIT_COD, today, companyId);
+        BigDecimal bonus = transactionRepo.sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.BONUS, today, companyId);
 
         // Lấy số dư hôm qua (openingBalance)
         BigDecimal openingBalance = BigDecimal.ZERO;
-
         List<ShipperBalanceHistory> old = historyRepo.findByShipperId(shipperId);
         if (!old.isEmpty()) {
             openingBalance = old.get(old.size() - 1).getFinalBalance();
         }
 
-        BigDecimal finalBalance =
-                openingBalance
-                        .add(collected)
-                        .subtract(bonus)
-                        .subtract(deposited);
+        BigDecimal finalBalance = openingBalance.add(collected).subtract(bonus).subtract(deposited);
 
         ShipperBalanceHistory history = new ShipperBalanceHistory();
         history.setShipper(shipper);
@@ -92,6 +92,7 @@ public class ShipperBalanceHistoryService {
 
         return toResponse(history);
     }
+
 
     // ---------------------------------------------------------
     // GET ALL BY SHIPPER
@@ -116,17 +117,6 @@ public class ShipperBalanceHistoryService {
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
-    public List<ShipperBalanceHistoryResponseDto> getHistoryRange(
-            UUID shipperId, LocalDate from, LocalDate to) {
-
-        LocalDateTime start = from.atStartOfDay();
-        LocalDateTime end = to.atTime(23, 59, 59);
-
-        return historyRepo.findByShipperIdAndDateBetween(shipperId, start, end)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
 
     public ShipperBalanceHistoryResponseDto getDetail(UUID id) {
         ShipperBalanceHistory h = historyRepo.findById(id)
@@ -145,25 +135,29 @@ public class ShipperBalanceHistoryService {
     public List<ShipperBalanceHistoryResponseDto> getHistoryRange(
             LocalDate from,
             LocalDate to,
-            UUID shipperId
+            UUID shipperId,
+            UUID companyId
     ) {
-
         LocalDateTime start = from.atStartOfDay();
         LocalDateTime end = to.atTime(23, 59, 59);
 
         List<ShipperBalanceHistory> list;
 
-        if (shipperId == null) {
-            // Lấy tất cả shipper
-            list = historyRepo.findByDateBetween(start, end);
-        } else {
-            // Lọc theo 1 shipper
+        if (shipperId != null) {
+            // Ưu tiên lọc theo shipper
             list = historyRepo.findByShipperIdAndDateBetween(shipperId, start, end);
+        } else if (companyId != null) {
+            // Lọc theo công ty
+            list = historyRepo.findByShipper_ShippingCompany_IdAndDateBetween(companyId, start, end);
+        } else {
+            // Lấy tất cả
+            list = historyRepo.findByDateBetween(start, end);
         }
 
         return list.stream()
                 .map(this::toResponse)
                 .toList();
     }
+
 
 }

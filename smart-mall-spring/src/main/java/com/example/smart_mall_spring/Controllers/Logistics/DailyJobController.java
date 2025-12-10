@@ -8,6 +8,8 @@ import com.example.smart_mall_spring.Repositories.Logistics.ShipperRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/logistics/daily-job")
 @RequiredArgsConstructor
@@ -30,7 +32,12 @@ public class DailyJobController {
         }
 
         // Tạo COD Reconciliation cho từng shipper
-        shippers.forEach(shipper -> codService.createByShipper(shipper.getId()));
+        shippers.forEach(shipper -> {
+            if (shipper.getShippingCompany() != null) {
+                UUID companyId = shipper.getShippingCompany().getId();
+                codService.createByShipper(shipper.getId(), companyId);  // thêm companyId
+            }
+        });
 
         // Tạo Balance History cho từng shipper
         shippers.forEach(shipper -> {

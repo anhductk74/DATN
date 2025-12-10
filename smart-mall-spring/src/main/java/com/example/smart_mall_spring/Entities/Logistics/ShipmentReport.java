@@ -14,6 +14,10 @@ import java.time.LocalDate;
 @EqualsAndHashCode(callSuper = true)
 public class ShipmentReport extends BaseEntity {
 
+    @ManyToOne
+    @JoinColumn(name = "company_id")
+    private ShippingCompany shippingCompany;
+
     private LocalDate reportDate;
 
     private Integer totalOrders;

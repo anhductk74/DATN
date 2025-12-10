@@ -6,5 +6,5 @@ public interface DailyStatsProjection {
     java.sql.Date getDate();
     BigDecimal getCodCollected();
     BigDecimal getCodDeposited();
-    BigDecimal getCodRemaining();
+    BigDecimal getBalance();
 }

@@ -44,10 +44,11 @@ public class ShipperBalanceHistoryController {
     @GetMapping("/range")
     public ResponseEntity<?> getRange(
             @RequestParam(required = false) UUID shipperId,
+            @RequestParam(required = false) UUID companyId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate from,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate to
     ) {
-        return ResponseEntity.ok(service.getHistoryRange(from, to, shipperId));
+        return ResponseEntity.ok(service.getHistoryRange(from, to, shipperId, companyId));
     }
 
     @GetMapping("/{id}")
