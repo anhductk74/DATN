@@ -937,7 +937,250 @@ def ai_generate_fashion():
 
 
 # ==========================================================
-# 🚀 CHẠY SERVER
+# � API TÌM KIẾM SẢN PHẨM BẰNG HÌNH ẢNH
+# ==========================================================
+@app.route('/ai_search_by_image', methods=['POST'])
+def ai_search_by_image():
+    """
+    API tìm kiếm sản phẩm tương tự dựa trên hình ảnh
+    
+    Input form-data:
+    - search_image: file (required) - Ảnh sản phẩm cần tìm
+    - max_results: int (optional) - Số lượng kết quả tối đa (default: 10)
+    - category_filter: string (optional) - Lọc theo danh mục cụ thể
+    
+    Output:
+    - success: boolean
+    - search_analysis: object - Phân tích từ AI về ảnh tìm kiếm
+    - products: array - Danh sách sản phẩm tương tự
+    """
+    try:
+        from PIL import Image
+        
+        # Get search image
+        search_file = request.files.get('search_image')
+        if not search_file:
+            return jsonify({"error": "Missing search_image file"}), 400
+        
+        # Get optional parameters
+        max_results = int(request.form.get('max_results', 10))
+        category_filter = request.form.get('category_filter', None)
+        
+        # Save search image
+        saved_files = []
+        search_ext = os.path.splitext(search_file.filename)[1] or '.jpg'
+        search_filename = f"search_{uuid.uuid4().hex[:8]}{search_ext}"
+        search_path = os.path.join(IMAGES_DIR, search_filename)
+        search_file.save(search_path)
+        saved_files.append(search_path)
+        
+        # ===========================================
+        # STEP 1: ANALYZE IMAGE WITH GEMINI
+        # ===========================================
+        print(f"[INFO] Analyzing search image: {search_path}")
+        
+        API_KEY = os.getenv("API_KEY")
+        URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
+        
+        analysis_prompt = """
+Bạn là chuyên gia phân tích sản phẩm thương mại điện tử.
+
+Phân tích hình ảnh này và trích xuất thông tin sau dưới dạng JSON:
+
+{
+  "product_type": "loại sản phẩm (ví dụ: điện thoại, laptop, giày, áo, túi xách...)",
+  "category": "danh mục chính (Electronics, Fashion, Accessories, Beauty, Sports...)",
+  "brand": "thương hiệu nếu nhận diện được (hoặc null)",
+  "color": "màu sắc chính",
+  "key_features": ["đặc điểm 1", "đặc điểm 2", "đặc điểm 3"],
+  "style": "phong cách (modern, classic, sporty, casual...)",
+  "material": "chất liệu nếu nhận diện được",
+  "price_range": "ước tính mức giá (budget/mid-range/premium)",
+  "search_keywords": ["từ khóa 1", "từ khóa 2", "từ khóa 3"]
+}
+
+Chỉ trả về JSON, không thêm giải thích.
+"""
+        
+        # Encode image to base64
+        with open(search_path, "rb") as f:
+            image_base64 = base64.b64encode(f.read()).decode("utf-8")
+        
+        parts = [
+            {"text": analysis_prompt},
+            {
+                "inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": image_base64
+                }
+            }
+        ]
+        
+        payload = {"contents": [{"parts": parts}]}
+        headers = {"Content-Type": "application/json"}
+        
+        try:
+            resp = requests.post(URL, headers=headers, data=json.dumps(payload), timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            
+            # Parse JSON from response
+            text = text.split('```json')[-1].split('```')[0].strip() if '```' in text else text
+            start, end = text.find('{'), text.rfind('}') + 1
+            analysis_result = json.loads(text[start:end])
+            
+            print(f"[SUCCESS] Image analysis: {analysis_result}")
+            
+        except Exception as e:
+            cleanup_media_files(saved_files)
+            return jsonify({"error": f"Failed to analyze image: {str(e)}"}), 500
+        
+        # ===========================================
+        # STEP 2: SEARCH MATCHING PRODUCTS
+        # ===========================================
+        result, columns = get_products()
+        if not result or not columns:
+            cleanup_media_files(saved_files)
+            return jsonify({"error": "Cannot fetch products from database"}), 500
+        
+        # Helper functions
+        def safe_float(val, default=0.0):
+            try:
+                return float(val) if val and val != '' else default
+            except (ValueError, TypeError):
+                return default
+        
+        def safe_int(val, default=0):
+            try:
+                return int(val) if val and val != '' else default
+            except (ValueError, TypeError):
+                return default
+        
+        # Build product list with matching scores
+        matched_products = []
+        
+        for row in result:
+            info = {col: str(val) if val not in [None, 'None'] else '' for col, val in zip(columns, row)}
+            product_id = info.get('product_id', '')
+            if isinstance(row[0], bytes) and len(row[0]) == 16:
+                product_id = str(uuid.UUID(bytes=row[0]))
+            
+            # Get product image
+            image_url = ""
+            if info.get("images"):
+                image_list = info["images"].split(",")
+                image_url = image_list[0].strip() if image_list else ""
+            if image_url and not image_url.startswith("https://res.cloudinary.com"):
+                image_url = f"https://res.cloudinary.com{image_url}"
+            
+            # Calculate matching score
+            score = 0
+            matching_reasons = []
+            
+            product_name = info.get('product_name', '').lower()
+            product_description = info.get('description', '').lower()
+            product_brand = info.get('brand', '').lower()
+            product_category = info.get('category_name', '').lower()
+            
+            # Check category match
+            if analysis_result.get('category'):
+                category_keywords = analysis_result['category'].lower()
+                if category_keywords in product_category or category_keywords in product_name:
+                    score += 30
+                    matching_reasons.append(f"Cùng danh mục: {analysis_result['category']}")
+            
+            # Check brand match
+            if analysis_result.get('brand') and analysis_result['brand'] != 'null':
+                brand_search = analysis_result['brand'].lower()
+                if brand_search in product_brand or brand_search in product_name:
+                    score += 25
+                    matching_reasons.append(f"Cùng thương hiệu: {analysis_result['brand']}")
+            
+            # Check product type
+            if analysis_result.get('product_type'):
+                product_type = analysis_result['product_type'].lower()
+                if product_type in product_name or product_type in product_description:
+                    score += 20
+                    matching_reasons.append(f"Loại sản phẩm: {analysis_result['product_type']}")
+            
+            # Check color
+            if analysis_result.get('color'):
+                color = analysis_result['color'].lower()
+                if color in product_name or color in product_description:
+                    score += 15
+                    matching_reasons.append(f"Màu sắc: {analysis_result['color']}")
+            
+            # Check search keywords
+            if analysis_result.get('search_keywords'):
+                keyword_matches = 0
+                for keyword in analysis_result['search_keywords']:
+                    keyword_lower = keyword.lower()
+                    if keyword_lower in product_name or keyword_lower in product_description:
+                        keyword_matches += 1
+                if keyword_matches > 0:
+                    score += keyword_matches * 5
+                    matching_reasons.append(f"Khớp {keyword_matches} từ khóa")
+            
+            # Check style/material
+            if analysis_result.get('style'):
+                style = analysis_result['style'].lower()
+                if style in product_name or style in product_description:
+                    score += 10
+                    matching_reasons.append(f"Phong cách: {analysis_result['style']}")
+            
+            # Apply category filter if provided
+            if category_filter and category_filter.lower() not in product_category.lower():
+                continue
+            
+            # Only include products with score > 0
+            if score > 0:
+                product_obj = {
+                    "id": str(product_id),
+                    "name": info.get('product_name', 'Unnamed Product'),
+                    "image": image_url,
+                    "minPrice": safe_float(info.get('min_price')),
+                    "maxPrice": safe_float(info.get('max_price')),
+                    "brand": info.get('brand') or 'Unknown',
+                    "rating": safe_float(info.get('average_rating')),
+                    "reviewCount": safe_int(info.get('review_count')),
+                    "shopName": info.get('shop_name') or 'N/A',
+                    "category": info.get('category_name', ''),
+                    "link": f"http://localhost:3000/product/{product_id}",
+                    "matchScore": score,
+                    "matchReasons": matching_reasons
+                }
+                matched_products.append(product_obj)
+        
+        # Sort by matching score (descending)
+        matched_products.sort(key=lambda x: x['matchScore'], reverse=True)
+        
+        # Limit results
+        matched_products = matched_products[:max_results]
+        
+        # Cleanup
+        cleanup_media_files(saved_files)
+        
+        # Return results
+        result_data = {
+            "success": True,
+            "search_analysis": analysis_result,
+            "total_matches": len(matched_products),
+            "products": matched_products,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        
+        print(f"[SUCCESS] Found {len(matched_products)} matching products")
+        
+        return jsonify(result_data), 200
+        
+    except Exception as e:
+        print(f"[ERROR] ai_search_by_image: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ==========================================================
+# �🚀 CHẠY SERVER
 # ==========================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)

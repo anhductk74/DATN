@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, App as AntApp } from "antd";
 import { 
   Wand2, 
@@ -21,6 +21,9 @@ import FileUploader from "./virtualTryOn/FileUploader";
 import GarmentItemComponent from "./virtualTryOn/GarmentItem";
 import ImageModal from "./virtualTryOn/ImageModal";
 import { VirtualTryOnService } from "@/services/VirtualTryOnService";
+import { SearchByImageService, ProductMatch } from "@/services/SearchByImageService";
+import { ShoppingBag, Star, TrendingUp } from "lucide-react";
+import { getCloudinaryUrl } from "@/config/config";
 
 interface VirtualTryOnProps {
   open: boolean;
@@ -38,12 +41,25 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
   const [globalError, setGlobalError] = useState<string>("");
   const [expandedImage, setExpandedImage] = useState<string>("");
   
+  // Search by image results
+  const [searchResults, setSearchResults] = useState<ProductMatch[]>([]);
+  const [searching, setSearching] = useState(false);
+  
   // Temporary storage for images (persists during session)
   const [savedImages, setSavedImages] = useState<{
     model?: string;
     garments: Array<{ id: string; type: string; preview: string; extracted?: string }>;
     results: Array<{ timestamp: number; image: string }>;
   }>({ garments: [], results: [] });
+
+  // Debug: Log searchResults changes
+  useEffect(() => {
+    console.log('🔄 SearchResults state changed:', {
+      length: searchResults.length,
+      data: searchResults,
+      searching: searching
+    });
+  }, [searchResults, searching]);
 
   const handleReset = () => {
     // Save current state before reset
@@ -75,6 +91,8 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
     setGlobalError("");
     setProcessing(false);
     setExtractingAll(false);
+    setSearchResults([]);
+    setSearching(false);
   };
 
   const handleClose = () => {
@@ -123,6 +141,62 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
   const clearAllSaved = () => {
     setSavedImages({ garments: [], results: [] });
     messageApi.info("All saved images cleared!");
+  };
+
+  const searchSimilarProducts = async (resultImageBase64: string) => {
+    console.log('🔍 Starting product search...');
+    setSearching(true);
+    setSearchResults([]);
+    
+    try {
+      const imageBlob = SearchByImageService.base64ToBlob(resultImageBase64);
+      console.log('📦 Image blob created:', { size: imageBlob.size, type: imageBlob.type });
+      
+      const searchResult = await SearchByImageService.searchByImage({
+        searchImage: imageBlob,
+        maxResults: 12,
+      });
+
+      console.log('📊 Search result received:', {
+        success: searchResult.success,
+        total_matches: searchResult.total_matches,
+        products_count: searchResult.products?.length,
+        has_products: !!searchResult.products,
+        products_sample: searchResult.products?.[0],
+        full_result: searchResult
+      });
+
+      // Detailed logging of products array
+      if (searchResult.products) {
+        console.log('📦 Products array details:', {
+          is_array: Array.isArray(searchResult.products),
+          length: searchResult.products.length,
+          first_3: searchResult.products.slice(0, 3),
+          all_products: searchResult.products
+        });
+      }
+
+      if (searchResult.success && searchResult.products && searchResult.products.length > 0) {
+        console.log('✅ Setting search results:', searchResult.products.length, 'products');
+        console.log('📋 Products to set:', searchResult.products);
+        setSearchResults(searchResult.products);
+        console.log('✅ State updated, results should appear now');
+        messageApi.success(`Found ${searchResult.total_matches || searchResult.products.length} similar products! 🛍️`);
+      } else {
+        console.warn('⚠️ No products found in response', {
+          success: searchResult.success,
+          has_products: !!searchResult.products,
+          products_length: searchResult.products?.length
+        });
+        messageApi.info("No similar products found.");
+      }
+    } catch (error) {
+      console.error("❌ Search failed:", error);
+      messageApi.warning("Could not search for products. Please try again.");
+    } finally {
+      setSearching(false);
+      console.log('🏁 Search completed');
+    }
   };
 
   const handleModelUpload = (file: File, preview: string) => {
@@ -353,6 +427,9 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
       if (mixResult.success && mixResult.image_base64) {
         setResultImage(mixResult.image_base64);
         messageApi.success("Try-on successful! 🎉");
+        
+        // Auto search for similar products
+        searchSimilarProducts(mixResult.image_base64);
       } else {
         throw new Error(mixResult.error || "Unable to mix outfit");
       }
@@ -579,6 +656,16 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                   </a>
                 )}
 
+                {resultImage && !searching && (
+                  <button
+                    onClick={() => searchSimilarProducts(resultImage)}
+                    className="mt-2 w-full py-3 text-center rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <ShoppingBag size={16} />
+                    {searchResults.length > 0 ? 'Search Again' : 'Find Similar Products'}
+                  </button>
+                )}
+
                 <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-100 text-xs space-y-2">
                   <div className="flex gap-2 text-blue-700">
                     <Info size={14} className="shrink-0 mt-0.5" />
@@ -661,6 +748,122 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
               </section>
             </div>
           </div>
+
+          {/* Search Results Section */}
+          {(() => {
+            const shouldShow = searchResults.length > 0 || searching;
+            console.log('🎨 Render check - Search Results Section:', {
+              searchResults_length: searchResults.length,
+              searching: searching,
+              shouldShow: shouldShow,
+              searchResults_sample: searchResults[0]
+            });
+            return shouldShow;
+          })() && (
+            <div className="p-6 pt-0 bg-gradient-to-br from-slate-50 via-white to-blue-50">
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-2 rounded-lg">
+                      <ShoppingBag className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Similar Products</h2>
+                      <p className="text-xs text-gray-500">AI-powered product recommendations based on your outfit</p>
+                    </div>
+                  </div>
+                  {searchResults.length > 0 && (
+                    <div className="bg-indigo-50 px-3 py-1 rounded-full">
+                      <span className="text-sm font-semibold text-indigo-700">{searchResults.length} matches</span>
+                    </div>
+                  )}
+                </div>
+
+                {searching ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="relative">
+                      <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+                      <ShoppingBag size={20} className="text-indigo-500 absolute inset-0 m-auto" />
+                    </div>
+                    <p className="mt-4 text-gray-600 text-sm">Searching for similar products...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {searchResults.map((product) => (
+                      <a
+                        key={product.id}
+                        href={product.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-indigo-300"
+                      >
+                        <div className="aspect-square relative overflow-hidden bg-gray-50">
+                          <img
+                            src={getCloudinaryUrl(product.image)}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="%23666"%3ENo Image%3C/text%3E%3C/svg%3E';
+                            }}
+                          />
+                          {product.matchScore >= 70 && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                              <TrendingUp size={12} />
+                              {product.matchScore}%
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="p-3">
+                          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-1 group-hover:text-indigo-600 transition-colors">
+                            {product.name}
+                          </h3>
+                          
+                          <div className="flex items-center gap-1 mb-2">
+                            {product.rating && (
+                              <>
+                                <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                                <span className="text-xs text-gray-600">{product.rating}</span>
+                                {product.reviewCount && (
+                                  <span className="text-xs text-gray-400">({product.reviewCount})</span>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-sm font-bold text-indigo-600">
+                                {product.minPrice.toLocaleString('vi-VN')}đ
+                              </span>
+                              {product.maxPrice !== product.minPrice && (
+                                <span className="text-xs text-gray-400">
+                                  - {product.maxPrice.toLocaleString('vi-VN')}đ
+                                </span>
+                              )}
+                            </div>
+                            
+                            {product.shopName && (
+                              <span className="text-xs text-gray-500 truncate">{product.shopName}</span>
+                            )}
+                          </div>
+
+                          {product.matchReasons && product.matchReasons.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <p className="text-xs text-green-600 line-clamp-1">
+                                ✓ {product.matchReasons[0]}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </Modal>
 
