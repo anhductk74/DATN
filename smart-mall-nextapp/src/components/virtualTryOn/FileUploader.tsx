@@ -39,7 +39,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
 
   return (
     <div 
-      className={`relative border-2 border-dashed border-gray-300 rounded-xl hover:border-indigo-500 transition-colors cursor-pointer bg-gray-50 overflow-hidden group ${className}`}
+      className={`relative border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 transition-colors cursor-pointer bg-gray-50 overflow-hidden group ${className}`}
       onClick={triggerUpload}
     >
       <input 
@@ -65,8 +65,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         </div>
       ) : (
         <div className={`flex flex-col items-center justify-center h-full text-gray-500 ${compact ? 'p-4' : 'p-8'}`}>
-          <div className="bg-gradient-to-br from-indigo-100 to-purple-100 p-3 rounded-full mb-3 group-hover:from-indigo-200 group-hover:to-purple-200 transition-colors">
-            {compact ? <Upload size={20} className="text-indigo-600" /> : <ImageIcon size={32} className="text-indigo-600" />}
+          <div className="bg-blue-100 p-3 rounded-full mb-3 group-hover:bg-blue-200 transition-colors">
+            {compact ? <Upload size={20} className="text-blue-600" /> : <ImageIcon size={32} className="text-blue-600" />}
           </div>
           <span className={`${compact ? 'text-xs' : 'text-sm'} font-medium text-center text-gray-700`}>{label}</span>
         </div>

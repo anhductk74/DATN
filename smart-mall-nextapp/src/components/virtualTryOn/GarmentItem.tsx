@@ -29,7 +29,7 @@ const GarmentItemComponent: React.FC<GarmentItemProps> = ({
       {/* Input Section */}
       <div className="flex-1 w-full md:w-auto flex flex-col">
         <div className="flex justify-between items-center mb-2">
-          <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">
+          <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">
             {GARMENT_TYPES.find((t) => t.value === garment.type)?.label}
           </span>
           <button 
@@ -57,7 +57,7 @@ const GarmentItemComponent: React.FC<GarmentItemProps> = ({
           placeholder="Optional: Describe item (e.g., 'Red striped shirt', 'Blue jeans on left')"
           value={garment.customPrompt || ''}
           onChange={(e) => onUpdatePrompt(garment.id, e.target.value)}
-          className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 w-full"
+          className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 w-full"
         />
         <p className="text-[10px] text-gray-500 mt-1 pl-1">
           💡 Use color/position hints when photo has multiple items (e.g., &quot;white sneakers with pink laces&quot;)
@@ -66,7 +66,7 @@ const GarmentItemComponent: React.FC<GarmentItemProps> = ({
 
       {/* Arrow */}
       <div className="flex justify-center items-center">
-        <div className="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-full p-2 text-indigo-600">
+        <div className="bg-blue-100 rounded-full p-2 text-blue-600">
           <ArrowRight size={20} className="md:rotate-0 rotate-90" />
         </div>
       </div>
@@ -76,7 +76,7 @@ const GarmentItemComponent: React.FC<GarmentItemProps> = ({
         <div className="mb-2 flex items-center justify-between h-7">
           <span className="text-gray-700 text-xs font-medium uppercase">Extracted Item</span>
           {isProcessing && (
-            <span className="text-indigo-600 text-xs flex items-center gap-1">
+            <span className="text-blue-600 text-xs flex items-center gap-1">
               <Loader2 size={12} className="animate-spin" /> Extracting...
             </span>
           )}

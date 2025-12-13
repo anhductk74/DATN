@@ -203,15 +203,15 @@ export default function Header() {
 
   return (
     <>
-    <header className="bg-white/95 backdrop-blur-md shadow-lg sticky top-0 z-50 border-b border-gray-100">
+    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-blue-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center space-x-2 cursor-pointer" role="button" tabIndex={0} onClick={() => handleNavigate('/home', false)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/home', false); }}>
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-xl">S</span>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold text-blue-700">
               SmartMall
             </span>
           </div>
@@ -222,10 +222,10 @@ export default function Header() {
               <input
                 type="text"
                 placeholder="Search products, brands, and more..."
-                className="w-full px-6 py-4 pl-14 pr-6 bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-3xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-300 group-hover:shadow-md"
+                className="w-full px-6 py-3 pl-12 pr-6 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               />
-              <div className="absolute left-5 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                <SearchOutlined className="text-white text-sm" />
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                <SearchOutlined className="text-blue-600 text-lg" />
               </div>
             </div>
           </div>
@@ -243,11 +243,11 @@ export default function Header() {
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/notifications'); }}
                     onMouseEnter={() => setShowNotificationPopup(true)}
                     onMouseLeave={() => setShowNotificationPopup(false)}
-                    className="relative p-3 text-gray-600 hover:text-blue-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:shadow-md group"
+                    className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group"
                   >
-                    <BellOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                    <BellOutlined className="text-xl transition-transform group-hover:scale-110" />
                     {unreadNotifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg animate-pulse">
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">
                         {unreadNotifications.length}
                       </span>
                     )}
@@ -271,7 +271,7 @@ export default function Header() {
                             key={notification.id}
                             className={`flex items-start space-x-3 p-3 rounded-lg mb-2 cursor-pointer transition-all duration-200 ${
                               !notification.isRead 
-                                ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500' 
+                                ? 'bg-blue-50 border-l-4 border-blue-500' 
                                 : 'hover:bg-gray-50'
                             }`}
                             onClick={() => {
@@ -321,7 +321,7 @@ export default function Header() {
                             setShowNotificationPopup(false);
                             handleNavigate('/notifications');
                           }}
-                          className="bg-gradient-to-r from-blue-500 to-purple-500 border-none"
+                          className="bg-blue-600 hover:bg-blue-700 border-none"
                         >
                           View All
                         </Button>
@@ -336,10 +336,10 @@ export default function Header() {
                   tabIndex={0}
                   onClick={() => handleNavigate('/wishlist')}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/wishlist'); }}
-                  className="relative p-3 text-gray-600 hover:text-pink-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 hover:shadow-md group"
+                  className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group"
                 >
-                  <HeartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-pink-500 to-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold shadow-lg">3</span>
+                  <HeartOutlined className="text-xl transition-transform group-hover:scale-110" />
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">3</span>
                 </button>
                 
                 {/* Cart (hover to preview, click to open /cart) */}
@@ -347,69 +347,77 @@ export default function Header() {
                   className="relative cart-popup-container"
                   onMouseEnter={handleCartMouseEnter}
                   onMouseLeave={handleCartMouseLeave}
-                  style={{ paddingBottom: showCartPopup ? '20px' : '0' }} // Extend hover area when popup is shown
                 >
                   <button
                     role="button"
                     tabIndex={0}
                     onClick={() => handleNavigate('/cart')}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/cart'); }}
-                    className="relative p-3 text-gray-600 hover:text-green-600 transition-all duration-300 rounded-2xl hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 hover:shadow-md group"
+                    className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group"
                   >
-                    <ShoppingCartOutlined className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full min-w-[24px] h-6 px-1 flex items-center justify-center font-semibold shadow-lg">
+                    <ShoppingCartOutlined className="text-xl transition-transform group-hover:scale-110" />
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">
                       {cart.totalCount > 99 ? '99+' : cart.totalCount}
                     </span>
                   </button>
 
                   {showCartPopup && (
                     <div 
-                      className="absolute right-0 top-full w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[100]"
-                      style={{ marginTop: '4px' }} // Small gap for visual separation
+                      className="absolute right-0 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-[100]"
+                      style={{ marginTop: '8px' }}
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-semibold text-gray-800">Shopping Cart</div>
-                        <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                          {cart.totalCount} {cart.totalCount === 1 ? 'item' : 'items'}
+                      {/* Header */}
+                      <div className="bg-blue-600 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <ShoppingCartOutlined className="text-white text-lg" />
+                            <span className="text-white font-semibold">Shopping Cart</span>
+                          </div>
+                          <div className="bg-white/20 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                            {cart.totalCount}
+                          </div>
                         </div>
                       </div>
-                      <div className="max-h-64 overflow-y-auto pr-1">
+
+                      {/* Cart Items */}
+                      <div className="max-h-96 overflow-y-auto">
                         {cart.items.length === 0 ? (
-                          <div className="text-sm text-gray-500 py-8 text-center">
-                            <ShoppingCartOutlined className="text-3xl mb-2 text-gray-300" />
-                            <div>Your cart is empty</div>
+                          <div className="py-10 text-center px-4">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <ShoppingCartOutlined className="text-3xl text-gray-300" />
+                            </div>
+                            <p className="text-sm text-gray-500 font-medium">Cart is empty</p>
                           </div>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="p-3 space-y-2">
                             {cart.items.map((item: CartItem, index: number) => (
-                              <div key={item.cartItemId || index} className="flex items-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                                <div className="w-12 h-12 bg-gray-100 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
+                              <div 
+                                key={item.cartItemId || index} 
+                                className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                                onClick={() => handleNavigate('/cart')}
+                              >
+                                <div className="w-14 h-14 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                                   {item.image ? (
                                     <Image 
                                       src={getCloudinaryUrl(item.image)} 
                                       alt={item.title} 
-                                      width={48} 
-                                      height={48} 
+                                      width={56} 
+                                      height={56} 
                                       className="w-full h-full object-cover" 
                                     />
                                   ) : (
-                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                      <ProductOutlined className="text-gray-400 text-lg" />
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <ProductOutlined className="text-gray-400" />
                                     </div>
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium text-gray-900 truncate pr-2" title={item.title}>
+                                  <h4 className="text-xs font-semibold text-gray-900 line-clamp-2 mb-1" title={item.title}>
                                     {item.title}
-                                  </div>
-                                  <div className="text-xs text-gray-500 truncate" title={item.shopName}>
-                                    {item.shopName || 'Unknown Shop'}
-                                  </div>
-                                  <div className="flex items-center justify-between mt-1">
-                                    <span className="text-xs text-gray-400">Qty: {item.quantity}</span>
-                                    <span className="text-sm font-semibold text-green-600">
-                                      {item.price.toLocaleString()}đ
-                                    </span>
+                                  </h4>
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-500">×{item.quantity}</span>
+                                    <span className="font-bold text-blue-600">${item.price.toLocaleString()}</span>
                                   </div>
                                 </div>
                               </div>
@@ -417,30 +425,20 @@ export default function Header() {
                           </div>
                         )}
                       </div>
-                      <Divider className="my-3" />
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <div className="text-xs text-gray-500 uppercase tracking-wide">Total Amount</div>
-                          <div className="text-lg font-bold text-gray-900">{cart.totalPrice.toLocaleString()}đ</div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button 
-                            size="small" 
-                            onClick={() => handleNavigate('/cart')}
-                            className="border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800"
-                          >
-                            View Cart
-                          </Button>
-                          <Button 
-                            size="small" 
-                            type="primary" 
-                            onClick={() => handleNavigate('/checkout')}
-                            className="bg-gradient-to-r from-green-500 to-blue-500 border-0 hover:from-green-600 hover:to-blue-600"
-                          >
-                            Checkout
-                          </Button>
-                        </div>
-                      </div>
+
+                      {cart.items.length > 0 && (
+                        <>
+                          <div className="border-t border-gray-200"></div>
+                          <div className="px-3 py-3">
+                            <button
+                              onClick={() => handleNavigate('/cart')}
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
+                            >
+                              View Cart
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -451,14 +449,14 @@ export default function Header() {
             {mergedUser ? (
               <div className="relative user-menu-container">
                 <button 
-                  className="flex items-center space-x-3 px-3 py-2 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300 border border-transparent hover:border-blue-200 hover:shadow-md group"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-blue-50 transition border border-transparent hover:border-blue-200"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setShowUserMenu(!showUserMenu);
                   }}
                 >
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl mr-3 flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300 overflow-hidden">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center overflow-hidden">
                     {resolveAvatar(mergedUser) ? (
                       <Image 
                         src={resolveAvatar(mergedUser) as string} 
@@ -489,12 +487,12 @@ export default function Header() {
                 {/* Dropdown Menu */}
                 {showUserMenu && (
                   <div 
-                    className="absolute right-0 mt-3 w-72 bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl border border-gray-100 py-3 z-[9999] animate-in slide-in-from-top-2 duration-300"
+                    className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-blue-100 py-2 z-[9999]"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 rounded-t-3xl">
+                    <div className="px-4 py-3 border-b border-blue-100 bg-blue-50">
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center overflow-hidden">
                           {resolveAvatar(mergedUser) ? (
                             <Image 
                               src={resolveAvatar(mergedUser) as string} 
@@ -524,51 +522,41 @@ export default function Header() {
                     <div className="px-2 py-2">
                       <button 
                         onClick={() => handleNavigate('/profile')}
-                        className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-2xl transition-all duration-200 group"
+                        className="flex items-center w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-lg transition"
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                          <UserOutlined className="text-white text-sm" />
-                        </div>
-                        <span className="font-medium group-hover:text-blue-700">My Profile</span>
+                        <UserOutlined className="text-blue-600 mr-3" />
+                        <span className="font-medium">My Profile</span>
                       </button>
-                      <button onClick={() => handleNavigate('/my-orders')} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-green-50 hover:to-blue-50 rounded-2xl transition-all duration-200 group">
-                        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                          <TagOutlined className="text-white text-sm" />
-                        </div>
-                        <span className="font-medium group-hover:text-green-700">My Orders</span>
+                      <button onClick={() => handleNavigate('/my-orders')} className="flex items-center w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                        <TagOutlined className="text-blue-600 mr-3" />
+                        <span className="font-medium">My Orders</span>
                       </button>
                       <a 
                         href="/shop-management/dashboard"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-2xl transition-all duration-200 group"
+                        className="flex items-center w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-lg transition"
                       >
-                        <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                          <HeartOutlined className="text-white text-sm" />
-                        </div>
-                        <span className="font-medium text-black group-hover:text-black">My Shop</span>
+                        <HeartOutlined className="text-blue-600 mr-3" />
+                        <span className="font-medium">My Shop</span>
                       </a>
-                      <button onClick={() => handleNavigate('/support', false)} className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 rounded-2xl transition-all duration-200 group">
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                          <CustomerServiceOutlined className="text-white text-sm" />
-                        </div>
-                        <span className="font-medium group-hover:text-purple-700">Support</span>
+                      <button onClick={() => handleNavigate('/support', false)} className="flex items-center w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                        <CustomerServiceOutlined className="text-blue-600 mr-3" />
+                        <span className="font-medium">Support</span>
                       </button>
                     </div>
-                    <div className="border-t border-gray-200 my-3 mx-4"></div>
+                    <div className="border-t border-gray-200 my-2 mx-4"></div>
                     <div className="px-2 pb-2">
                       <button 
                         onClick={handleLogoutClick}
                         disabled={isLoggingOut}
-                        className={`flex items-center w-full text-left px-4 py-3 text-sm transition-all duration-300 group rounded-2xl border border-transparent shadow-md ${
+                        className={`flex items-center w-full text-left px-3 py-2 text-sm transition rounded-lg ${
                           isLoggingOut 
                             ? "bg-gray-100 cursor-not-allowed opacity-70" 
-                            : "hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:border-red-200 hover:shadow-md"
+                            : "text-red-600 hover:bg-red-50"
                         }`}
                       >
-                        <div className={`w-10 h-10 bg-gradient-to-br from-red-500 via-pink-500 to-orange-500 rounded-2xl flex items-center justify-center mr-4 transition-all duration-300 shadow-lg ${
-                          isLoggingOut ? "opacity-70" : "group-hover:scale-110 group-hover:rotate-3"
-                        }`}>
+                        <div className="mr-3">
                           {isLoggingOut ? (
                             <LoadingOutlined className="text-white text-lg animate-spin" />
                           ) : (
@@ -600,7 +588,7 @@ export default function Header() {
             ) : (
               <button 
                 onClick={() => handleNavigate('/login', false)}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-2xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 font-semibold"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
               >
                 Sign In
               </button>
@@ -627,9 +615,9 @@ export default function Header() {
             <input
               type="text"
               placeholder="Search products..."
-              className="w-full px-4 py-3 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              className="w-full px-4 py-2 pl-10 pr-4 bg-blue-50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             />
-            <SearchOutlined className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <SearchOutlined className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600" />
           </div>
         </div>
       </div>
@@ -641,7 +629,7 @@ export default function Header() {
             {mergedUser ? (
               <>
                 <div className="flex items-center space-x-3 px-3 py-3 bg-gray-50 rounded-lg mb-2">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
                     {resolveAvatar(mergedUser) ? (
                       <Image 
                         src={resolveAvatar(mergedUser) as string} 
@@ -685,7 +673,7 @@ export default function Header() {
                   <ShoppingCartOutlined className="mr-3 text-gray-400" />
                   Cart
                   {cart.totalCount > 0 && (
-                    <span className="ml-auto bg-gradient-to-r from-green-500 to-blue-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold">
+                    <span className="ml-auto bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold">
                       {cart.totalCount > 99 ? '99+' : cart.totalCount}
                     </span>
                   )}
@@ -727,7 +715,7 @@ export default function Header() {
                 <div className="border-t border-gray-200 my-2"></div>
                 <button 
                   onClick={handleAuthAction}
-                  className="w-full px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium"
+                  className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                 >
                   Login
                 </button>

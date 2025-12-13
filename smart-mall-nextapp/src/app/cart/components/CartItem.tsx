@@ -65,7 +65,7 @@ export default function CartItem({
 
         {/* Product Image */}
         <div className="flex-shrink-0">
-          <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="w-24 h-24 bg-gray-100 rounded-xl overflow-hidden shadow-sm">
             <img 
               src={getCloudinaryUrl(item.image)} 
               alt={item.title}

@@ -16,12 +16,12 @@ const VirtualTryOnWidget: React.FC = () => {
       {/* Floating Button */}
       <button
         onClick={() => setShowModal(true)}
-        className="fixed bottom-[152px] right-6 z-50 rounded-full w-14 h-14 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 shadow-lg flex items-center justify-center hover:scale-110 hover:shadow-xl transition-all duration-300 border-2 border-white group"
+        className="fixed bottom-[152px] right-6 z-50 rounded-full w-14 h-14 bg-blue-600 shadow-lg flex items-center justify-center hover:bg-blue-700 hover:shadow-xl transition-all border-2 border-white group"
         aria-label="Virtual Try-On"
         title="Virtual Try-On - Try clothes with AI"
       >
-        <GiClothes className="text-white text-2xl group-hover:rotate-12 transition-transform" />
-        <div className="absolute -top-1 -right-1 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">AI</div>
+        <GiClothes className="text-white text-2xl transition-transform group-hover:scale-110" />
+        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">AI</div>
       </button>
 
       {/* Virtual Try-On Modal */}

@@ -486,9 +486,9 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
         }}
       >
         <div className="bg-white text-gray-900">
-          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 border-b p-6">
+          <div className="bg-blue-600 border-b p-6">
             <div className="flex items-center gap-3">
-              <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+              <div className="bg-white/20 p-2 rounded-lg">
                 <Layers className="text-white" size={24} />
               </div>
               <div>
@@ -498,11 +498,11 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
             </div>
           </div>
 
-          <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-h-[70vh] overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-blue-50">
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-h-[70vh] overflow-y-auto bg-gray-50">
             <div className="lg:col-span-7 space-y-6">
               <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">1</span>
+                  <span className="bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">1</span>
                   Upload Model
                 </h2>
                 <div className="h-80">
@@ -519,7 +519,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
               <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">2</span>
+                    <span className="bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">2</span>
                     Prepare Outfit
                   </h2>
                   <select
@@ -565,7 +565,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                       className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
                         !hasPendingItems
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/20"
+                          : "bg-blue-600 hover:bg-blue-700 text-white shadow-md"
                       }`}
                     >
                       {extractingAll ? <RefreshCw className="animate-spin" size={18} /> : <Wand2 size={18} />}
@@ -579,7 +579,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
             <div className="lg:col-span-5">
               <section className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm flex flex-col sticky top-0">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">3</span>
+                  <span className="bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">3</span>
                   Final Result
                 </h2>
 
@@ -622,7 +622,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                         </div>
                       ) : (
                         <>
-                          <div className="bg-gradient-to-br from-indigo-100 to-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
+                          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
                             <Layers size={32} />
                           </div>
                           <h3 className="text-gray-900 font-medium mb-2">Ready to Mix</h3>
@@ -639,7 +639,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                   className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-md ${
                     !modelImage || !hasReadyItems
                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg hover:shadow-xl"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
                   {processing ? "Generating..." : "Generate Try-On"}
@@ -659,7 +659,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                 {resultImage && !searching && (
                   <button
                     onClick={() => searchSimilarProducts(resultImage)}
-                    className="mt-2 w-full py-3 text-center rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    className="mt-2 w-full py-3 text-center rounded-xl border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <ShoppingBag size={16} />
                     {searchResults.length > 0 ? 'Search Again' : 'Find Similar Products'}
@@ -676,10 +676,10 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
 
                 {/* Saved Images Section */}
                 {(savedImages.model || savedImages.garments.length > 0 || savedImages.results.length > 0) && (
-                  <div className="mt-4 p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+                  <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                        <RefreshCw size={14} className="text-purple-600" />
+                        <RefreshCw size={14} className="text-blue-600" />
                         Saved Images (Session)
                       </h3>
                       <button
@@ -760,11 +760,11 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
             });
             return shouldShow;
           })() && (
-            <div className="p-6 pt-0 bg-gradient-to-br from-slate-50 via-white to-blue-50">
+            <div className="p-6 pt-0 bg-gray-50">
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-2 rounded-lg">
+                    <div className="bg-blue-600 p-2 rounded-lg">
                       <ShoppingBag className="text-white" size={20} />
                     </div>
                     <div>
@@ -773,8 +773,8 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                     </div>
                   </div>
                   {searchResults.length > 0 && (
-                    <div className="bg-indigo-50 px-3 py-1 rounded-full">
-                      <span className="text-sm font-semibold text-indigo-700">{searchResults.length} matches</span>
+                    <div className="bg-blue-50 px-3 py-1 rounded-full">
+                      <span className="text-sm font-semibold text-blue-700">{searchResults.length} matches</span>
                     </div>
                   )}
                 </div>
@@ -782,8 +782,8 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                 {searching ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <div className="relative">
-                      <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-                      <ShoppingBag size={20} className="text-indigo-500 absolute inset-0 m-auto" />
+                      <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                      <ShoppingBag size={20} className="text-blue-500 absolute inset-0 m-auto" />
                     </div>
                     <p className="mt-4 text-gray-600 text-sm">Searching for similar products...</p>
                   </div>
@@ -795,7 +795,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
                         href={product.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-indigo-300"
+                        className="group bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-blue-300"
                       >
                         <div className="aspect-square relative overflow-hidden bg-gray-50">
                           <img

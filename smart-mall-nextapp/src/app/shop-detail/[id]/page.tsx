@@ -96,7 +96,7 @@ export default function ShopDetail() {
               The shop you are looking for does not exist
             </div>
             <button
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium hover:shadow-md transition-all"
               onClick={() => router.push("/products")}
             >
               Back to Products
@@ -146,7 +146,7 @@ export default function ShopDetail() {
         {/* Shop Header */}
         <div className="bg-white rounded-3xl shadow-lg overflow-hidden mb-8">
           {/* Cover Image */}
-          <div className="h-48 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+          <div className="h-48 bg-blue-600"></div>
 
           {/* Shop Info */}
           <div className="px-8 py-6">
@@ -163,7 +163,7 @@ export default function ShopDetail() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+                    <div className="w-full h-full bg-blue-100 flex items-center justify-center">
                       <ShopOutlined className="text-4xl text-blue-600" />
                     </div>
                   )}
