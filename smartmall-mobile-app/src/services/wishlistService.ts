@@ -125,11 +125,9 @@ class WishlistService {
     try {
       const token = await this.getAuthToken();
       if (!token) {
-        console.log('No token found for wishlist check');
         return false;
       }
 
-      console.log('Checking wishlist for product:', productId);
       const response = await fetch(`${API_URL}/api/wishlist/check/${productId}`, {
         method: 'GET',
         headers: {
@@ -139,15 +137,12 @@ class WishlistService {
       });
 
       const data = await response.json();
-      console.log('Wishlist check response:', data);
 
       if (response.ok) {
         // Backend trả về status thay vì success
         const isInWishlist = data.data?.inWishlist === true;
-        console.log('Final wishlist status:', isInWishlist);
         return isInWishlist;
       }
-      console.log('Response not ok');
       return false;
     } catch (error) {
       console.error('Error checking wishlist:', error);

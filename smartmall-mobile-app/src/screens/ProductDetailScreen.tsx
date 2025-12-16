@@ -49,16 +49,13 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('Screen focused, checking wishlist for product:', productId);
       checkWishlistStatus();
     });
     return unsubscribe;
   }, [navigation, productId]);
 
   const checkWishlistStatus = async () => {
-    console.log('Checking wishlist status for product:', productId);
     const inWishlist = await wishlistService.checkIsInWishlist(productId);
-    console.log('Is in wishlist:', inWishlist);
     setIsInWishlist(inWishlist);
   };
 
@@ -126,7 +123,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
             { text: 'Continue Shopping', style: 'cancel' },
             { 
               text: 'View Cart', 
-              onPress: () => navigation.navigate('Cart')
+              onPress: () => navigation.navigate('MainTabs', { screen: 'Cart' })
             },
           ]
         );
@@ -149,7 +146,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
 
     await handleAddToCart();
     if (selectedVariantId) {
-      navigation.navigate('Cart');
+      navigation.navigate('MainTabs', { screen: 'Cart' });
     }
   };
 
@@ -218,7 +215,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Cart')}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Cart' })}
           >
             <Ionicons name="cart-outline" size={24} color="#333" />
           </TouchableOpacity>

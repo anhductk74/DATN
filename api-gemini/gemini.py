@@ -655,25 +655,7 @@ A photorealistic fashion photo. No AI artifacts. The model looks exactly like th
 # ==========================================================
 @app.route('/ai_mix_outfit', methods=['POST'])
 def ai_mix_outfit():
-    """
-    API để ghép các trang phục đã tách vào người mẫu
     
-    Input form-data:
-    - model_image: file (required) - Ảnh người mẫu
-    - extracted_garments: JSON string (required) - Danh sách các garment đã extract
-      Format: [{"type": "shirt", "name": "áo", "image_base64": "data:image/png;base64,..."}, ...]
-      
-    Hoặc upload trực tiếp files:
-    - model_image: file (required)
-    - shirt_extracted: file (optional)
-    - pants_extracted: file (optional)
-    - shoes_extracted: file (optional)
-    - hat_extracted: file (optional)
-    - dress_extracted: file (optional)
-    - jacket_extracted: file (optional)
-    - skirt_extracted: file (optional)
-    - accessories_extracted: file (optional)
-    """
     try:
         from PIL import Image
         import io
@@ -798,19 +780,7 @@ def ai_mix_outfit():
 # ==========================================================
 @app.route('/ai_generate_fashion', methods=['POST'])
 def ai_generate_fashion():
-    """
-    Input form-data:
-    - model_image: file (required) - Ảnh người mẫu
-    - shirt: file (optional) - Ảnh áo
-    - pants: file (optional) - Ảnh quần
-    - shoes: file (optional) - Ảnh giày
-    - hat: file (optional) - Ảnh mũ
-    - accessories: file (optional) - Ảnh phụ kiện
     
-    2-STEP PROCESS:
-    Step 1: Extract each garment from outfit images
-    Step 2: Mix extracted garments onto model
-    """
     try:
         from google import genai
         from PIL import Image
@@ -937,23 +907,334 @@ def ai_generate_fashion():
 
 
 # ==========================================================
-# � API TÌM KIẾM SẢN PHẨM BẰNG HÌNH ẢNH
+# 🔍 API TÌM KIẾM SẢN PHẨM THÔNG MINH (SMART SEARCH)
+# ==========================================================
+@app.route('/ai_smart_search', methods=['GET'])
+def ai_smart_search():
+    
+    try:
+        # Get parameters
+        query = request.args.get('query', '').strip()
+        if not query:
+            return jsonify({
+                "success": False,
+                "message": "Missing required parameter: query"
+            }), 400
+        
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 10))
+        category_filter = request.args.get('categoryId', None)
+        shop_filter = request.args.get('shopId', None)
+        status_filter = request.args.get('status', None)
+        
+        # ===========================================
+        # STEP 1: AI PHÂN TÍCH QUERY (NLU)
+        # ===========================================
+        
+        API_KEY = os.getenv("API_KEY")
+        URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
+        
+        analysis_prompt = f"""
+Bạn là AI trợ lý tìm kiếm sản phẩm thương mại điện tử.
+
+Phân tích câu tìm kiếm sau và trích xuất ý định người dùng:
+"{query}"
+
+Trả về JSON với format sau (chỉ JSON, không giải thích):
+{{
+  "product_keywords": ["từ khóa 1", "từ khóa 2"],
+  "brand": "thương hiệu nếu có (hoặc null)",
+  "category_hints": ["danh mục có thể", "danh mục khác"],
+  "price_range": {{
+    "min": số tiền tối thiểu (VND) hoặc null,
+    "max": số tiền tối đa (VND) hoặc null
+  }},
+  "color": "màu sắc nếu đề cập (hoặc null)",
+  "features": ["tính năng 1", "tính năng 2"],
+  "sort_preference": "price_asc|price_desc|rating|newest|null"
+}}
+
+Ví dụ:
+- "tìm điện thoại Samsung giá dưới 10 triệu" → {{"product_keywords": ["điện thoại"], "brand": "Samsung", "price_range": {{"max": 10000000}}}}
+- "laptop gaming MSI màu đen" → {{"product_keywords": ["laptop", "gaming"], "brand": "MSI", "color": "đen"}}
+- "áo thun nam giá rẻ" → {{"product_keywords": ["áo thun", "nam"], "price_range": {{"max": 200000}}}}
+"""
+        
+        parts = [{"text": analysis_prompt}]
+        payload = {"contents": [{"parts": parts}]}
+        headers = {"Content-Type": "application/json"}
+        
+        try:
+            resp = requests.post(URL, headers=headers, data=json.dumps(payload), timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            
+            # Parse JSON
+            text = text.split('```json')[-1].split('```')[0].strip() if '```' in text else text
+            start, end = text.find('{'), text.rfind('}') + 1
+            search_intent = json.loads(text[start:end])
+            
+            
+        except Exception as e:
+            print(f"[WARNING] AI analysis failed: {str(e)}, using simple search")
+            search_intent = {
+                "product_keywords": [query],
+                "brand": None,
+                "category_hints": [],
+                "price_range": {"min": None, "max": None},
+                "color": None,
+                "features": [],
+                "sort_preference": None
+            }
+        
+        # ===========================================
+        # STEP 2: TÌM KIẾM TRONG DATABASE
+        # ===========================================
+        result, columns = get_products()
+        if not result or not columns:
+            return jsonify({
+                "success": False,
+                "message": "Cannot fetch products from database"
+            }), 500
+        
+        # Helper functions
+        def safe_float(val, default=0.0):
+            try:
+                return float(val) if val and val != '' else default
+            except (ValueError, TypeError):
+                return default
+        
+        def safe_int(val, default=0):
+            try:
+                return int(val) if val and val != '' else default
+            except (ValueError, TypeError):
+                return default
+        
+        # Build matched products with scoring
+        matched_products = []
+        
+        for row in result:
+            info = {col: str(val) if val not in [None, 'None'] else '' for col, val in zip(columns, row)}
+            
+            # Get product ID
+            product_id = info.get('product_id', '')
+            if isinstance(row[0], bytes) and len(row[0]) == 16:
+                product_id = str(uuid.UUID(bytes=row[0]))
+            
+            # Get shop and category IDs
+            shop_id = info.get('shop_id', '')
+            if isinstance(row[7], bytes) and len(row[7]) == 16:
+                shop_id = str(uuid.UUID(bytes=row[7]))
+            
+            category_id = info.get('category_id', '')
+            if isinstance(row[8], bytes) and len(row[8]) == 16:
+                category_id = str(uuid.UUID(bytes=row[8]))
+            
+            # Apply hard filters
+            if category_filter and str(category_id) != category_filter:
+                continue
+            if shop_filter and str(shop_id) != shop_filter:
+                continue
+            if status_filter and info.get('status', '') != status_filter:
+                continue
+            
+            # Get product details
+            product_name = info.get('product_name', '').lower()
+            product_description = info.get('description', '').lower()
+            product_brand = info.get('brand', '').lower()
+            product_category = info.get('category_name', '').lower()
+            min_price = safe_float(info.get('min_price'))
+            max_price = safe_float(info.get('max_price'))
+            
+            # Calculate matching score
+            score = 0
+            matching_reasons = []
+            
+            # Check keywords
+            if search_intent.get('product_keywords'):
+                keyword_matches = 0
+                for keyword in search_intent['product_keywords']:
+                    keyword_lower = keyword.lower()
+                    if keyword_lower in product_name:
+                        keyword_matches += 2  # Name match more important
+                        score += 20
+                    elif keyword_lower in product_description:
+                        keyword_matches += 1
+                        score += 10
+                    elif keyword_lower in product_category:
+                        keyword_matches += 1
+                        score += 15
+                
+                if keyword_matches > 0:
+                    matching_reasons.append(f"Khớp {keyword_matches} từ khóa")
+            
+            # Check brand
+            if search_intent.get('brand') and search_intent['brand'] != 'null':
+                brand_search = search_intent['brand'].lower()
+                if brand_search in product_brand or brand_search in product_name:
+                    score += 30
+                    matching_reasons.append(f"Thương hiệu: {search_intent['brand']}")
+            
+            # Check category hints
+            if search_intent.get('category_hints'):
+                for hint in search_intent['category_hints']:
+                    hint_lower = hint.lower()
+                    if hint_lower in product_category or hint_lower in product_name:
+                        score += 15
+                        matching_reasons.append(f"Danh mục: {hint}")
+                        break
+            
+            # Check price range
+            price_range = search_intent.get('price_range', {})
+            if price_range:
+                min_price_filter = price_range.get('min')
+                max_price_filter = price_range.get('max')
+                
+                price_match = True
+                if min_price_filter and max_price < min_price_filter:
+                    price_match = False
+                if max_price_filter and min_price > max_price_filter:
+                    price_match = False
+                
+                if price_match:
+                    if min_price_filter or max_price_filter:
+                        score += 10
+                        price_text = ""
+                        if min_price_filter and max_price_filter:
+                            price_text = f"{min_price_filter:,.0f} - {max_price_filter:,.0f} VNĐ"
+                        elif max_price_filter:
+                            price_text = f"< {max_price_filter:,.0f} VNĐ"
+                        else:
+                            price_text = f"> {min_price_filter:,.0f} VNĐ"
+                        matching_reasons.append(f"Giá phù hợp: {price_text}")
+                else:
+                    continue  # Skip products outside price range
+            
+            # Check color
+            if search_intent.get('color') and search_intent['color'] != 'null':
+                color = search_intent['color'].lower()
+                if color in product_name or color in product_description:
+                    score += 10
+                    matching_reasons.append(f"Màu: {search_intent['color']}")
+            
+            # Check features
+            if search_intent.get('features'):
+                feature_matches = 0
+                for feature in search_intent['features']:
+                    feature_lower = feature.lower()
+                    if feature_lower in product_name or feature_lower in product_description:
+                        feature_matches += 1
+                if feature_matches > 0:
+                    score += feature_matches * 5
+                    matching_reasons.append(f"Khớp {feature_matches} tính năng")
+            
+            # Only include products with score > 0
+            if score > 0:
+                # Get product image
+                image_url = ""
+                if info.get("images"):
+                    image_list = info["images"].split(",")
+                    image_url = image_list[0].strip() if image_list else ""
+                if image_url and not image_url.startswith("https://res.cloudinary.com"):
+                    image_url = f"https://res.cloudinary.com{image_url}"
+                
+                # Build product object matching Spring Boot format
+                product_obj = {
+                    "id": str(product_id),
+                    "name": info.get('product_name', 'Unnamed Product'),
+                    "description": info.get('description', ''),
+                    "brand": info.get('brand') or 'Unknown',
+                    "images": [image_url] if image_url else [],
+                    "status": info.get('status', 'ACTIVE'),
+                    "category": {
+                        "id": str(category_id),
+                        "name": info.get('category_name', ''),
+                        "status": "ACTIVE"
+                    },
+                    "shop": {
+                        "id": str(shop_id),
+                        "name": info.get('shop_name') or 'N/A',
+                        "viewCount": 0
+                    },
+                    "minPrice": min_price,
+                    "maxPrice": max_price,
+                    "rating": safe_float(info.get('average_rating')),
+                    "reviewCount": safe_int(info.get('review_count')),
+                    "matchScore": score,
+                    "matchReasons": matching_reasons
+                }
+                matched_products.append(product_obj)
+        
+        # Sort products
+        sort_pref = search_intent.get('sort_preference')
+        if sort_pref == 'price_asc':
+            matched_products.sort(key=lambda x: x['minPrice'])
+        elif sort_pref == 'price_desc':
+            matched_products.sort(key=lambda x: x['maxPrice'], reverse=True)
+        elif sort_pref == 'rating':
+            matched_products.sort(key=lambda x: (x['rating'], x['matchScore']), reverse=True)
+        elif sort_pref == 'newest':
+            matched_products.sort(key=lambda x: x['matchScore'], reverse=True)
+        else:
+            # Default: sort by match score
+            matched_products.sort(key=lambda x: x['matchScore'], reverse=True)
+        
+        # ===========================================
+        # STEP 3: PHÂN TRANG
+        # ===========================================
+        total_items = len(matched_products)
+        total_pages = (total_items + size - 1) // size if size > 0 else 0
+        
+        # Validate page
+        if page < 0:
+            page = 0
+        if page >= total_pages and total_pages > 0:
+            page = total_pages - 1
+        
+        # Get products for current page
+        start_idx = page * size
+        end_idx = start_idx + size
+        paged_products = matched_products[start_idx:end_idx]
+        
+        # Remove internal fields for response
+        for product in paged_products:
+            product.pop('matchScore', None)
+            product.pop('matchReasons', None)
+        
+        # Build response (chuẩn Spring Boot format)
+        response_data = {
+            "success": True,
+            "message": "Smart Search Success!",
+            "data": {
+                "products": paged_products,
+                "currentPage": page,
+                "totalPages": total_pages,
+                "totalItems": total_items,
+                "pageSize": size,
+                "hasNext": page < total_pages - 1,
+                "hasPrevious": page > 0,
+                "searchIntent": search_intent  # Extra: AI analysis result
+            }
+        }
+        
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        print(f"[ERROR] ai_smart_search: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"Search failed: {str(e)}"
+        }), 500
+
+
+# ==========================================================
+# 🔍 API TÌM KIẾM SẢN PHẨM BẰNG HÌNH ẢNH
 # ==========================================================
 @app.route('/ai_search_by_image', methods=['POST'])
 def ai_search_by_image():
-    """
-    API tìm kiếm sản phẩm tương tự dựa trên hình ảnh
-    
-    Input form-data:
-    - search_image: file (required) - Ảnh sản phẩm cần tìm
-    - max_results: int (optional) - Số lượng kết quả tối đa (default: 10)
-    - category_filter: string (optional) - Lọc theo danh mục cụ thể
-    
-    Output:
-    - success: boolean
-    - search_analysis: object - Phân tích từ AI về ảnh tìm kiếm
-    - products: array - Danh sách sản phẩm tương tự
-    """
+   
     try:
         from PIL import Image
         

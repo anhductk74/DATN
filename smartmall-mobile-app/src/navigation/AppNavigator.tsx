@@ -15,6 +15,8 @@ import ProductListScreen from '../screens/ProductListScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import CartScreen from '../screens/CartScreen';
 import WishlistScreen from '../screens/WishlistScreen';
+import AllProductsScreen from '../screens/AllProductsScreen';
+import SearchScreen from '../screens/SearchScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import OrderSearchScreen from '../screens/OrderSearchScreen';
@@ -31,6 +33,8 @@ export type RootStackParamList = {
   MainTabs: undefined;
   ProductList: { categoryId: string; categoryName: string };
   ProductDetail: { productId: string };
+  AllProducts: undefined;
+  Search: { query?: string } | undefined;
   Checkout: { items: CartItem[] };
   Addresses: undefined;
   AddEditAddress: { address?: Address } | undefined;
@@ -164,6 +168,20 @@ export default function AppNavigator() {
           component={WishlistScreen}
           options={{
             title: 'My Wishlist',
+          }}
+        />
+        <Stack.Screen
+          name="AllProducts"
+          component={AllProductsScreen}
+          options={{
+            title: 'All Products',
+          }}
+        />
+        <Stack.Screen
+          name="Search"
+          component={SearchScreen}
+          options={{
+            title: 'Search',
           }}
         />
         <Stack.Screen

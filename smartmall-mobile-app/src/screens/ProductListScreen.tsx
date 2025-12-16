@@ -43,8 +43,7 @@ export default function ProductListScreen({ navigation, route }: ProductListScre
       const response = await productService.getProductsByCategory(categoryId, pageNum, 20);
       
       if (response.success && response.data) {
-        // Xử lý nhiều cấu trúc response khác nhau
-        const newProducts = response.data.content || response.data.products?.content || response.data || [];
+        const newProducts = response.data.content || [];
         
         if (pageNum === 0) {
           setProducts(newProducts);
@@ -60,7 +59,7 @@ export default function ProductListScreen({ navigation, route }: ProductListScre
         }
         
         // Kiểm tra xem còn trang tiếp theo không
-        const isLast = response.data.last || response.data.products?.last || newProducts.length === 0;
+        const isLast = response.data.last || newProducts.length === 0;
         setHasMore(!isLast);
         setPage(pageNum);
       } else {

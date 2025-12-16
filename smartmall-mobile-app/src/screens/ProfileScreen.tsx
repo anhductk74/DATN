@@ -144,27 +144,20 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   const handlePickFromLibrary = async () => {
     try {
-      console.log('Starting library picker...');
-      
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log('Library permission:', permissionResult.status);
       
       if (permissionResult.status !== 'granted') {
         Alert.alert('Permission Denied', 'We need photo library access to select an image.');
         return;
       }
 
-      console.log('Launching library...');
       const result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
 
-      console.log('Library result:', result);
-
       if (!result.canceled && result.assets && result.assets[0]) {
-        console.log('Selected URI:', result.assets[0].uri);
         await handleUploadAvatar(result.assets[0].uri);
       }
     } catch (error) {
@@ -175,27 +168,20 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   const handleTakePhoto = async () => {
     try {
-      console.log('Starting camera...');
-      
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      console.log('Camera permission:', permissionResult.status);
       
       if (permissionResult.status !== 'granted') {
         Alert.alert('Permission Denied', 'We need camera access to take a photo.');
         return;
       }
 
-      console.log('Launching camera...');
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
 
-      console.log('Camera result:', result);
-
       if (!result.canceled && result.assets && result.assets[0]) {
-        console.log('Photo URI:', result.assets[0].uri);
         await handleUploadAvatar(result.assets[0].uri);
       }
     } catch (error) {

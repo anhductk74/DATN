@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -104,7 +103,6 @@ const flashDeals = [
 ];
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
   const [currentBanner, setCurrentBanner] = useState(0);
   const screenWidth = 380;
   const bannerSpacing = 12;
@@ -353,16 +351,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         </View>
         
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
+        <TouchableOpacity 
+          style={styles.searchContainer}
+          onPress={() => navigation.navigate('Search')}
+          activeOpacity={0.7}
+        >
           <Ionicons name="search" size={20} color="#999" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+          <Text style={styles.searchPlaceholder}>Search products...</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -474,7 +470,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Featured Products</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('AllProducts')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -547,16 +543,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 14,
+    color: '#999',
   },
   searchIcon: {
     fontSize: 18,
     marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
   },
   cartButton: {
     padding: 6,
