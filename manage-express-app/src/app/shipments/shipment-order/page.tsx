@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   Card, 
   Table, 
@@ -58,6 +59,7 @@ const formatNumber = (num: number | null | undefined): string => {
 
 export default function ShipmentOrderPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [searchText, setSearchText] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<ShipmentStatus | undefined>();
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false);
@@ -83,18 +85,49 @@ export default function ShipmentOrderPage() {
   const fetchShipments = async (filters?: ShipmentFilters) => {
     try {
       setLoading(true);
-      const response: PaginatedResponse<ShipmentOrderResponseDto> = await shipmentOrderService.getAll({
-        ...filters,
-        page: pagination.current - 1, // API uses 0-based indexing
-        size: pagination.pageSize
-      });
+      
+      // Get company ID from session
+      const companyId = session?.user?.company?.companyId;
+      
+      if (!companyId) {
+        message.warning('Không tìm thấy thông tin công ty');
+        setShipments([]);
+        setPagination(prev => ({ ...prev, total: 0 }));
+        return;
+      }
+      
+      // Fetch with only status filter, search will be done client-side
+      const response: PaginatedResponse<ShipmentOrderResponseDto> = await shipmentOrderService.getByCompany(
+        companyId,
+        {
+          status: filters?.status,
+          page: 0, // Get all data for client-side filtering
+          size: 9999 // Large number to get all results
+        }
+      );
       
       // Ensure response data is valid
       if (response && response.data) {
-        setShipments(response.data);
+        let filteredData = response.data;
+        
+        // Client-side search filter for warehouse name and shipper name
+        if (searchText) {
+          const searchLower = searchText.toLowerCase();
+          filteredData = filteredData.filter(shipment => 
+            (shipment.warehouseName && shipment.warehouseName.toLowerCase().includes(searchLower)) ||
+            (shipment.shipperName && shipment.shipperName.toLowerCase().includes(searchLower))
+          );
+        }
+        
+        // Apply client-side pagination
+        const startIndex = (pagination.current - 1) * pagination.pageSize;
+        const endIndex = startIndex + pagination.pageSize;
+        const paginatedData = filteredData.slice(startIndex, endIndex);
+        
+        setShipments(paginatedData);
         setPagination(prev => ({
           ...prev,
-          total: response.totalItems || 0
+          total: filteredData.length
         }));
       } else {
         setShipments([]);
@@ -120,10 +153,40 @@ export default function ShipmentOrderPage() {
   // Fetch statistics
   const fetchStatistics = async () => {
     try {
-      const stats = await shipmentOrderService.getStatusStatistics();
-      if (stats) {
-        setStatistics(stats);
+      // Get company ID from session
+      const companyId = session?.user?.company?.companyId;
+      
+      if (!companyId) {
+        setStatistics({
+          [ShipmentStatus.PENDING]: 0,
+          [ShipmentStatus.PICKING_UP]: 0,
+          [ShipmentStatus.IN_TRANSIT]: 0,
+          [ShipmentStatus.DELIVERED]: 0,
+          [ShipmentStatus.RETURNING]: 0,
+          [ShipmentStatus.RETURNED]: 0,
+          [ShipmentStatus.CANCELLED]: 0,
+        });
+        return;
       }
+      
+      // Get all shipments for company to calculate statistics
+      const response = await shipmentOrderService.getByCompany(companyId, { size: 9999 });
+      
+      const stats: Record<ShipmentStatus, number> = {
+        [ShipmentStatus.PENDING]: 0,
+        [ShipmentStatus.PICKING_UP]: 0,
+        [ShipmentStatus.IN_TRANSIT]: 0,
+        [ShipmentStatus.DELIVERED]: 0,
+        [ShipmentStatus.RETURNING]: 0,
+        [ShipmentStatus.RETURNED]: 0,
+        [ShipmentStatus.CANCELLED]: 0,
+      };
+      
+      response.data.forEach(shipment => {
+        stats[shipment.status]++;
+      });
+      
+      setStatistics(stats);
     } catch (error) {
       console.error('Error fetching statistics:', error);
       // Set default statistics on error
@@ -139,11 +202,13 @@ export default function ShipmentOrderPage() {
     }
   };
 
-  // Load data on component mount
+  // Load data on component mount and when session changes
   useEffect(() => {
-    fetchShipments();
-    fetchStatistics();
-  }, []);
+    if (session?.user?.company?.companyId) {
+      fetchShipments();
+      fetchStatistics();
+    }
+  }, [session]);
 
   // Reload data when filters change
   const handleFiltersChange = () => {
@@ -171,13 +236,13 @@ export default function ShipmentOrderPage() {
       pageSize: newPagination.pageSize
     }));
     
-    const filters: ShipmentFilters = {
-      search: searchText || undefined,
-      status: selectedStatus || undefined,
-      page: newPagination.current - 1,
-      size: newPagination.pageSize
-    };
-    fetchShipments(filters);
+    // Re-fetch with new pagination
+    setTimeout(() => {
+      const filters: ShipmentFilters = {
+        status: selectedStatus || undefined,
+      };
+      fetchShipments(filters);
+    }, 0);
   };
 
   const getStatusColor = (status: ShipmentStatus | string): string => {
@@ -529,7 +594,7 @@ export default function ShipmentOrderPage() {
         <Space className="w-full justify-between flex">
           <Space>
             <Input
-              placeholder="Tìm kiếm mã vận đơn, đơn hàng, người nhận..."
+              placeholder="Tìm kiếm theo tên kho hàng, shipper..."
               prefix={<SearchOutlined />}
               style={{ width: 300 }}
               value={searchText}

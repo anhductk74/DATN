@@ -28,6 +28,6 @@ public interface ShipperRepository extends JpaRepository<Shipper, UUID> {
     @Query("SELECT COUNT(s) FROM Shipper s")
     long countAllShippers();
 
-    @Query("SELECT COUNT(s) FROM Shipper s WHERE s.status = 'ACTIVE'")
-    Integer countActiveShippers();
+    @Query("SELECT COUNT(s) FROM Shipper s WHERE s.status = 'ACTIVE' AND s.shippingCompany.id = :companyId")
+    Integer countActiveShippersByCompany(UUID companyId);
 }

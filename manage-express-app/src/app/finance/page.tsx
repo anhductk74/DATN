@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { 
   Card, 
   Table, 
@@ -64,6 +65,7 @@ const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
 export default function FinancePage() {
+  const { data: session } = useSession();
   const { message } = useAntdApp();
   // State management
   const [activeTab, setActiveTab] = useState<string>('cod-reconciliation');
@@ -167,7 +169,8 @@ export default function FinancePage() {
   const fetchShipperBalancesByRange = async (from: string, to: string, shipperId?: string) => {
     try {
       setLoading(true);
-      const data = await financeService.getShipperBalanceHistoryRange(from, to, shipperId);
+      const companyId = session?.user?.company?.companyId;
+      const data = await financeService.getShipperBalanceHistoryRange(from, to, shipperId, companyId);
       setShipperBalances(data);
     } catch (error) {
       console.error('Error fetching shipper balances by range:', error);
@@ -194,7 +197,14 @@ export default function FinancePage() {
   const fetchFinanceReport = async (date: string = selectedDate) => {
     try {
       setLoading(true);
-      const data = await financeService.getFinanceReportByDate(date);
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        setFinanceReport(null);
+        setLoading(false);
+        return;
+      }
+      const data = await financeService.getCompanyFinanceReport(date, companyId);
       setFinanceReport(data);
     } catch (error) {
       console.error('Error fetching finance report:', error);
@@ -252,13 +262,19 @@ export default function FinancePage() {
   // Handle create COD reconciliation
   const handleCreateCodReconciliation = async (values: any) => {
     try {
+      const companyId = session?.user?.company?.companyId;
+      if (!companyId) {
+        message.error('Không tìm thấy thông tin công ty');
+        return;
+      }
+
       setLoading(true);
       const dto: CodReconciliationRequestDto = {
         shipperId: values.shipperId,
         date: values.date ? dayjs(values.date).format('YYYY-MM-DD') : selectedDate
       };
       
-      await financeService.createCodReconciliation(dto);
+      await financeService.createCodReconciliation(dto, companyId);
       message.success('Tạo đối soát COD thành công');
       setCreateCodModalVisible(false);
       codForm.resetFields();

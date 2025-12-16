@@ -75,9 +75,9 @@ export class FinanceService {
   // ==================== COD RECONCILIATION ====================
   
   // Tạo đối soát COD
-  static async createCodReconciliation(dto: CodReconciliationRequestDto): Promise<CodReconciliationResponseDto> {
+  static async createCodReconciliation(dto: CodReconciliationRequestDto, companyId: string): Promise<CodReconciliationResponseDto> {
     const response = await apiClient.post<CodReconciliationResponseDto>(
-      this.COD_RECONCILIATION_URL,
+      `${this.COD_RECONCILIATION_URL}?companyId=${companyId}`,
       dto
     );
     return response.data;
@@ -104,9 +104,9 @@ export class FinanceService {
   }
 
   // Tạo đối soát COD theo shipper
-  static async createCodReconciliationByShipper(shipperId: string): Promise<CodReconciliationResponseDto> {
+  static async createCodReconciliationByShipper(shipperId: string, companyId: string): Promise<CodReconciliationResponseDto> {
     const response = await apiClient.post<CodReconciliationResponseDto>(
-      `${this.COD_RECONCILIATION_URL}/shipper/${shipperId}`
+      `${this.COD_RECONCILIATION_URL}/shipper/${shipperId}?companyId=${companyId}`
     );
     return response.data;
   }
@@ -147,19 +147,25 @@ export class FinanceService {
   }
 
   // Lấy lịch sử số dư theo khoảng thời gian
-  static async getShipperBalanceHistoryRange(
-    from: string, 
-    to: string,
-    shipperId?: string
-  ): Promise<ShipperBalanceHistoryResponseDto[]> {
-    let url = `${this.SHIPPER_BALANCE_URL}/range?from=${from}&to=${to}`;
-    if (shipperId) {
-      url += `&shipperId=${shipperId}`;
-    }
-    
-    const response = await apiClient.get<ShipperBalanceHistoryResponseDto[]>(url);
-    return response.data;
+static async getShipperBalanceHistoryRange(
+  from: string,
+  to: string,
+  shipperId?: string,
+  companyId?: string
+): Promise<ShipperBalanceHistoryResponseDto[]> {
+  let url = `${this.SHIPPER_BALANCE_URL}/range?from=${from}&to=${to}`;
+
+  if (shipperId) {
+    url += `&shipperId=${shipperId}`;
   }
+
+  if (companyId) {
+    url += `&companyId=${companyId}`;
+  }
+
+  const response = await apiClient.get<ShipperBalanceHistoryResponseDto[]>(url);
+  return response.data;
+}
 
   // Lấy lịch sử số dư theo khoảng thời gian cho tất cả shipper
   static async getAllShipperBalanceHistoryRange(
@@ -209,10 +215,26 @@ export class FinanceService {
 
   // ==================== FINANCE REPORT ====================
 
-  // Lấy báo cáo tài chính theo ngày
-  static async getFinanceReportByDate(date: string): Promise<FinanceReportResponseDto> {
+  // Lấy báo cáo tài chính toàn hệ thống (Super Admin)
+  static async getGlobalFinanceReport(date: string): Promise<FinanceReportResponseDto> {
     const response = await apiClient.get<FinanceReportResponseDto>(
-      `${this.FINANCE_REPORT_URL}/date?date=${date}`
+      `${this.FINANCE_REPORT_URL}/global?date=${date}`
+    );
+    return response.data;
+  }
+
+  // Lấy báo cáo tài chính theo công ty (Admin công ty vận chuyển)
+  static async getCompanyFinanceReport(date: string, companyId: string): Promise<FinanceReportResponseDto> {
+    const response = await apiClient.get<FinanceReportResponseDto>(
+      `${this.FINANCE_REPORT_URL}/company?date=${date}&companyId=${companyId}`
+    );
+    return response.data;
+  }
+
+  // Lấy báo cáo tài chính cá nhân (Shipper)
+  static async getShipperFinanceReport(date: string, shipperId: string): Promise<FinanceReportResponseDto> {
+    const response = await apiClient.get<FinanceReportResponseDto>(
+      `${this.FINANCE_REPORT_URL}/shipper?date=${date}&shipperId=${shipperId}`
     );
     return response.data;
   }

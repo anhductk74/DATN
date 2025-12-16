@@ -558,19 +558,10 @@ const RegisterManager: React.FC = () => {
                   name="companyStreet"
                   rules={[{ required: true, message: 'Please input street address!' }]}
                 >
-                  <Select
-                    mode="tags"
-                    showSearch
-                    placeholder="Select or type street address"
+                  <Input
+                    prefix={<EnvironmentOutlined />}
+                    placeholder="Nhập số nhà, tên đường, ..."
                     size="large"
-                    maxTagCount={1}
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
-                    options={SAMPLE_STREETS.map(street => ({
-                      label: street,
-                      value: street,
-                    }))}
                   />
                 </Form.Item>
               </Col>

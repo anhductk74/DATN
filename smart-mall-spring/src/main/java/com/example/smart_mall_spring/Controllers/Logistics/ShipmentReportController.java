@@ -28,6 +28,15 @@ public class ShipmentReportController {
     public ResponseEntity<ShipmentReportResponseDto> getReportById(@PathVariable UUID id) {
         return ResponseEntity.ok(shipmentReportService.getReportById(id));
     }
+    // Lấy báo cáo theo công ty + khoảng thời gian
+    @GetMapping("/company")
+    public ResponseEntity<List<ShipmentReportResponseDto>> getReportsByCompany(
+            @RequestParam UUID companyId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return ResponseEntity.ok(shipmentReportService.getReportsByCompany(companyId, start, end));
+    }
 
     @GetMapping("/range")
     public ResponseEntity<List<ShipmentReportResponseDto>> getReportsBetween(
@@ -53,9 +62,12 @@ public class ShipmentReportController {
         shipmentReportService.deleteReport(id);
         return ResponseEntity.noContent().build();
     }
-    @GetMapping("/generate")
-    public ShipmentReportResponseDto generateReport(@RequestParam String date) {
-        LocalDate localDate = LocalDate.parse(date);
-        return shipmentReportService.generateReportForDate(localDate);
+    @PostMapping("/generate/day")
+    public ResponseEntity<ShipmentReportResponseDto> generateSingleDayReport(
+            @RequestParam UUID companyId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ResponseEntity.ok(shipmentReportService.generateSingleDayReport(companyId, date));
     }
+
 }

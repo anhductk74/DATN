@@ -31,7 +31,7 @@ import { shipperApiService, ShipperResponseDto } from '@/services/ShipperApiServ
 import ShipmentOrderService, { ShipmentOrderResponseDto, ShipmentStatus } from '@/services/ShipmentOrderService';
 import shipperTransactionApiService, { ShipperTransactionResponseDto, TransactionType } from '@/services/ShipperTransactionApiService';
 
-const { TabPane } = Tabs;
+// Removed deprecated TabPane import
 
 export default function ShipperDetailPage() {
   const params = useParams();
@@ -386,9 +386,14 @@ export default function ShipperDetailPage() {
 
       {/* Tabs */}
       <Card>
-        <Tabs defaultActiveKey="overview">
-          {/* Tab 1: Tổng quan */}
-          <TabPane tab="Tổng quan" key="overview">
+        <Tabs 
+          defaultActiveKey="overview"
+          items={[
+            {
+              key: 'overview',
+              label: 'Tổng quan',
+              children: (
+                <>
             <Row gutter={16} className="mb-6">
               <Col span={6}>
                 <Card>
@@ -486,10 +491,13 @@ export default function ShipperDetailPage() {
                 )}
               </Descriptions>
             </Card>
-          </TabPane>
-
-          {/* Tab 2: Danh sách đơn */}
-          <TabPane tab={`Danh sách đơn (${orders.length})`} key="orders">
+                </>
+              )
+            },
+            {
+              key: 'orders',
+              label: `Danh sách đơn (${orders.length})`,
+              children: (
             <Table
               columns={orderColumns}
               dataSource={orders}
@@ -502,10 +510,13 @@ export default function ShipperDetailPage() {
                   `${range[0]}-${range[1]} của ${total} đơn hàng`
               }}
             />
-          </TabPane>
-
-          {/* Tab 3: Doanh thu */}
-          <TabPane tab="Doanh thu" key="revenue">
+              )
+            },
+            {
+              key: 'revenue',
+              label: 'Doanh thu',
+              children: (
+                <>
             <Row gutter={16} className="mb-6" justify="space-between">
               <Col flex="1">
                 <Card size="small">
@@ -581,8 +592,11 @@ export default function ShipperDetailPage() {
                 }}
               />
             </Card>
-          </TabPane>
-        </Tabs>
+                </>
+              )
+            }
+          ]}
+        />
       </Card>
     </div>
   );

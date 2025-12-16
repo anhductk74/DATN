@@ -29,6 +29,7 @@ import {
   ExclamationCircleOutlined,
   PlusOutlined
 } from '@ant-design/icons';
+import { useSession } from 'next-auth/react';
 import { orderApiService, OrderResponseDto, OrderStatus } from '@/services/OrderApiService';
 import { ShipmentOrderService, ShipmentOrderRequestDto, ShipmentStatus } from '@/services/ShipmentOrderService';
 import { ShippingCompanyService, ShippingCompanyListDto, ShipperResponseDto, WarehouseResponseDto } from '@/services/ShippingCompanyService';
@@ -40,6 +41,7 @@ const { Option } = Select;
 
 export default function OrderListPage() {
   const { message } = App.useApp();
+  const { data: session } = useSession();
   const [searchText, setSearchText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [orders, setOrders] = useState<OrderResponseDto[]>([]);
@@ -110,6 +112,9 @@ export default function OrderListPage() {
     try {
       setLoading(true);
       
+      // Get company city from session
+      const companyCity = session?.user?.company?.city;
+      
       // Get orders ready for shipment (SHIPPING status)
       const allOrders = await orderApiService.getOrdersReadyForShipment();
       
@@ -123,6 +128,28 @@ export default function OrderListPage() {
       }
       
       let filteredOrders = ordersWithoutShipment;
+      
+      // Filter by shop city - only show orders from shops in the same city/province as company
+      if (companyCity) {
+        filteredOrders = filteredOrders.filter(order => {
+          const shopCity = order.addressShop?.city;
+          if (!shopCity) return false;
+          
+          // Normalize city/province names for comparison
+          // Remove prefixes: "Thành phố", "Tỉnh", "TP.", "TP"
+          const normalizeCity = (city: string) => {
+            return city
+              .replace(/^(Thành phố|Tỉnh|TP\.|TP)\s+/gi, '')
+              .trim()
+              .toLowerCase();
+          };
+          
+          const normalizedShopCity = normalizeCity(shopCity);
+          const normalizedCompanyCity = normalizeCity(companyCity);
+          
+          return normalizedShopCity === normalizedCompanyCity;
+        });
+      }
       
       // Apply search filter
       if (searchText) {

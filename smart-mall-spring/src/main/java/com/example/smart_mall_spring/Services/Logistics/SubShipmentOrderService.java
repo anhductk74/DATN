@@ -239,6 +239,7 @@ public class SubShipmentOrderService {
         if (sub3 == null || sub3.getStatus() != ShipmentStatus.DELIVERED) {
             if (sub2 != null && sub2.getStatus() == ShipmentStatus.DELIVERED) {
                 shipmentOrder.setStatus(ShipmentStatus.IN_TRANSIT);
+                shipmentOrder.setWarehouse(sub2.getToWarehouse());
             }
         }
 
@@ -249,6 +250,7 @@ public class SubShipmentOrderService {
                 && (sub3 == null || sub3.getStatus() != ShipmentStatus.DELIVERED)) {
             if (sub1 != null && sub1.getStatus() == ShipmentStatus.DELIVERED) {
                 shipmentOrder.setStatus(ShipmentStatus.PICKING_UP);
+//                shipmentOrder.setWarehouse(sub1.getToWarehouse());
             }
         }
 

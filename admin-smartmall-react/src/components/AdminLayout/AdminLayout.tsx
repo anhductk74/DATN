@@ -130,7 +130,7 @@ export default function AdminLayout() {
     {
       key: 'managers',
       icon: <CarOutlined />,
-      label: 'Managers',
+      label: 'Epress Managers',
       children: [
         {
           key: '/dashboard/managers',

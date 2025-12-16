@@ -34,37 +34,37 @@ export class DashboardService {
   private static readonly DASHBOARD_URL = '/api/dashboard';
 
   // Get dashboard data for date range
-  static async getDashboard(fromDate: string, toDate: string): Promise<DashboardResponseDto> {
+  static async getDashboard(fromDate: string, toDate: string, companyId: string): Promise<DashboardResponseDto> {
     const response = await apiClient.get<DashboardResponseDto>(
-      `${this.DASHBOARD_URL}?from=${fromDate}&to=${toDate}`
+      `${this.DASHBOARD_URL}?from=${fromDate}&to=${toDate}&companyId=${companyId}`
     );
     return response.data;
   }
 
   // Get dashboard data for today
-  static async getTodayDashboard(): Promise<DashboardResponseDto> {
+  static async getTodayDashboard(companyId: string): Promise<DashboardResponseDto> {
     const today = this.getTodayString();
-    return this.getDashboard(today, today);
+    return this.getDashboard(today, today, companyId);
   }
 
   // Get dashboard data for last 7 days
-  static async getWeeklyDashboard(): Promise<DashboardResponseDto> {
+  static async getWeeklyDashboard(companyId: string): Promise<DashboardResponseDto> {
     const end = this.getTodayString();
     const start = this.getDateString(-6); // Last 7 days including today
-    return this.getDashboard(start, end);
+    return this.getDashboard(start, end, companyId);
   }
 
   // Get dashboard data for last 30 days
-  static async getMonthlyDashboard(): Promise<DashboardResponseDto> {
+  static async getMonthlyDashboard(companyId: string): Promise<DashboardResponseDto> {
     const end = this.getTodayString();
     const start = this.getDateString(-29); // Last 30 days including today
-    return this.getDashboard(start, end);
+    return this.getDashboard(start, end, companyId);
   }
 
   // Get dashboard data for current month
-  static async getCurrentMonthDashboard(): Promise<DashboardResponseDto> {
+  static async getCurrentMonthDashboard(companyId: string): Promise<DashboardResponseDto> {
     const { start, end } = this.getMonthDateRange();
-    return this.getDashboard(start, end);
+    return this.getDashboard(start, end, companyId);
   }
 
   // ==================== HELPER FUNCTIONS ====================

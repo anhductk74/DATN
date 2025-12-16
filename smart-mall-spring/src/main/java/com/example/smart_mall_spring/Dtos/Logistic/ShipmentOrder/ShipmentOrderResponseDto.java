@@ -20,6 +20,7 @@ public class ShipmentOrderResponseDto {
     private String orderCode; // Mã đơn hàng (nếu Order có code)
     private String shipperName;
     private String warehouseName;
+    private String warehouseId;
 
     private String pickupAddress;
     private String deliveryAddress;

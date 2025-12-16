@@ -330,4 +330,5 @@ async getAllShippers(filters?: ShipperFilters): Promise<PaginatedResponse<Shippe
     return colorMap[status] || 'default';
   },
 };
-export { shipperApiService, ShipperStatus, ShipperRequestDto, ShipperRegisterDto, ShipperUpdateDto, ShipperResponseDto };
+
+export default shipperApiService;

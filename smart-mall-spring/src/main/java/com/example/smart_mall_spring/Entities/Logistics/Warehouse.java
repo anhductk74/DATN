@@ -18,9 +18,9 @@
     @ToString(exclude = {"shippingCompany"})
     public class Warehouse extends BaseEntity {
 
-        @ManyToOne
+        @OneToOne
         @JoinColumn(name = "shipping_company_id", nullable = false)
-        @com.fasterxml.jackson.annotation.JsonIgnore
+        @JsonIgnore
         private ShippingCompany shippingCompany;
 
         @Column(length = 100)

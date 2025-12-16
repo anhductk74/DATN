@@ -81,9 +81,52 @@ public interface ShipmentOrderRepository extends JpaRepository<ShipmentOrder, UU
             @Param("end") LocalDateTime end
     );
 
-    @Query("SELECT COUNT(s) FROM ShipmentOrder s WHERE DATE(s.createdAt) BETWEEN :from AND :to")
-    Integer countByDateRange(LocalDate from, LocalDate to);
+    @Query("""
+SELECT COUNT(s) FROM ShipmentOrder s 
+WHERE s.createdAt BETWEEN :from AND :to
+AND s.warehouse.shippingCompany.id = :companyId
+""")
+    Integer countByDateRangeAndCompany(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("companyId") UUID companyId
+    );
 
-    @Query("SELECT SUM(s.shippingFee) FROM ShipmentOrder s WHERE DATE(s.createdAt) BETWEEN :from AND :to")
-    BigDecimal sumShippingFee(LocalDate from, LocalDate to);
+
+
+    @Query("""
+SELECT COALESCE(SUM(s.shippingFee), 0) FROM ShipmentOrder s
+WHERE s.createdAt BETWEEN :from AND :to
+AND s.warehouse.shippingCompany.id = :companyId
+""")
+    BigDecimal sumShippingFeeByCompany(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("companyId") UUID companyId
+    );
+
+
+
+    @Query("""
+SELECT s FROM ShipmentOrder s
+LEFT JOIN s.warehouse w
+LEFT JOIN w.shippingCompany sc
+WHERE (:companyId IS NULL OR sc.id = :companyId)
+AND (:status IS NULL OR s.status = :status)
+AND (:search IS NULL OR LOWER(s.trackingCode) LIKE LOWER(CONCAT('%', :search, '%')))
+""")
+    Page<ShipmentOrder> findByCompanyFilters(
+            @Param("companyId") UUID companyId,
+            @Param("status") ShipmentStatus status,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    @Query("""
+    SELECT o FROM ShipmentOrder o
+    WHERE o.createdAt BETWEEN :start AND :end
+    AND o.warehouse.shippingCompany.id = :companyId
+""")
+    List<ShipmentOrder> findByCompanyAndDate(UUID companyId, LocalDateTime start, LocalDateTime end);
+
 }

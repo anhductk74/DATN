@@ -120,5 +120,17 @@ public class ShipmentOrderController {
                 shipmentOrderService.getDashboardStatistics(start, end)
         );
     }
+    @GetMapping("/company/{shippingCompanyId}")
+    public ResponseEntity<?> getShipmentsByCompany(
+            @PathVariable UUID shippingCompanyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) ShipmentStatus status,
+            @RequestParam(required = false) String search
+    ) {
+        return ResponseEntity.ok(
+                shipmentOrderService.getShipmentsByCompany(shippingCompanyId, page, size, status, search)
+        );
+    }
 
 }

@@ -52,7 +52,7 @@ public class CodReconciliationService {
     //  CREATE RECONCILIATION
     // ============================================================
 
-    public CodReconciliationResponseDto create(CodReconciliationRequestDto request) {
+    public CodReconciliationResponseDto create(CodReconciliationRequestDto request, UUID companyId) {
 
         LocalDate date = request.getDate() != null ? request.getDate() : LocalDate.now();
 
@@ -65,7 +65,8 @@ public class CodReconciliationService {
                 shipperTransactionRepository.sumByTypeAndShipperAndDate(
                         shipper.getId(),
                         ShipperTransactionType.COLLECT_COD,
-                        date
+                        date,
+                        companyId
                 );
 
         // Tổng COD nộp
@@ -73,12 +74,12 @@ public class CodReconciliationService {
                 shipperTransactionRepository.sumByTypeAndShipperAndDate(
                         shipper.getId(),
                         ShipperTransactionType.DEPOSIT_COD,
-                        date
+                        date,
+                        companyId
                 );
 
         BigDecimal difference = totalCollected.subtract(totalDeposited);
 
-        // Tạo entity
         CodReconciliation rec = new CodReconciliation();
         rec.setShipper(shipper);
         rec.setTotalCollected(totalCollected);
@@ -91,6 +92,7 @@ public class CodReconciliationService {
 
         return toResponse(rec);
     }
+
 
     // ============================================================
     //  GET BY DATE
@@ -117,7 +119,7 @@ public class CodReconciliationService {
         return toResponse(rec);
     }
 
-    public CodReconciliationResponseDto createByShipper(UUID shipperId) {
+    public CodReconciliationResponseDto createByShipper(UUID shipperId, UUID companyId) {
 
         Shipper shipper = shipperRepository.findById(shipperId)
                 .orElseThrow(() -> new EntityNotFoundException("Shipper không tồn tại"));
@@ -125,10 +127,10 @@ public class CodReconciliationService {
         LocalDate today = LocalDate.now();
 
         BigDecimal totalCollected = shipperTransactionRepository
-                .sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.COLLECT_COD, today);
+                .sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.COLLECT_COD, today, companyId);
 
         BigDecimal totalDeposited = shipperTransactionRepository
-                .sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.DEPOSIT_COD, today);
+                .sumByTypeAndShipperAndDate(shipperId, ShipperTransactionType.DEPOSIT_COD, today, companyId);
 
         CodReconciliation rec = new CodReconciliation();
         rec.setShipper(shipper);
@@ -142,6 +144,7 @@ public class CodReconciliationService {
 
         return toResponse(saved);
     }
+
     public CodReconciliationResponseDto complete(UUID id) {
         CodReconciliation rec = codReconciliationRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy đối soát"));

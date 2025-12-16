@@ -17,5 +17,11 @@ public interface ShipperBalanceHistoryRepository extends JpaRepository<ShipperBa
     Page<ShipperBalanceHistory> findByShipperId(
             UUID shipperId, Pageable pageable);
 
-
+    Page<ShipperBalanceHistory> findByShipper_ShippingCompany_Id(UUID companyId, Pageable pageable);
+    List<ShipperBalanceHistory> findByShipper_ShippingCompany_IdAndDateBetween(
+            UUID companyId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+    List<ShipperBalanceHistory> findByShipper_ShippingCompany_Id(UUID companyId);
 }

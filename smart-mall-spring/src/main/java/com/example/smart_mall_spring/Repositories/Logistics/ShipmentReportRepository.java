@@ -14,8 +14,20 @@ import java.util.UUID;
 @Repository
 public interface ShipmentReportRepository extends JpaRepository<ShipmentReport, UUID> {
 
-    @Query("SELECT r FROM ShipmentReport r WHERE r.reportDate BETWEEN :start AND :end ORDER BY r.reportDate DESC")
+    @Query("""
+        SELECT r FROM ShipmentReport r
+        WHERE r.reportDate BETWEEN :start AND :end
+        ORDER BY r.reportDate DESC
+    """)
     List<ShipmentReport> findReportsBetweenDates(LocalDate start, LocalDate end);
 
-    Optional<ShipmentReport> findByReportDate(LocalDate reportDate);
+    Optional<ShipmentReport> findByReportDateAndShippingCompany_Id(LocalDate date, UUID companyId);
+
+    @Query("""
+        SELECT r FROM ShipmentReport r
+        WHERE r.shippingCompany.id = :companyId
+        AND r.reportDate BETWEEN :start AND :end
+        ORDER BY r.reportDate DESC
+    """)
+    List<ShipmentReport> findReportsByCompany(UUID companyId, LocalDate start, LocalDate end);
 }

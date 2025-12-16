@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/dashboard")
@@ -21,8 +22,10 @@ public class DashboardController {
     @GetMapping
     public DashboardResponseDto getDashboard(
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate from,
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate to
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate to,
+            @RequestParam UUID companyId  // thêm companyId vào
     ) {
-        return dashboardService.getDashboard(from, to);
+
+        return dashboardService.getDashboard(from, to, companyId);
     }
 }
