@@ -115,6 +115,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [flashDealsReal, setFlashDealsReal] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
+  const [featuredPage, setFeaturedPage] = useState(0);
+  const [hasMoreFeatured, setHasMoreFeatured] = useState(true);
+  const [isLoadingMoreFeatured, setIsLoadingMoreFeatured] = useState(false);
+  const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = useState(true);
 
   useEffect(() => {
     loadHomeData();
@@ -144,8 +148,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       }
 
       if (featuredRes.success && featuredRes.data) {
-        const products = featuredRes.data.content || featuredRes.data || [];
+        const products = featuredRes.data.content || [];
         setFeaturedProductsReal(products);
+        setHasMoreFeatured(!featuredRes.data.last);
+        setFeaturedPage(0);
       }
 
       if (dealsRes.success && dealsRes.data) {
@@ -167,6 +173,48 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       }
     } catch (error) {
       console.error('Error loading cart count:', error);
+    }
+  };
+
+  const loadMoreFeaturedProducts = async () => {
+    if (!isLoadingMoreFeatured && hasMoreFeatured && !onEndReachedCalledDuringMomentum && featuredProductsReal.length > 0) {
+      setOnEndReachedCalledDuringMomentum(true);
+      setIsLoadingMoreFeatured(true);
+      
+      try {
+        const nextPage = featuredPage + 1;
+        const response = await productService.getProducts({ page: nextPage, size: 8, sort: 'createdAt,desc' });
+        
+        if (response.success && response.data) {
+          const newProducts = response.data.content || [];
+          
+          if (newProducts.length > 0) {
+            setFeaturedProductsReal(prev => {
+              const existingIds = new Set(prev.map((p: Product) => p.id));
+              const uniqueNewProducts = newProducts.filter((p: Product) => !existingIds.has(p.id));
+              return [...prev, ...uniqueNewProducts];
+            });
+          }
+          
+          setHasMoreFeatured(!response.data.last && newProducts.length > 0);
+          setFeaturedPage(nextPage);
+        }
+      } catch (error) {
+        console.error('Error loading more featured products:', error);
+      } finally {
+        setIsLoadingMoreFeatured(false);
+      }
+    }
+  };
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+    
+    if (isCloseToBottom && !onEndReachedCalledDuringMomentum) {
+      setOnEndReachedCalledDuringMomentum(true);
+      loadMoreFeaturedProducts();
     }
   };
 
@@ -295,6 +343,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <TouchableOpacity style={styles.iconButton}>
               <Ionicons name="chatbubble-outline" size={24} color="#333" />
             </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Wishlist')}
+            >
+              <Ionicons name="heart-outline" size={24} color="#333" />
+            </TouchableOpacity>
           </View>
         </View>
         
@@ -308,21 +362,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity 
-            style={styles.cartButton}
-            onPress={() => navigation.navigate('Cart')}
-          >
-            <Ionicons name="cart-outline" size={24} color="#333" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        onMomentumScrollBegin={() => setOnEndReachedCalledDuringMomentum(false)}
+        scrollEventThrottle={400}
+      >
         {/* Banner */}
         <View style={styles.bannerContainer}>
           <ScrollView
@@ -432,8 +481,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           {isLoading ? (
             <ActivityIndicator size="small" color="#2563eb" style={{ padding: 20 }} />
           ) : (
-            <View style={styles.productsGrid}>
-              {(featuredProductsReal.length > 0 ? featuredProductsReal : featuredProducts).map((product, index) => renderProduct(product, index))}
+            <View>
+              <View style={styles.productsGrid}>
+                {(featuredProductsReal.length > 0 ? featuredProductsReal : featuredProducts).map((product, index) => renderProduct(product, index))}
+              </View>
+              {isLoadingMoreFeatured && hasMoreFeatured && (
+                <View style={styles.loadingMore}>
+                  <ActivityIndicator size="small" color="#2563eb" />
+                  <Text style={styles.loadingMoreText}>Loading more products...</Text>
+                </View>
+              )}
+              {!hasMoreFeatured && featuredProductsReal.length > 8 && (
+                <View style={styles.endOfList}>
+                  <Text style={styles.endOfListText}>No more products</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -441,36 +503,6 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#2563eb" />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => navigation.navigate('Categories')}
-        >
-          <MaterialCommunityIcons name="view-grid" size={24} color="#999" />
-          <Text style={styles.navLabel}>Categories</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="heart-outline" size={24} color="#999" />
-          <Text style={styles.navLabel}>Wishlist</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => navigation.navigate('Orders')}
-        >
-          <Ionicons name="cube-outline" size={24} color="#999" />
-          <Text style={styles.navLabel}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-          <Ionicons name="person-outline" size={24} color="#999" />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -847,29 +879,23 @@ const styles = StyleSheet.create({
   bottomSpacing: {
     height: 20,
   },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingVertical: 8,
-    paddingBottom: 4,
-  },
-  navItem: {
-    flex: 1,
+  loadingMore: {
+    paddingVertical: 20,
     alignItems: 'center',
-    paddingVertical: 6,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
-  navIcon: {
-    fontSize: 22,
-    marginBottom: 4,
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#666',
   },
-  navLabel: {
-    fontSize: 10,
+  endOfList: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  endOfListText: {
+    fontSize: 14,
     color: '#999',
-  },
-  navLabelActive: {
-    color: '#2563eb',
-    fontWeight: '600',
   },
 });

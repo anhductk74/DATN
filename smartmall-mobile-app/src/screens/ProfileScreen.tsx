@@ -10,10 +10,16 @@ import {
   TextInput,
   Modal,
   Pressable,
+  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { userService, UserProfile } from '../services/userService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { getCloudinaryUrl } from '../config/config';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -24,10 +30,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+  const [showFullAvatar, setShowFullAvatar] = useState(false);
   
   // Edit form
   const [editFullName, setEditFullName] = useState('');
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
+  const [editGender, setEditGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
+  const [editDateOfBirth, setEditDateOfBirth] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Password form
   const [currentPassword, setCurrentPassword] = useState('');
@@ -59,8 +73,14 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       
       if (response.success && response.data) {
         setProfile(response.data);
-        setEditFullName(response.data.fullName);
+        setEditFullName(response.data.fullName || '');
         setEditPhoneNumber(response.data.phoneNumber || '');
+        setEditGender(response.data.gender || 'MALE');
+        setEditDateOfBirth(response.data.dateOfBirth || '');
+        if (response.data.dateOfBirth) {
+          setSelectedDate(new Date(response.data.dateOfBirth));
+        }
+        setAvatarUri(response.data.avatar ? getCloudinaryUrl(response.data.avatar) : null);
       } else {
         Alert.alert('Error', response.message);
       }
@@ -78,18 +98,37 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       return;
     }
 
+    if (!editPhoneNumber.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+      return;
+    }
+
+    if (!editDateOfBirth) {
+      Alert.alert('Error', 'Please select your date of birth');
+      return;
+    }
+
     try {
       setIsLoading(true);
       const token = await AsyncStorage.getItem('accessToken');
       if (!token) return;
 
-      const response = await userService.updateProfile(token, {
-        fullName: editFullName,
-        phoneNumber: editPhoneNumber || undefined,
-      });
+      const response = await userService.updateProfile(
+        token,
+        {
+          fullName: editFullName,
+          phoneNumber: editPhoneNumber,
+          gender: editGender,
+          dateOfBirth: editDateOfBirth,
+        },
+        avatarUri && !avatarUri.startsWith('http') ? avatarUri : undefined
+      );
 
       if (response.success && response.data) {
         setProfile(response.data);
+        if (response.data.avatar) {
+          setAvatarUri(getCloudinaryUrl(response.data.avatar));
+        }
         setIsEditing(false);
         Alert.alert('Success', 'Profile updated successfully');
       } else {
@@ -100,6 +139,112 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       Alert.alert('Error', 'Failed to update profile');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePickFromLibrary = async () => {
+    try {
+      console.log('Starting library picker...');
+      
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('Library permission:', permissionResult.status);
+      
+      if (permissionResult.status !== 'granted') {
+        Alert.alert('Permission Denied', 'We need photo library access to select an image.');
+        return;
+      }
+
+      console.log('Launching library...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      console.log('Library result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        console.log('Selected URI:', result.assets[0].uri);
+        await handleUploadAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Library error:', error);
+      Alert.alert('Error', 'Failed to pick image: ' + (error as Error).message);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      console.log('Starting camera...');
+      
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('Camera permission:', permissionResult.status);
+      
+      if (permissionResult.status !== 'granted') {
+        Alert.alert('Permission Denied', 'We need camera access to take a photo.');
+        return;
+      }
+
+      console.log('Launching camera...');
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      console.log('Camera result:', result);
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        console.log('Photo URI:', result.assets[0].uri);
+        await handleUploadAvatar(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo: ' + (error as Error).message);
+    }
+  };
+
+  const handleUploadAvatar = async (uri: string) => {
+    try {
+      setIsUploadingAvatar(true);
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token || !profile) return;
+
+      // API requires profileData even when only updating avatar
+      const response = await userService.updateProfile(
+        token,
+        {
+          fullName: profile.fullName || '',
+          phoneNumber: profile.phoneNumber || '',
+          gender: profile.gender || 'MALE',
+          dateOfBirth: profile.dateOfBirth || '',
+        },
+        uri
+      );
+
+      if (response.success && response.data) {
+        setProfile(response.data);
+        if (response.data.avatar) {
+          setAvatarUri(getCloudinaryUrl(response.data.avatar));
+        }
+        Alert.alert('Success', 'Avatar updated successfully');
+      } else {
+        Alert.alert('Error', response.message);
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      Alert.alert('Error', 'Failed to upload avatar');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (date) {
+      setSelectedDate(date);
+      const formattedDate = date.toISOString().split('T')[0];
+      setEditDateOfBirth(formattedDate);
     }
   };
 
@@ -203,28 +348,32 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <View style={styles.headerRight} />
-      </View>
+      </View> */}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {profile?.fullName?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.cameraButton}>
-              <Text style={styles.cameraIcon}>📷</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.userName}>{profile?.fullName}</Text>
+          <TouchableOpacity 
+            style={styles.avatarContainer}
+            onPress={() => setShowAvatarOptions(true)}
+          >
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {profile?.fullName?.charAt(0).toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.userName}>{profile?.fullName || 'User'}</Text>
           <Text style={styles.userEmail}>{profile?.username}</Text>
         </View>
 
@@ -253,7 +402,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Phone Number</Text>
+                <Text style={styles.label}>Phone Number *</Text>
                 <TextInput
                   style={styles.input}
                   value={editPhoneNumber}
@@ -264,6 +413,98 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                 />
               </View>
 
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Gender *</Text>
+                <View style={styles.genderContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.genderButton,
+                      editGender === 'MALE' && styles.genderButtonActive,
+                    ]}
+                    onPress={() => setEditGender('MALE')}
+                  >
+                    <Ionicons
+                      name="male"
+                      size={20}
+                      color={editGender === 'MALE' ? '#fff' : '#666'}
+                    />
+                    <Text
+                      style={[
+                        styles.genderButtonText,
+                        editGender === 'MALE' && styles.genderButtonTextActive,
+                      ]}
+                    >
+                      Male
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.genderButton,
+                      editGender === 'FEMALE' && styles.genderButtonActive,
+                    ]}
+                    onPress={() => setEditGender('FEMALE')}
+                  >
+                    <Ionicons
+                      name="female"
+                      size={20}
+                      color={editGender === 'FEMALE' ? '#fff' : '#666'}
+                    />
+                    <Text
+                      style={[
+                        styles.genderButtonText,
+                        editGender === 'FEMALE' && styles.genderButtonTextActive,
+                      ]}
+                    >
+                      Female
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.genderButton,
+                      editGender === 'OTHER' && styles.genderButtonActive,
+                    ]}
+                    onPress={() => setEditGender('OTHER')}
+                  >
+                    <Ionicons
+                      name="transgender"
+                      size={20}
+                      color={editGender === 'OTHER' ? '#fff' : '#666'}
+                    />
+                    <Text
+                      style={[
+                        styles.genderButtonText,
+                        editGender === 'OTHER' && styles.genderButtonTextActive,
+                      ]}
+                    >
+                      Other
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Date of Birth *</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Text style={editDateOfBirth ? styles.dateText : styles.datePlaceholder}>
+                    {editDateOfBirth || 'Select date of birth'}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color="#666" />
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleDateChange}
+                    maximumDate={new Date()}
+                    minimumDate={new Date(1900, 0, 1)}
+                  />
+                )}
+              </View>
+
               <View style={styles.editButtons}>
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}
@@ -271,6 +512,11 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
                     setIsEditing(false);
                     setEditFullName(profile?.fullName || '');
                     setEditPhoneNumber(profile?.phoneNumber || '');
+                    setEditGender(profile?.gender || 'MALE');
+                    setEditDateOfBirth(profile?.dateOfBirth || '');
+                    if (profile?.dateOfBirth) {
+                      setSelectedDate(new Date(profile.dateOfBirth));
+                    }
                   }}
                 >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -301,9 +547,16 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
               </View>
               <View style={styles.divider} />
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Role</Text>
+                <Text style={styles.infoLabel}>Gender</Text>
                 <Text style={styles.infoValue}>
-                  {profile?.roles?.join(', ') || 'User'}
+                  {profile?.gender === 'MALE' ? 'Male' : profile?.gender === 'FEMALE' ? 'Female' : profile?.gender === 'OTHER' ? 'Other' : 'Not set'}
+                </Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Date of Birth</Text>
+                <Text style={styles.infoValue}>
+                  {profile?.dateOfBirth || 'Not set'}
                 </Text>
               </View>
             </View>
@@ -319,7 +572,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             onPress={() => navigation.navigate('Addresses')}
           >
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>📍</Text>
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="location" size={20} color="#2563eb" />
+              </View>
               <Text style={styles.menuText}>My Addresses</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
@@ -330,7 +585,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             onPress={() => setShowPasswordModal(true)}
           >
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>🔒</Text>
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="lock-closed" size={20} color="#2563eb" />
+              </View>
               <Text style={styles.menuText}>Change Password</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
@@ -338,7 +595,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>🔔</Text>
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="notifications" size={20} color="#2563eb" />
+              </View>
               <Text style={styles.menuText}>Notifications</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
@@ -346,7 +605,9 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
           <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>❓</Text>
+              <View style={styles.menuIconContainer}>
+                <Ionicons name="help-circle" size={20} color="#2563eb" />
+              </View>
               <Text style={styles.menuText}>Help & Support</Text>
             </View>
             <Text style={styles.menuArrow}>›</Text>
@@ -475,6 +736,90 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
           </View>
         </View>
       </Modal>
+
+      {/* Avatar Options Modal */}
+      <Modal
+        visible={showAvatarOptions}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAvatarOptions(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowAvatarOptions(false)}
+        >
+          <Pressable style={styles.avatarOptionsModal} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.avatarOptionsTitle}>Avatar Options</Text>
+            
+            {avatarUri && (
+              <TouchableOpacity
+                style={styles.avatarOptionButton}
+                onPress={() => {
+                  setShowAvatarOptions(false);
+                  setShowFullAvatar(true);
+                }}
+              >
+                <Ionicons name="eye-outline" size={24} color="#2563eb" />
+                <Text style={styles.avatarOptionText}>View Image</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.avatarOptionButton}
+              onPress={() => {
+                setShowAvatarOptions(false);
+                setTimeout(() => handleTakePhoto(), 600);
+              }}
+            >
+              <Ionicons name="camera-outline" size={24} color="#2563eb" />
+              <Text style={styles.avatarOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.avatarOptionButton}
+              onPress={() => {
+                setShowAvatarOptions(false);
+                setTimeout(() => handlePickFromLibrary(), 600);
+              }}
+            >
+              <Ionicons name="images-outline" size={24} color="#2563eb" />
+              <Text style={styles.avatarOptionText}>Choose from Library</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.avatarOptionButton, styles.avatarOptionCancel]}
+              onPress={() => setShowAvatarOptions(false)}
+            >
+              <Text style={styles.avatarOptionCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Full Avatar View Modal */}
+      <Modal
+        visible={showFullAvatar}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFullAvatar(false)}
+      >
+        <Pressable
+          style={styles.fullAvatarOverlay}
+          onPress={() => setShowFullAvatar(false)}
+        >
+          <View style={styles.fullAvatarContainer}>
+            {avatarUri && (
+              <Image source={{ uri: avatarUri }} style={styles.fullAvatar} />
+            )}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowFullAvatar(false)}
+            >
+              <Ionicons name="close-circle" size={40} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -567,22 +912,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#2563eb',
-  },
-  cameraIcon: {
-    fontSize: 16,
-  },
   userName: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -657,6 +986,58 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  hint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  genderButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  genderButtonActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  genderButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  genderButtonTextActive: {
+    color: '#fff',
+  },
+  dateButton: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  datePlaceholder: {
+    fontSize: 14,
+    color: '#999',
+  },
   editButtons: {
     flexDirection: 'row',
     gap: 12,
@@ -699,8 +1080,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  menuIcon: {
-    fontSize: 20,
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuText: {
     fontSize: 14,
@@ -770,5 +1156,65 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     fontSize: 20,
+  },
+  avatarOptionsModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  avatarOptionsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  avatarOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  avatarOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  avatarOptionCancel: {
+    justifyContent: 'center',
+    borderBottomWidth: 0,
+    marginTop: 8,
+  },
+  avatarOptionCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  fullAvatarOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullAvatarContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullAvatar: {
+    width: '90%',
+    height: '90%',
+    resizeMode: 'contain',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
   },
 });

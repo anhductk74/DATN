@@ -1,7 +1,9 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -12,6 +14,7 @@ import CategoriesScreen from '../screens/CategoriesScreen';
 import ProductListScreen from '../screens/ProductListScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import CartScreen from '../screens/CartScreen';
+import WishlistScreen from '../screens/WishlistScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import OrderSearchScreen from '../screens/OrderSearchScreen';
@@ -25,16 +28,13 @@ import type { Address } from '../services/addressService';
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  Home: undefined;
-  Profile: undefined;
-  Addresses: undefined;
-  AddEditAddress: { address?: Address } | undefined;
-  Categories: undefined;
+  MainTabs: undefined;
   ProductList: { categoryId: string; categoryName: string };
   ProductDetail: { productId: string };
-  Cart: undefined;
   Checkout: { items: CartItem[] };
-  Orders: undefined;
+  Addresses: undefined;
+  AddEditAddress: { address?: Address } | undefined;
+  Wishlist: undefined;
   OrderSearch: undefined;
   OrderDetail: { orderId: string };
   OrderTrackingDetail: { orderId: string; orderStatus: string; trackingNumber?: string };
@@ -42,7 +42,84 @@ export type RootStackParamList = {
   OrderReturnRequest: { orderId: string };
 };
 
+export type TabParamList = {
+  Home: undefined;
+  Categories: undefined;
+  Cart: undefined;
+  Orders: undefined;
+  Profile: undefined;
+};
+
 const Stack = createStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          if (route.name === 'Home') {
+            return <Ionicons name="home" size={size} color={color} />;
+          } else if (route.name === 'Categories') {
+            return <MaterialCommunityIcons name="view-grid" size={size} color={color} />;
+          } else if (route.name === 'Cart') {
+            return <Ionicons name="cart-outline" size={size} color={color} />;
+          } else if (route.name === 'Orders') {
+            return <Ionicons name="cube-outline" size={size} color={color} />;
+          } else if (route.name === 'Profile') {
+            return <Ionicons name="person-outline" size={size} color={color} />;
+          }
+          return <Ionicons name="home" size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#2563eb',
+        tabBarInactiveTintColor: '#999',
+        tabBarStyle: {
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#f0f0f0',
+          paddingVertical: 12,
+          paddingBottom: 8,
+          height: 68,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: -2,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={{ title: 'Home' }}
+      />
+      <Tab.Screen 
+        name="Categories" 
+        component={CategoriesScreen}
+        options={{ title: 'Categories' }}
+      />
+      <Tab.Screen 
+        name="Cart" 
+        component={CartScreen}
+        options={{ title: 'Cart' }}
+      />
+      <Tab.Screen 
+        name="Orders" 
+        component={OrdersScreen}
+        options={{ title: 'Orders' }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{ title: 'Profile' }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 export default function AppNavigator() {
   return (
@@ -58,6 +135,7 @@ export default function AppNavigator() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+          headerShown: false,
         }}
       >
         <Stack.Screen
@@ -65,7 +143,6 @@ export default function AppNavigator() {
           component={LoginScreen}
           options={{
             title: 'Login',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -73,48 +150,20 @@ export default function AppNavigator() {
           component={RegisterScreen}
           options={{
             title: 'Create Account',
+          }}
+        />
+        <Stack.Screen
+          name="MainTabs"
+          component={MainTabs}
+          options={{
             headerShown: false,
           }}
         />
         <Stack.Screen
-          name="Home"
-          component={HomeScreen}
+          name="Wishlist"
+          component={WishlistScreen}
           options={{
-            title: 'Home',
-            headerShown: false,
-            headerLeft: () => null,
-          }}
-        />
-        <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{
-            title: 'Profile',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="Addresses"
-          component={AddressesScreen}
-          options={{
-            title: 'My Addresses',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="AddEditAddress"
-          component={AddEditAddressScreen}
-          options={{
-            title: 'Address',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="Categories"
-          component={CategoriesScreen}
-          options={{
-            title: 'Categories',
-            headerShown: false,
+            title: 'My Wishlist',
           }}
         />
         <Stack.Screen
@@ -122,7 +171,6 @@ export default function AppNavigator() {
           component={ProductListScreen}
           options={{
             title: 'Products',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -130,15 +178,6 @@ export default function AppNavigator() {
           component={ProductDetailScreen}
           options={{
             title: 'Product Detail',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="Cart"
-          component={CartScreen}
-          options={{
-            title: 'Shopping Cart',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -146,15 +185,20 @@ export default function AppNavigator() {
           component={CheckoutScreen}
           options={{
             title: 'Checkout',
-            headerShown: false,
           }}
         />
         <Stack.Screen
-          name="Orders"
-          component={OrdersScreen}
+          name="Addresses"
+          component={AddressesScreen}
           options={{
-            title: 'My Orders',
-            headerShown: false,
+            title: 'My Addresses',
+          }}
+        />
+        <Stack.Screen
+          name="AddEditAddress"
+          component={AddEditAddressScreen}
+          options={{
+            title: 'Address',
           }}
         />
         <Stack.Screen
@@ -162,7 +206,6 @@ export default function AppNavigator() {
           component={OrderSearchScreen}
           options={{
             title: 'Search Orders',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -170,7 +213,6 @@ export default function AppNavigator() {
           component={OrderDetailScreen}
           options={{
             title: 'Order Detail',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -178,7 +220,6 @@ export default function AppNavigator() {
           component={OrderTrackingDetailScreen}
           options={{
             title: 'Tracking Details',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -186,7 +227,6 @@ export default function AppNavigator() {
           component={ReviewScreen}
           options={{
             title: 'Write Review',
-            headerShown: false,
           }}
         />
         <Stack.Screen
@@ -194,7 +234,6 @@ export default function AppNavigator() {
           component={OrderReturnRequestScreen}
           options={{
             title: 'Return Request',
-            headerShown: false,
           }}
         />
       </Stack.Navigator>
