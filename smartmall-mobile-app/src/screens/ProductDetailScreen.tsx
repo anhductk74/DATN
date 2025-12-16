@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { productService, ProductDetail } from '../services/productService';
 import CartService from '../services/CartService';
+import wishlistService from '../services/wishlistService';
 import { getCloudinaryUrl } from '../config/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -37,11 +38,29 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [modalAction, setModalAction] = useState<'cart' | 'buy'>('cart');
+  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
 
   useEffect(() => {
     loadProductDetail();
     loadRelatedProducts();
+    checkWishlistStatus();
   }, [productId]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('Screen focused, checking wishlist for product:', productId);
+      checkWishlistStatus();
+    });
+    return unsubscribe;
+  }, [navigation, productId]);
+
+  const checkWishlistStatus = async () => {
+    console.log('Checking wishlist status for product:', productId);
+    const inWishlist = await wishlistService.checkIsInWishlist(productId);
+    console.log('Is in wishlist:', inWishlist);
+    setIsInWishlist(inWishlist);
+  };
 
   const loadProductDetail = async () => {
     try {
@@ -143,6 +162,34 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
     setShowVariantModal(true);
   };
 
+  const handleToggleWishlist = async () => {
+    setIsTogglingWishlist(true);
+    try {
+      if (isInWishlist) {
+        const response = await wishlistService.removeFromWishlist(productId);
+        if (response.success) {
+          setIsInWishlist(false);
+          Alert.alert('Removed', 'Product removed from wishlist');
+        } else {
+          Alert.alert('Error', response.message || 'Failed to remove from wishlist');
+        }
+      } else {
+        const response = await wishlistService.addToWishlist(productId);
+        if (response.success) {
+          setIsInWishlist(true);
+          Alert.alert('Added', 'Product added to wishlist');
+        } else {
+          Alert.alert('Error', response.message || 'Failed to add to wishlist');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+      Alert.alert('Error', 'Failed to update wishlist');
+    } finally {
+      setIsTogglingWishlist(false);
+    }
+  };
+
   const selectedVariant = product?.variants?.find(v => v.id === selectedVariantId);
 
   if (isLoading || !product) {
@@ -168,12 +215,14 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.iconButton}
-          onPress={() => navigation.navigate('Cart')}
-        >
-          <Ionicons name="cart-outline" size={24} color="#333" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('Cart')}
+          >
+            <Ionicons name="cart-outline" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -440,8 +489,16 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
             <Ionicons name="chatbubble-outline" size={24} color="#2563eb" />
             <Text style={styles.iconActionText}>Chat</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconActionButton}>
-            <Ionicons name="heart-outline" size={24} color="#ff4757" />
+          <TouchableOpacity 
+            style={styles.iconActionButton}
+            onPress={handleToggleWishlist}
+            disabled={isTogglingWishlist}
+          >
+            <Ionicons 
+              name={isInWishlist ? "heart" : "heart-outline"} 
+              size={24} 
+              color="#ff4757" 
+            />
             <Text style={styles.iconActionText}>Favorite</Text>
           </TouchableOpacity>
         </View>

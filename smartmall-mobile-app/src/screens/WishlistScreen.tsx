@@ -73,7 +73,7 @@ export default function WishlistScreen({ navigation }: WishlistScreenProps) {
               
               if (response.success) {
                 setWishlistItems(prevItems => 
-                  prevItems.filter(item => item.productId !== productId)
+                  prevItems.filter(item => item.product.id !== productId)
                 );
                 Alert.alert('Success', 'Item removed from wishlist');
               } else {
@@ -90,73 +90,50 @@ export default function WishlistScreen({ navigation }: WishlistScreenProps) {
   };
 
   const renderWishlistItem = ({ item }: { item: WishlistItem }) => {
-    const finalPrice = item.discount 
-      ? item.price * (1 - item.discount / 100) 
-      : item.price;
+    const imageUrl = item.product.images?.[0] 
+      ? getCloudinaryUrl(item.product.images[0]) 
+      : null;
 
     return (
       <TouchableOpacity
         style={styles.wishlistItem}
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.productId })}
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.product.id })}
       >
-        <View style={styles.productImageContainer}>
-          {item.productImage ? (
-            <Image
-              source={{ uri: getCloudinaryUrl(item.productImage) }}
-              style={styles.productImage}
-            />
+        <View style={styles.imageContainer}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.productImage} />
           ) : (
-            <View style={styles.productImagePlaceholder}>
-              <Ionicons name="image-outline" size={48} color="#ccc" />
-            </View>
-          )}
-          {item.discount && item.discount > 0 && (
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>-{item.discount}%</Text>
+            <View style={[styles.productImage, styles.placeholderImage]}>
+              <Ionicons name="image-outline" size={40} color="#ccc" />
             </View>
           )}
         </View>
 
         <View style={styles.productInfo}>
           <Text style={styles.productName} numberOfLines={2}>
-            {item.productName}
+            {item.product.name}
           </Text>
-
-          {item.averageRating !== undefined && (
-            <View style={styles.ratingContainer}>
-              <AntDesign name="star" size={14} color="#f59e0b" />
-              <Text style={styles.ratingText}>{item.averageRating.toFixed(1)}</Text>
-            </View>
+          <Text style={styles.brandText}>{item.product.brand}</Text>
+          {item.product.shopName && (
+            <Text style={styles.shopText}>
+              <Ionicons name="storefront-outline" size={12} color="#666" /> {item.product.shopName}
+            </Text>
           )}
-
-          <View style={styles.priceRow}>
-            <View style={styles.priceContainer}>
-              <Text style={styles.price}>
-                {finalPrice.toLocaleString('vi-VN')}đ
-              </Text>
-              {item.discount && item.discount > 0 && (
-                <Text style={styles.originalPrice}>
-                  {item.price.toLocaleString('vi-VN')}đ
-                </Text>
-              )}
-            </View>
-
-            {item.stock !== undefined && (
-              <Text style={[
-                styles.stockText,
-                item.stock === 0 && styles.outOfStock
-              ]}>
-                {item.stock > 0 ? `Stock: ${item.stock}` : 'Out of stock'}
-              </Text>
-            )}
-          </View>
+          {item.note && (
+            <Text style={styles.noteText} numberOfLines={1}>
+              📝 {item.note}
+            </Text>
+          )}
+          <Text style={styles.dateText}>
+            Added {new Date(item.addedAt).toLocaleDateString()}
+          </Text>
         </View>
 
         <TouchableOpacity
           style={styles.removeButton}
-          onPress={() => handleRemoveFromWishlist(item.productId)}
+          onPress={() => handleRemoveFromWishlist(item.product.id)}
         >
-          <Ionicons name="close-circle" size={24} color="#ef4444" />
+          <Ionicons name="trash-outline" size={20} color="#dc2626" />
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -216,7 +193,7 @@ export default function WishlistScreen({ navigation }: WishlistScreenProps) {
       <FlatList
         data={wishlistItems}
         renderItem={renderWishlistItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.wishlistId}
         contentContainerStyle={
           wishlistItems.length === 0 
             ? styles.emptyListContainer 
@@ -287,45 +264,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    alignItems: 'center',
   },
-  productImageContainer: {
-    width: 100,
-    height: 100,
+  imageContainer: {
+    width: 80,
+    height: 80,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: '#f5f5f5',
-    position: 'relative',
   },
   productImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  productImagePlaceholder: {
-    width: '100%',
-    height: '100%',
+  placeholderImage: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  discountText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
   },
   productInfo: {
     flex: 1,
     marginLeft: 12,
-    justifyContent: 'space-between',
+    marginRight: 8,
   },
   productName: {
     fontSize: 15,
@@ -333,47 +293,29 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  ratingText: {
+  brandText: {
     fontSize: 13,
     color: '#666',
-    marginLeft: 4,
+    marginBottom: 2,
   },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ef4444',
-    marginRight: 8,
-  },
-  originalPrice: {
-    fontSize: 13,
-    color: '#999',
-    textDecorationLine: 'line-through',
-  },
-  stockText: {
+  shopText: {
     fontSize: 12,
-    color: '#22c55e',
-    fontWeight: '500',
+    color: '#666',
+    marginBottom: 2,
   },
-  outOfStock: {
-    color: '#ef4444',
+  noteText: {
+    fontSize: 12,
+    color: '#2563eb',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  dateText: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 4,
   },
   removeButton: {
-    padding: 4,
+    padding: 8,
   },
   emptyContainer: {
     flex: 1,

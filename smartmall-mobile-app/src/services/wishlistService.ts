@@ -3,14 +3,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export interface WishlistItem {
-  id: string;
-  productId: string;
-  productName: string;
-  productImage?: string;
-  price: number;
-  discount?: number;
-  averageRating?: number;
-  stock?: number;
+  wishlistId: string;
+  product: {
+    id: string;
+    name: string;
+    description: string;
+    brand: string;
+    images: string[];
+    status: string;
+    categoryId: string | null;
+    categoryName: string | null;
+    shopId: string | null;
+    shopName: string | null;
+  };
+  note: string | null;
+  addedAt: string;
 }
 
 interface ApiResponse<T> {
@@ -22,7 +29,7 @@ interface ApiResponse<T> {
 class WishlistService {
   private async getAuthToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem('authToken');
+      return await AsyncStorage.getItem('accessToken');
     } catch (error) {
       console.error('Error getting auth token:', error);
       return null;
@@ -57,25 +64,26 @@ class WishlistService {
     }
   }
 
-  async addToWishlist(productId: string): Promise<ApiResponse<any>> {
+  async addToWishlist(productId: string, note?: string): Promise<ApiResponse<WishlistItem>> {
     try {
       const token = await this.getAuthToken();
       if (!token) {
         return { success: false, message: 'Not authenticated' };
       }
 
-      const response = await fetch(`${API_URL}/api/wishlist/add/${productId}`, {
+      const response = await fetch(`${API_URL}/api/wishlist`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ productId, note }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        return { success: true, data: data.data, message: 'Added to wishlist' };
+        return { success: true, data: data.data, message: data.message || 'Added to wishlist' };
       } else {
         return { success: false, message: data.message || 'Failed to add to wishlist' };
       }
@@ -92,7 +100,7 @@ class WishlistService {
         return { success: false, message: 'Not authenticated' };
       }
 
-      const response = await fetch(`${API_URL}/api/wishlist/remove/${productId}`, {
+      const response = await fetch(`${API_URL}/api/wishlist/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -117,9 +125,11 @@ class WishlistService {
     try {
       const token = await this.getAuthToken();
       if (!token) {
+        console.log('No token found for wishlist check');
         return false;
       }
 
+      console.log('Checking wishlist for product:', productId);
       const response = await fetch(`${API_URL}/api/wishlist/check/${productId}`, {
         method: 'GET',
         headers: {
@@ -129,14 +139,46 @@ class WishlistService {
       });
 
       const data = await response.json();
+      console.log('Wishlist check response:', data);
 
       if (response.ok) {
-        return data.data === true;
+        // Backend trả về status thay vì success
+        const isInWishlist = data.data?.inWishlist === true;
+        console.log('Final wishlist status:', isInWishlist);
+        return isInWishlist;
       }
+      console.log('Response not ok');
       return false;
     } catch (error) {
       console.error('Error checking wishlist:', error);
       return false;
+    }
+  }
+
+  async getWishlistCount(): Promise<number> {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        return 0;
+      }
+
+      const response = await fetch(`${API_URL}/api/wishlist/count`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return data.data?.count || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error getting wishlist count:', error);
+      return 0;
     }
   }
 }
