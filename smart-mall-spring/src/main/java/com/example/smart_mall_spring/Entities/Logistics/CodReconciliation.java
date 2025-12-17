@@ -13,7 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "cod_reconciliations")
+@Table(name = "cod_reconciliation")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

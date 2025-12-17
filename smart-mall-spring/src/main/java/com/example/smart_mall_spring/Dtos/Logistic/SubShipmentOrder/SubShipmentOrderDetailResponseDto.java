@@ -1,5 +1,6 @@
 package com.example.smart_mall_spring.Dtos.Logistic.SubShipmentOrder;
 
+import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Enum.ShipmentStatus;
 import lombok.*;
 
@@ -10,7 +11,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SubShipmentOrderResponseDto {
+public class SubShipmentOrderDetailResponseDto {
+
     private UUID id;
     private UUID shipmentOrderId;
     private String shipmentOrderCode;
@@ -28,5 +30,15 @@ public class SubShipmentOrderResponseDto {
     private int sequence;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
+
+    // --- Thông tin Shop (người gửi) ---
+    private String shopName;
+    private Address shopAddress;
+    private String shopPhone;
+
+    // --- Thông tin Khách hàng (người nhận) ---
+    private String customerName;
+    private Address customerAddress;
+    private String customerPhone;
     private LocalDateTime updateTime;
 }

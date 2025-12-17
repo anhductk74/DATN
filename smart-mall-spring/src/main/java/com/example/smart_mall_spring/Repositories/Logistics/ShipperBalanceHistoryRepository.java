@@ -11,7 +11,9 @@ import java.util.UUID;
 
 public interface ShipperBalanceHistoryRepository extends JpaRepository<ShipperBalanceHistory, UUID> {
     List<ShipperBalanceHistory> findByDateBetween(LocalDateTime start, LocalDateTime end);
+
     List<ShipperBalanceHistory> findByShipperId(UUID shipperId);
+
     List<ShipperBalanceHistory> findByShipperIdAndDateBetween(
             UUID shipperId, LocalDateTime start, LocalDateTime end);
     Page<ShipperBalanceHistory> findByShipperId(

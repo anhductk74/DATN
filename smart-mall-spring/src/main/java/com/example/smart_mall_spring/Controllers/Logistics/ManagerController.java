@@ -117,13 +117,34 @@ public class ManagerController {
     /**
      * Manager cập nhật thông tin shipper của công ty mình
      */
-    @PutMapping("/shippers/{id}")
+    @PutMapping(
+            value = "/shippers/{id}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ShipperResponseDto> updateShipper(
-            @PathVariable UUID id, 
-            @RequestBody ShipperRequestDto dto) {
+            @PathVariable UUID id,
+
+            @ModelAttribute ShipperUpdateDto dto,
+
+            @RequestPart(required = false) MultipartFile idCardFront,
+            @RequestPart(required = false) MultipartFile idCardBack,
+            @RequestPart(required = false) MultipartFile driverLicense
+    ) {
         User currentUser = getCurrentUser();
-        return ResponseEntity.ok(shipperService.updateShipper(id, dto, currentUser));
+
+        return ResponseEntity.ok(
+                shipperService.updateShipper(
+                        id,
+                        dto,
+                        idCardFront,
+                        idCardBack,
+                        driverLicense,
+                        currentUser
+                )
+        );
     }
+
+
 
     /**
      * Manager xóa shipper của công ty mình

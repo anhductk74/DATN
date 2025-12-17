@@ -195,7 +195,7 @@ public class ShipperTransactionService {
 
     // Tổng tiền shipper trả cho công ty
     public BigDecimal getTotalPaid(UUID shipperId) {
-        return shipperTransactionRepository.findTotalByType(shipperId, ShipperTransactionType.PAY_FEE);
+        return shipperTransactionRepository.findTotalByType(shipperId, ShipperTransactionType.DEPOSIT_COD);
     }
 
     // Tổng hợp doanh thu
@@ -215,6 +215,7 @@ public class ShipperTransactionService {
 
         return result;
     }
+
     public void createBonusForDeliveredShipment(ShipmentOrder shipmentOrder) {
 
         // Chỉ tạo khi đơn DELIVERED

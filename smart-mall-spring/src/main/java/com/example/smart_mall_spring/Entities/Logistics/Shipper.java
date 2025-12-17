@@ -1,6 +1,7 @@
 package com.example.smart_mall_spring.Entities.Logistics;
 
 
+import com.example.smart_mall_spring.Entities.Address;
 import com.example.smart_mall_spring.Entities.BaseEntity;
 import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Enum.ShipperStatus;
@@ -59,9 +60,10 @@ public class Shipper extends BaseEntity {
     private String vehicleColor;
 
     // Khu vực hoạt động (đặc thù của shipper) - không cần street, chỉ cần commune/district/city
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "operational_region_id")
-    private com.example.smart_mall_spring.Entities.Address operationalRegion;
+    private Address operationalRegion;
+
 
     @Column(name = "max_delivery_radius")
     private Double maxDeliveryRadius; // Bán kính giao hàng tối đa (km)

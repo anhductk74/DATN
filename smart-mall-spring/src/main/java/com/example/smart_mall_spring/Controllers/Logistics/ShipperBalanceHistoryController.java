@@ -27,7 +27,7 @@ public class ShipperBalanceHistoryController {
     ) {
         return ResponseEntity.ok(service.createDailyHistory(dto));
     }
-
+// can use for shipper app
     @GetMapping("/shipper/{shipperId}")
     public ResponseEntity<List<ShipperBalanceHistoryResponseDto>> getByShipper(
             @PathVariable UUID shipperId
@@ -41,6 +41,7 @@ public class ShipperBalanceHistoryController {
     ) {
         return ResponseEntity.ok(service.getByDate(date));
     }
+
     @GetMapping("/range")
     public ResponseEntity<?> getRange(
             @RequestParam(required = false) UUID shipperId,
@@ -50,14 +51,14 @@ public class ShipperBalanceHistoryController {
     ) {
         return ResponseEntity.ok(service.getHistoryRange(from, to, shipperId, companyId));
     }
-
+    // can use for shipper app
     @GetMapping("/{id}")
     public ResponseEntity<ShipperBalanceHistoryResponseDto> getDetail(
             @PathVariable UUID id
     ) {
         return ResponseEntity.ok(service.getDetail(id));
     }
-
+    // can use for shipper app
     @GetMapping("/shipper/{shipperId}/paged")
     public ResponseEntity<?> getPagedHistory(
             @PathVariable UUID shipperId,

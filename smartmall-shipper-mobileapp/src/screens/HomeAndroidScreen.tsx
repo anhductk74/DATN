@@ -1,51 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Image,
   SafeAreaView,
+  TouchableOpacity,
+  ScrollView,
+  Image,
   Modal,
   Animated,
   Dimensions,
+  StatusBar,
+  Platform,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { shipperSubOrderService, ShipperDashboardResponseDto } from '../services/ShipperSubOrderService';
 import { storageService } from '../services/storage.service';
 import { UserInfo } from '../types/auth.types';
-import { shipperSubOrderService, ShipperDashboardResponseDto } from '../services/ShipperSubOrderService';
 
 const { width } = Dimensions.get('window');
 
-interface HomeScreenProps {
-  onLogout?: () => void;
-  onNavigateToOrders?: () => void;
-  onNavigateToIncome?: () => void;
-  onNavigateToProfile?: () => void;
-}
+type Props = {
+  onNavigateToOrders: () => void;
+  onNavigateToIncome: () => void;
+  onNavigateToProfile: () => void;
+};
 
-export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToIncome, onNavigateToProfile }: HomeScreenProps) {
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+export default function HomeAndroidScreen({ 
+  onNavigateToOrders, 
+  onNavigateToIncome,
+  onNavigateToProfile 
+}: Props) {
+  const [isOnline, setIsOnline] = useState(false);
   const [dashboard, setDashboard] = useState<ShipperDashboardResponseDto | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [slideAnim] = useState(new Animated.Value(-width * 0.75));
+  const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
 
   useEffect(() => {
     loadUserInfo();
   }, []);
-
-  const loadUserInfo = async () => {
-    const info = await storageService.getUserInfo();
-    setUserInfo(info);
-    
-    if (info?.shipper?.shipperId) {
-      await loadDashboard(info.shipper.shipperId);
-    }
-  };
 
   const loadDashboard = async (shipperId: string) => {
     try {
@@ -54,27 +48,28 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
         setDashboard(response.data);
       }
     } catch (error) {
-      console.error('Error loading dashboard:', error);
+      console.error('Failed to load dashboard:', error);
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadUserInfo();
-    setRefreshing(false);
-  };
-
-  const handleLogout = async () => {
-    await storageService.clearAll();
-    closeMenu();
-    onLogout?.();
+  const loadUserInfo = async () => {
+    try {
+      const info = await storageService.getUserInfo();
+      setUserInfo(info);
+      
+      if (info?.shipper?.shipperId) {
+        await loadDashboard(info.shipper.shipperId);
+      }
+    } catch (error) {
+      console.error('Failed to load user info:', error);
+    }
   };
 
   const openMenu = () => {
     setMenuVisible(true);
     Animated.timing(slideAnim, {
       toValue: 0,
-      duration: 300,
+      duration: 250,
       useNativeDriver: true,
     }).start();
   };
@@ -82,30 +77,38 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
   const closeMenu = () => {
     Animated.timing(slideAnim, {
       toValue: -width * 0.75,
-      duration: 300,
+      duration: 200,
       useNativeDriver: true,
     }).start(() => setMenuVisible(false));
   };
 
-  const shipper = userInfo?.shipper;
+  const toggleOnlineStatus = () => {
+    setIsOnline(!isOnline);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await storageService.clearAll();
+      // Navigation will be handled by parent
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
+      <StatusBar barStyle="light-content" backgroundColor="#1976D2" />
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={openMenu} style={styles.menuBtn}>
+          <TouchableOpacity style={styles.menuBtn} onPress={openMenu}>
             <Ionicons name="menu" size={28} color="#fff" />
           </TouchableOpacity>
-          
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>SmartMall Shipper</Text>
-            <Text style={styles.headerSubtitle}>Giao hàng thông minh</Text>
+           
           </View>
-          
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity style={styles.avatarContainer} onPress={onNavigateToProfile}>
             {userInfo?.avatar ? (
               <Image source={{ uri: userInfo.avatar }} style={styles.avatar} />
             ) : (
@@ -113,40 +116,48 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
                 <Ionicons name="person" size={24} color="#1976D2" />
               </View>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
+        {/* <TouchableOpacity
+          style={[styles.statusToggle, isOnline && styles.statusToggleOnline]}
+          onPress={toggleOnlineStatus}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.statusDot, isOnline && styles.statusDotOnline]} />
+          <Text style={styles.statusText}>
+            {isOnline ? 'Đang hoạt động' : 'Ngoại tuyến'}
+          </Text>
+          <Ionicons 
+            name={isOnline ? 'toggle' : 'toggle-outline'} 
+            size={24} 
+            color="#fff" 
+            style={styles.statusIcon}
+          />
+        </TouchableOpacity> */}
 
-      </View>
-
-      {/* Scrollable Content */}
-      <ScrollView
-        style={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976D2']} />
-        }
-      >
-        {/* Stats Cards - Today Summary */}
+        {/* Dashboard Stats in Header */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#E3F2FD' }]}>
-              <Ionicons name="briefcase-outline" size={24} color="#1976D2" />
-            </View>
-            <Text style={styles.statValue}>{dashboard?.today.totalAssigned || 0}</Text>
-            <Text style={styles.statLabel}>Đơn được giao</Text>
-          </View>
-          <View style={styles.statCard}>
             <View style={[styles.statIconContainer, { backgroundColor: '#E8F5E9' }]}>
-              <Ionicons name="checkmark-circle-outline" size={24} color="#388E3C" />
+              <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
             </View>
-            <Text style={[styles.statValue, { color: '#388E3C' }]}>
+            <Text style={[styles.statValue, { color: '#4CAF50' }]}>
               {dashboard?.today.delivered || 0}
             </Text>
             <Text style={styles.statLabel}>Đã giao</Text>
           </View>
           <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: '#E1F5FE' }]}>
+              <Ionicons name="list" size={20} color="#0288D1" />
+            </View>
+            <Text style={[styles.statValue, { color: '#0288D1' }]}>
+              {dashboard?.today.totalAssigned || 0}
+            </Text>
+            <Text style={styles.statLabel}>Tổng đơn</Text>
+          </View>
+          <View style={styles.statCard}>
             <View style={[styles.statIconContainer, { backgroundColor: '#FFF3E0' }]}>
-              <Ionicons name="bicycle" size={24} color="#F57C00" />
+              <Ionicons name="bicycle" size={20} color="#F57C00" />
             </View>
             <Text style={[styles.statValue, { color: '#F57C00' }]}>
               {dashboard?.today.inTransit || 0}
@@ -155,7 +166,7 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
           </View>
           <View style={styles.statCard}>
             <View style={[styles.statIconContainer, { backgroundColor: '#FFF9C4' }]}>
-              <Ionicons name="time-outline" size={24} color="#F57F17" />
+              <Ionicons name="time-outline" size={20} color="#F57F17" />
             </View>
             <Text style={[styles.statValue, { color: '#F57F17' }]}>
               {dashboard?.today.pending || 0}
@@ -163,8 +174,11 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
             <Text style={styles.statLabel}>Chờ xử lý</Text>
           </View>
         </View>
+      </View>
 
-        {/* COD Summary Card */}
+      {/* Scrollable Content */}
+      <ScrollView style={styles.scrollContent}>
+        {/* COD Summary Card - Fixed 2x2 Grid for Android */}
         {dashboard?.cod && (
           <TouchableOpacity style={styles.codCard} onPress={onNavigateToIncome} activeOpacity={0.7}>
             <View style={styles.cardHeader}>
@@ -248,9 +262,6 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
                     <Ionicons name="cube" size={16} color="#1976D2" />
                     <Text style={styles.trackingText}>{delivery.trackingCode}</Text>
                   </View>
-                  {/* <View style={styles.sequenceTag}>
-                    <Text style={styles.sequenceTagText}>{delivery.sequence}</Text>
-                  </View> */}
                 </View>
 
                 {/* Time */}
@@ -327,21 +338,16 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
               <Text style={styles.infoLabel}>Biển số:</Text>
               <Text style={styles.infoValue}>{userInfo.shipper.licensePlate}</Text>
             </View>
-            {userInfo.shipper.operationalRegionFull && (
-              <View style={styles.areaSection}>
-                <View style={styles.areaSectionHeader}>
-                  <Ionicons name="location" size={18} color="#F57C00" />
-                  <Text style={styles.areaSectionLabel}>Khu vực hoạt động</Text>
-                </View>
-                <View style={styles.areaBox}>
-                  <Ionicons name="map" size={16} color="#F57C00" />
-                  <Text style={styles.areaBoxText}>{userInfo.shipper.operationalRegionFull}</Text>
-                </View>
-              </View>
-            )}
+            <View style={styles.infoRow}>
+              <Ionicons name="location-outline" size={18} color="#666" />
+              <Text style={styles.infoLabel}>Khu vực:</Text>
+              <Text style={styles.infoValue} numberOfLines={2}>
+                {userInfo.shipper.operationalRegionFull}
+              </Text>
+            </View>
           </View>
         )}
-        
+
         {/* Bottom padding to prevent content being hidden by bottom nav */}
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -382,29 +388,19 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
 
               {/* Menu Items */}
               <View style={styles.menuContent}>
-                <TouchableOpacity 
-                  style={styles.menuItem}
-                  onPress={() => {
-                    closeMenu();
-                    onNavigateToProfile?.();
-                  }}
-                >
+                <TouchableOpacity style={styles.menuItem}>
                   <Ionicons name="person-outline" size={24} color="#333" />
                   <Text style={styles.menuItemText}>Thông tin cá nhân</Text>
                 </TouchableOpacity>
                 
-                <TouchableOpacity 
-                  style={styles.menuItemHelp}
-                  onPress={() => {
-                    const { Linking } = require('react-native');
-                    Linking.openURL('tel:19006868');
-                  }}
-                >
-                  <Ionicons name="call-outline" size={24} color="#4CAF50" />
-                  <View style={styles.helpTextContainer}>
-                    <Text style={styles.menuItemHelpText}>Gọi trợ giúp</Text>
-                    <Text style={styles.helpPhoneText}>1900 6868</Text>
-                  </View>
+                <TouchableOpacity style={styles.menuItem}>
+                  <Ionicons name="settings-outline" size={24} color="#333" />
+                  <Text style={styles.menuItemText}>Cài đặt</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity style={styles.menuItem}>
+                  <Ionicons name="help-circle-outline" size={24} color="#333" />
+                  <Text style={styles.menuItemText}>Trợ giúp</Text>
                 </TouchableOpacity>
                 
                 <View style={styles.menuDivider} />
@@ -426,6 +422,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     backgroundColor: '#1976D2',
@@ -536,8 +533,8 @@ const styles = StyleSheet.create({
   statCard: {
     width: '23%',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 8,
     alignItems: 'center',
     shadowColor: '#1976D2',
     shadowOffset: { width: 0, height: 2 },
@@ -547,21 +544,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1976D2',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#666',
     textAlign: 'center',
   },
@@ -573,6 +570,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 16,
     padding: 16,
+    marginTop: 12,
     marginBottom: 12,
     shadowColor: '#1976D2',
     shadowOffset: { width: 0, height: 2 },
@@ -586,22 +584,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexWrap: 'wrap',
   },
-  codItem: {
-    width: '48%',
-    alignItems: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    marginHorizontal: '1%',
-    marginBottom: 8,
-  },
   codItemEnhanced: {
     width: '48%',
     alignItems: 'center',
     paddingVertical: 12,
     backgroundColor: '#FAFAFA',
     borderRadius: 12,
-    marginHorizontal: '1%',
     marginBottom: 8,
     borderWidth: 0.5,
     borderColor: '#E8E8E8',
@@ -614,11 +602,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-  codLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 6,
-  },
   codLabelEnhanced: {
     fontSize: 10,
     color: '#9E9E9E',
@@ -626,10 +609,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
-  codValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   codValueEnhanced: {
     fontSize: 16,
@@ -690,17 +669,6 @@ const styles = StyleSheet.create({
     color: '#1976D2',
     marginLeft: 4,
   },
-  sequenceTag: {
-    backgroundColor: '#1976D2',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  sequenceTagText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
   timeText: {
     fontSize: 11,
     color: '#4CAF50',
@@ -756,128 +724,6 @@ const styles = StyleSheet.create({
     color: '#DDD',
     marginHorizontal: 6,
   },
-  deliveryCard: {
-    marginTop: 12,
-    paddingBottom: 12,
-  },
-  deliveryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  deliveryHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  trackingCode: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1976D2',
-    marginLeft: 6,
-  },
-  sequenceBadge: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  sequenceText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#1976D2',
-  },
-  deliveryTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingLeft: 4,
-  },
-  deliveryTimeText: {
-    fontSize: 13,
-    color: '#388E3C',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  recipientSection: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  recipientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  recipientName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#212121',
-    marginLeft: 8,
-  },
-  recipientPhone: {
-    fontSize: 13,
-    color: '#666',
-    marginLeft: 8,
-  },
-  addressSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFF3E0',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  addressText: {
-    fontSize: 13,
-    color: '#E65100',
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 18,
-  },
-  bottomInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  warehouseTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flex: 1,
-    marginRight: 8,
-  },
-  warehouseText: {
-    fontSize: 12,
-    color: '#1976D2',
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  vehicleTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flex: 1,
-  },
-  vehicleText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 6,
-  },
-  deliveryDivider: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginTop: 16,
-  },
   emptyDeliveryState: {
     alignItems: 'center',
     paddingVertical: 30,
@@ -893,47 +739,6 @@ const styles = StyleSheet.create({
     color: '#BDBDBD',
     marginTop: 4,
     textAlign: 'center',
-  },
-  deliveryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-  },
-  deliveryIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E8F5E9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  deliveryInfo: {
-    flex: 1,
-  },
-  deliveryCode: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#212121',
-    marginBottom: 4,
-  },
-  deliveryTime: {
-    fontSize: 12,
-    color: '#666',
-  },
-  userInfoCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#1976D2',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   shipperInfoCard: {
     backgroundColor: '#fff',
@@ -981,37 +786,6 @@ const styles = StyleSheet.create({
     flex: 1.5,
     textAlign: 'right',
   },
-  areaSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  areaSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
-  },
-  areaSectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#F57C00',
-  },
-  areaBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFF3E0',
-    padding: 10,
-    borderRadius: 8,
-    gap: 8,
-  },
-  areaBoxText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#E65100',
-    lineHeight: 18,
-  },
   // Side Menu Styles
   modalOverlay: {
     flex: 1,
@@ -1032,7 +806,7 @@ const styles = StyleSheet.create({
   },
   menuHeader: {
     backgroundColor: '#1976D2',
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 40 : 60,
     paddingBottom: 30,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -1087,28 +861,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 16,
     fontWeight: '500',
-  },
-  menuItemHelp: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-    backgroundColor: '#F1F8F4',
-  },
-  menuItemHelpText: {
-    fontSize: 16,
-    color: '#4CAF50',
-    fontWeight: '600',
-  },
-  helpTextContainer: {
-    marginLeft: 16,
-  },
-  helpPhoneText: {
-    fontSize: 12,
-    color: '#66BB6A',
-    marginTop: 2,
   },
   menuDivider: {
     height: 1,

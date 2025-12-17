@@ -167,5 +167,21 @@ ORDER BY FUNCTION('DATE', t.createdAt)
             @Param("from") LocalDate from,
             @Param("to") LocalDate to
     );
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM ShipperTransaction t
+        WHERE t.shipper.id = :shipperId
+          AND t.transactionType = 'COLLECT_COD'
+        """)
+    BigDecimal totalCollected(UUID shipperId);
+
+
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM ShipperTransaction t
+        WHERE t.shipper.id = :shipperId
+          AND t.transactionType = 'PAY_COD'
+        """)
+    BigDecimal totalPaid(UUID shipperId);
 
 }

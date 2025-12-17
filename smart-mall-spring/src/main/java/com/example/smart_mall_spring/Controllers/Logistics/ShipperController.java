@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,35 +42,32 @@ public class ShipperController {
             @RequestPart(value = "idCardFrontImage", required = false) MultipartFile idCardFrontImage,
             @RequestPart(value = "idCardBackImage", required = false) MultipartFile idCardBackImage,
             @RequestPart(value = "driverLicenseImage", required = false) MultipartFile driverLicenseImage) {
-        
+
         try {
             // Parse JSON string to DTO
             ShipperInfoDto dataInfo = objectMapper.readValue(dataInfoJson, ShipperInfoDto.class);
-            
+
             User currentUser = getCurrentUser();
-            
+
             ShipperResponseDto response = shipperService.registerShipper(
-                dataInfo, 
-                idCardFrontImage, 
-                idCardBackImage, 
-                driverLicenseImage, 
-                currentUser
-            );
-            
+                    dataInfo,
+                    idCardFrontImage,
+                    idCardBackImage,
+                    driverLicenseImage,
+                    currentUser);
+
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
+
         } catch (StackOverflowError e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "Internal server error",
-                "message", "StackOverflowError occurred during shipper registration"
-            ));
+                    "error", "Internal server error",
+                    "message", "StackOverflowError occurred during shipper registration"));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of(
-                "error", "Invalid request",
-                "message", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()
-            ));
+                    "error", "Invalid request",
+                    "message", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -79,8 +77,7 @@ public class ShipperController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String region,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
+            @RequestParam(defaultValue = "10") int size) {
         User currentUser = getCurrentUser();
         return ResponseEntity.ok(shipperService.getAllShippers(search, status, region, currentUser, page, size));
     }
@@ -96,11 +93,50 @@ public class ShipperController {
         return ResponseEntity.ok(shipperService.createShipper(dto));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ShipperResponseDto> updateShipper(@PathVariable UUID id, @RequestBody ShipperRequestDto dto) {
-        User currentUser = getCurrentUser();
-        return ResponseEntity.ok(shipperService.updateShipper(id, dto, currentUser));
+    @PutMapping(
+            value = "/{id}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ShipperResponseDto> updateShipper(
+            @PathVariable UUID id,
+            @ModelAttribute ShipperUpdateDto dto,
+            @RequestPart(required = false) MultipartFile idCardFront,
+            @RequestPart(required = false) MultipartFile idCardBack,
+            @RequestPart(required = false) MultipartFile driverLicense,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(
+                shipperService.updateShipper(
+                        id,
+                        dto,
+                        idCardFront,
+                        idCardBack,
+                        driverLicense,
+                        currentUser
+                )
+        );
     }
+
+
+//    @PostMapping(value = "/{id}/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    public ResponseEntity<?> uploadImage(
+//            @PathVariable UUID id,
+//            @RequestPart("file") MultipartFile file,
+//            @RequestParam("imageType") String imageType) {
+//        try {
+//            User currentUser = getCurrentUser();
+//            String imageUrl = shipperService.uploadImage(id, file, imageType, currentUser);
+//            return ResponseEntity.ok(Map.of(
+//                    "success", true,
+//                    "message", "Upload ảnh thành công",
+//                    "data", Map.of("imageUrl", imageUrl)));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+//                    "success", false,
+//                    "message", "Lỗi upload ảnh: " + e.getMessage()));
+//        }
+//    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteShipper(@PathVariable UUID id) {
@@ -108,14 +144,15 @@ public class ShipperController {
         shipperService.deleteShipper(id, currentUser);
         return ResponseEntity.noContent().build();
     }
+
     @GetMapping("/statistics")
     public ResponseEntity<ShipperStatisticsResponse> getStatistics() {
         return ResponseEntity.ok(shipperService.getShipperStatistics());
     }
+
     @GetMapping("/{id}/delivery-statistics")
     public ResponseEntity<ShipperDeliveryStatisticsResponse> getDeliveryStats(
-            @PathVariable UUID id
-    ) {
+            @PathVariable UUID id) {
         return ResponseEntity.ok(shipperService.getShipperDeliveryStatistics(id));
     }
 

@@ -214,38 +214,23 @@ export default function ShippersPage() {
 
   // Auto-fill company info from session when modal opens
   useEffect(() => {
-    if (createModalVisible && session?.user?.company && shippingCompanies.length > 0 && provinces.length > 0) {
+    if (createModalVisible && session?.user?.company) {
       const company = session.user.company;
+      console.log('=== AUTO-FILL COMPANY INFO ===');
+      console.log('Using session company info:', company);
       
-      // Find matching shipping company by ID or name
-      const matchingCompany = shippingCompanies.find(
-        c => c.id === company.companyId || c.name === company.companyName
-      );
+      // Set company ID and operational fields in form immediately
+      createForm.setFieldsValue({
+        shippingCompanyId: company.companyId,
+        operationalCity: company.city,
+        operationalDistrict: company.district,
+        operationalCommune: company.commune
+      });
       
-      if (matchingCompany) {
-        // Set company ID and operational fields in form
-        createForm.setFieldsValue({
-          shippingCompanyId: matchingCompany.id,
-          operationalCity: company.city,
-          operationalDistrict: company.district
-        });
-        
-        // Trigger company change to load wards
-        handleCompanyChange(matchingCompany.id);
-      } else if (company.companyId) {
-        // Even if not found in list, set the ID from session
-        createForm.setFieldsValue({
-          shippingCompanyId: company.companyId,
-          operationalCity: company.city,
-          operationalDistrict: company.district
-        });
-        
-        // Trigger company change with session company ID
-        handleCompanyChange(company.companyId);
-      }
+      console.log('✅ Form fields auto-filled from session');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createModalVisible, session, shippingCompanies, provinces]);
+  }, [createModalVisible, session]);
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -510,34 +495,30 @@ export default function ShippersPage() {
   const handleCreate = async (values: ShipperRegisterDto & { regionWards?: string[] }) => {
     setSubmitting(true);
     try {
-      // Use session company if available
-      const companyId = session?.user?.company?.companyId || values.shippingCompanyId;
-      const companyEmail = session?.user?.company?.contactEmail;
+      // ALWAYS use session company ID for managers
+      const companyId = session?.user?.company?.companyId;
       
       if (!companyId) {
-        message.error('Vui lòng chọn công ty vận chuyển');
+        message.error('Không tìm thấy thông tin công ty. Vui lòng đăng nhập lại.');
+        setSubmitting(false);
         return;
       }
       
-      // Validate email domain matches company
-      if (companyEmail && values.email) {
-        const companyDomain = companyEmail.substring(companyEmail.indexOf('@'));
-        if (!values.email.endsWith(companyDomain)) {
-          message.error(`Email phải có đuôi ${companyDomain} của công ty`);
-          return;
-        }
-      }
+      console.log('✅ Using company ID from session:', companyId);
       
-      // Validate operational region
-      if (!values.operationalCommune) {
-        message.error('Vui lòng chọn phường/xã hoạt động');
+      // Auto-fill operational region from session company
+      const operationalCity = session?.user?.company?.city;
+      const operationalDistrict = session?.user?.company?.district;
+      const operationalCommune = session?.user?.company?.commune;
+      
+      // Validate operational region exists in session
+      if (!operationalCity || !operationalDistrict) {
+        message.error('Không tìm thấy thông tin khu vực hoạt động của công ty');
+        setSubmitting(false);
         return;
       }
       
-      if (!values.operationalDistrict || !values.operationalCity) {
-        message.error('Không tìm thấy thông tin khu vực hoạt động');
-        return;
-      }
+      console.log('📍 Operational region from session:', { operationalCity, operationalDistrict, operationalCommune });
       
       // NEW API STRUCTURE: Prepare dataInfo object (will be JSON stringified in service)
       const registerDto: ShipperRegisterDto = {
@@ -558,9 +539,9 @@ export default function ShippersPage() {
         licensePlate: values.licensePlate,
         vehicleBrand: values.vehicleBrand,
         vehicleColor: values.vehicleColor,
-        operationalCommune: values.operationalCommune,
-        operationalDistrict: values.operationalDistrict,
-        operationalCity: values.operationalCity,
+        operationalCommune: operationalCommune || operationalDistrict, // Use district as fallback
+        operationalDistrict: operationalDistrict,
+        operationalCity: operationalCity,
         maxDeliveryRadius: values.maxDeliveryRadius ? parseFloat(values.maxDeliveryRadius.toString()) : undefined
       };
 
@@ -928,40 +909,10 @@ export default function ShippersPage() {
                 label="Email" 
                 name="email" 
                 rules={[
-                  { required: true, type: 'email', message: 'Vui lòng nhập email hợp lệ' },
-                  {
-                    validator: async (_, value) => {
-                      if (!value) return Promise.resolve();
-                      
-                      // Get company email domain from session
-                      const companyEmail = session?.user?.company?.contactEmail;
-                      if (!companyEmail) {
-                        return Promise.reject(new Error('Không tìm thấy thông tin email công ty'));
-                      }
-                      
-                      // Extract domain from company email (e.g., "@ghtk.com")
-                      const emailDomain = companyEmail.substring(companyEmail.indexOf('@'));
-                      
-                      // Check if shipper email has same domain
-                      if (!value.endsWith(emailDomain)) {
-                        return Promise.reject(
-                          new Error(`Email phải có đuôi ${emailDomain} của công ty`)
-                        );
-                      }
-                      
-                      return Promise.resolve();
-                    }
-                  }
+                  { required: true, type: 'email', message: 'Vui lòng nhập email hợp lệ' }
                 ]}
-                extra={session?.user?.company?.contactEmail ? 
-                  `Email phải có đuôi ${session.user.company.contactEmail.substring(session.user.company.contactEmail.indexOf('@'))}` : 
-                  null
-                }
               >
-                <Input placeholder={session?.user?.company?.contactEmail ? 
-                  `shipper${session.user.company.contactEmail.substring(session.user.company.contactEmail.indexOf('@'))}` : 
-                  "shipper@company.com"
-                } />
+                <Input placeholder="shipper@gmail.com" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -1124,25 +1075,9 @@ export default function ShippersPage() {
             />
           )}
           
-          <Form.Item 
-            label="Công ty vận chuyển" 
-            name="shippingCompanyId" 
-            rules={[{ required: true, message: 'Vui lòng chọn công ty vận chuyển' }]}
-            hidden={!!session?.user?.company}
-          >
-            <Select 
-              placeholder="Chọn công ty vận chuyển"
-              onChange={handleCompanyChange}
-              showSearch
-              loading={shippingCompanies.length === 0}
-              filterOption={(input, option) =>
-                ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={shippingCompanies.map(company => ({
-                label: `${company.name} (${company.code})${company.district && company.city ? ` - ${company.district}, ${company.city}` : ''}`,
-                value: company.id
-              }))}
-            />
+          {/* Hidden field to store company ID from session */}
+          <Form.Item name="shippingCompanyId" hidden>
+            <Input />
           </Form.Item>
 
           <Row gutter={16}>
@@ -1243,7 +1178,6 @@ export default function ShippersPage() {
               <Form.Item 
                 label="Tỉnh/Thành phố hoạt động" 
                 name="operationalCity"
-                rules={[{ required: true, message: 'Vui lòng nhập tỉnh/thành phố hoạt động' }]}
                 initialValue={session?.user?.company?.city || ''}
               >
                 <Input disabled placeholder="Tỉnh/Thành phố hoạt động" />
@@ -1253,7 +1187,6 @@ export default function ShippersPage() {
               <Form.Item 
                 label="Quận/Huyện hoạt động" 
                 name="operationalDistrict"
-                rules={[{ required: true, message: 'Vui lòng nhập quận/huyện hoạt động' }]}
                 initialValue={session?.user?.company?.district || ''}
               >
                 <Input disabled placeholder="Quận/Huyện hoạt động" />
@@ -1263,20 +1196,9 @@ export default function ShippersPage() {
               <Form.Item 
                 label="Phường/Xã hoạt động" 
                 name="operationalCommune"
-                rules={[{ required: true, message: 'Vui lòng chọn phường/xã hoạt động' }]}
+                initialValue={session?.user?.company?.commune || ''}
               >
-                <Select 
-                  placeholder="Chọn phường/xã hoạt động"
-                  disabled={availableWardsInCompanyDistrict.length === 0}
-                  showSearch
-                  filterOption={(input, option) =>
-                    ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                  options={availableWardsInCompanyDistrict.map(ward => ({
-                    label: ward.name,
-                    value: ward.name
-                  }))}
-                />
+                <Input disabled placeholder="Phường/Xã hoạt động" />
               </Form.Item>
             </Col>
           </Row>

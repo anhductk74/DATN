@@ -562,52 +562,128 @@ public class ShipperService {
         Shipper saved = shipperRepository.save(shipper);
         return mapToDto(saved);
     }
+    @Transactional
+    public ShipperResponseDto updateShipper(
+            UUID id,
+            ShipperUpdateDto dto,
+            MultipartFile idCardFront,
+            MultipartFile idCardBack,
+            MultipartFile driverLicense,
+            User currentUser
+    ) {
 
-    // Cập nhật shipper
-    public ShipperResponseDto updateShipper(UUID id, ShipperRequestDto dto, User currentUser) {
         Shipper shipper = shipperRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy shipper với ID: " + id));
-        
-        // Kiểm tra quyền truy cập của manager
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Không tìm thấy shipper với ID: " + id)
+                );
+
         validateManagerAccess(currentUser, shipper);
 
-        if (dto.getShippingCompanyId() != null) {
-            ShippingCompany company = shippingCompanyRepository.findById(dto.getShippingCompanyId())
-                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy công ty vận chuyển với ID: " + dto.getShippingCompanyId()));
-            
-            // Kiểm tra manager không thể chuyển shipper sang công ty khác
+    /* =========================
+       UPDATE COMPANY
+       ========================= */
+        if (dto.getShippingCompanyId() != null && !dto.getShippingCompanyId().isBlank()) {
+            UUID companyId = UUID.fromString(dto.getShippingCompanyId());
+
+            ShippingCompany company = shippingCompanyRepository.findById(companyId)
+                    .orElseThrow(() ->
+                            new EntityNotFoundException("Không tìm thấy công ty vận chuyển")
+                    );
+
             UUID managerCompanyId = getManagerCompanyId(currentUser);
-            if (managerCompanyId != null && !managerCompanyId.equals(dto.getShippingCompanyId())) {
-                throw new IllegalArgumentException("Manager không thể chuyển shipper sang công ty khác");
+            if (managerCompanyId != null && !managerCompanyId.equals(companyId)) {
+                throw new IllegalArgumentException(
+                        "Manager không thể chuyển shipper sang công ty khác"
+                );
             }
-            
+
             shipper.setShippingCompany(company);
         }
 
-        if (dto.getStatus() != null) shipper.setStatus(dto.getStatus());
-        if (dto.getLatitude() != null) shipper.setCurrentLatitude(dto.getLatitude());
-        if (dto.getLongitude() != null) shipper.setCurrentLongitude(dto.getLongitude());
-        if (dto.getVehicleType() != null) shipper.setVehicleType(dto.getVehicleType());
-        if (dto.getLicensePlate() != null) shipper.setLicensePlate(dto.getLicensePlate());
-        if (dto.getVehicleBrand() != null) shipper.setVehicleBrand(dto.getVehicleBrand());
-        if (dto.getVehicleColor() != null) shipper.setVehicleColor(dto.getVehicleColor());
-        if (dto.getMaxDeliveryRadius() != null) shipper.setMaxDeliveryRadius(dto.getMaxDeliveryRadius());
-        
-        // Cập nhật khu vực hoạt động
-        if (dto.getOperationalCommune() != null || dto.getOperationalDistrict() != null || dto.getOperationalCity() != null) {
+    /* =========================
+       UPDATE VEHICLE
+       ========================= */
+        if (dto.getVehicleType() != null)
+            shipper.setVehicleType(dto.getVehicleType());
+
+        if (dto.getLicensePlate() != null)
+            shipper.setLicensePlate(dto.getLicensePlate());
+
+        if (dto.getVehicleBrand() != null)
+            shipper.setVehicleBrand(dto.getVehicleBrand());
+
+        if (dto.getVehicleColor() != null)
+            shipper.setVehicleColor(dto.getVehicleColor());
+
+        if (dto.getMaxDeliveryRadius() != null && !dto.getMaxDeliveryRadius().isBlank()) {
+            shipper.setMaxDeliveryRadius(
+                    Double.parseDouble(dto.getMaxDeliveryRadius())
+            );
+        }
+
+    /* =========================
+       UPDATE OPERATIONAL REGION
+       ========================= */
+        if (dto.getOperationalCommune() != null ||
+                dto.getOperationalDistrict() != null ||
+                dto.getOperationalCity() != null) {
+
             Address operationalRegion = shipper.getOperationalRegion();
             if (operationalRegion == null) {
                 operationalRegion = new Address();
             }
-            if (dto.getOperationalCommune() != null) operationalRegion.setCommune(dto.getOperationalCommune());
-            if (dto.getOperationalDistrict() != null) operationalRegion.setDistrict(dto.getOperationalDistrict());
-            if (dto.getOperationalCity() != null) operationalRegion.setCity(dto.getOperationalCity());
+
+            if (dto.getOperationalCommune() != null)
+                operationalRegion.setCommune(dto.getOperationalCommune());
+
+            if (dto.getOperationalDistrict() != null)
+                operationalRegion.setDistrict(dto.getOperationalDistrict());
+
+            if (dto.getOperationalCity() != null)
+                operationalRegion.setCity(dto.getOperationalCity());
+
             shipper.setOperationalRegion(operationalRegion);
+        }
+
+    /* =========================
+       UPDATE LEGAL INFO
+       ========================= */
+        if (dto.getIdCardNumber() != null && !dto.getIdCardNumber().isBlank()) {
+            shipper.setIdCardNumber(dto.getIdCardNumber());
+        }
+
+        if (dto.getDriverLicenseNumber() != null && !dto.getDriverLicenseNumber().isBlank()) {
+            shipper.setDriverLicenseNumber(dto.getDriverLicenseNumber());
+        }
+
+    /* =========================
+       UPLOAD IMAGE (NẾU CÓ)
+       ========================= */
+        if (idCardFront != null && !idCardFront.isEmpty()) {
+            Map<String, String> result =
+                    cloudinaryService.uploadFileToFolder(idCardFront, "shipper/id-card");
+            shipper.setIdCardFrontImage(result.get("url"));
+        }
+
+        if (idCardBack != null && !idCardBack.isEmpty()) {
+            Map<String, String> result =
+                    cloudinaryService.uploadFileToFolder(idCardBack, "shipper/id-card");
+            shipper.setIdCardBackImage(result.get("url"));
+        }
+
+        if (driverLicense != null && !driverLicense.isEmpty()) {
+            Map<String, String> result =
+                    cloudinaryService.uploadFileToFolder(driverLicense, "shipper/driver-license");
+            shipper.setDriverLicenseImage(result.get("url"));
         }
 
         Shipper updated = shipperRepository.save(shipper);
         return mapToDto(updated);
     }
+
+
+
+
 
     // Xóa shipper
     public void deleteShipper(UUID id, User currentUser) {

@@ -1,11 +1,13 @@
 package com.example.smart_mall_spring.Repositories.Logistics;
 
 import com.example.smart_mall_spring.Entities.Logistics.Shipper;
+import com.example.smart_mall_spring.Entities.Users.User;
 import com.example.smart_mall_spring.Enum.ShipperStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -30,4 +32,12 @@ public interface ShipperRepository extends JpaRepository<Shipper, UUID> {
 
     @Query("SELECT COUNT(s) FROM Shipper s WHERE s.status = 'ACTIVE' AND s.shippingCompany.id = :companyId")
     Integer countActiveShippersByCompany(UUID companyId);
+
+    @Query("""
+SELECT s.id
+FROM Shipper s
+WHERE s.user.id = :userId
+""")
+    Optional<UUID> findShipperIdByUserId(@Param("userId") UUID userId);
+
 }
