@@ -2,12 +2,15 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const AI_API_BASE_URL = process.env.EXPO_PUBLIC_AI_API_URL || 'http://localhost:5001';
 
 interface Product {
   id: string;
   name: string;
   description: string;
   brand?: string;
+  price?: number; // Direct price field (may come from AI search API)
+  minPrice?: number; // Minimum price from variants
   images: string[];
   status: string;
   isDeleted: boolean;
@@ -197,14 +200,56 @@ class ProductService {
     }
   }
 
-  async getProductsByCategory(categoryId: string, page = 0, size = 20): Promise<ApiResponse<any>> {
+  async smartSearch(query: string, page = 0, size = 20, filters?: {
+    categoryId?: string;
+    shopId?: string;
+    status?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      const params = new URLSearchParams({
+        query,
+        page: page.toString(),
+        size: size.toString()
+      });
+      
+      if (filters?.categoryId) params.append('categoryId', filters.categoryId);
+      if (filters?.shopId) params.append('shopId', filters.shopId);
+      if (filters?.status) params.append('status', filters.status);
+
+      const headers = await this.getAuthHeaders();
+      const url = `${AI_API_BASE_URL}/ai_smart_search?${params.toString()}`;
+      
+      const response = await axios.get(url, { headers });
+      
+      // Flask returns: {success, message, data: {products, currentPage, totalPages, ...}}
+      if (response.data.success && response.data.data) {
+        const products = response.data.data.products || [];
+        
+        return {
+          success: true,
+          message: response.data.message,
+          data: response.data.data
+        };
+      } else {
+        return {
+          success: false,
+          message: response.data.message || 'Search failed',
+          data: null
+        };
+      }
+    } catch (error: any) {
+      return this.handleError(error);
+    }
+  }
+
+  async getProductsByCategory(categoryId: string, page = 0, size = 20): Promise<ApiResponse<ProductListResponse>> {
     try {
       const headers = await this.getAuthHeaders();
       const response = await axios.get(
-        `${API_BASE_URL}/api/products/category/${categoryId}?page=${page}&size=${size}`,
+        `${API_BASE_URL}/api/products/category/${categoryId}/paged?page=${page}&size=${size}`,
         { headers }
       );
-      return this.handleResponse(response);
+      return this.handleResponse<ProductListResponse>(response);
     } catch (error) {
       return this.handleError(error);
     }

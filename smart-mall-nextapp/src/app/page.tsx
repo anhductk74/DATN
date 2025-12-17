@@ -30,7 +30,7 @@ export default function Home() {
     }
   }, [session,status]);
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <Header />
 
@@ -40,7 +40,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
-                <h1 className="text-5xl lg:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-5xl lg:text-6xl font-bold text-blue-600">
                   Smart Shopping
                 </h1>
                 <p className="text-xl text-gray-600 leading-relaxed">
@@ -50,7 +50,7 @@ export default function Home() {
               </div>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-semibold hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                <button className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold hover:shadow-lg transition-all">
                   Shop Now
                 </button>
                 <button className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl font-semibold hover:border-blue-500 hover:text-blue-500 transition-all duration-200">
@@ -64,21 +64,20 @@ export default function Home() {
                   <div className="text-gray-600">Products</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-600">50K+</div>
+                  <div className="text-3xl font-bold text-blue-600">50K+</div>
                   <div className="text-gray-600">Brands</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-pink-600">5M+</div>
+                  <div className="text-3xl font-bold text-blue-600">5M+</div>
                   <div className="text-gray-600">Customers</div>
                 </div>
               </div>
             </div>
 
             <div className="relative">
-              <div className="relative w-full h-96 bg-gradient-to-br from-blue-100 to-purple-100 rounded-3xl overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
+              <div className="relative w-full h-96 bg-blue-100 rounded-3xl overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-64 h-64 bg-white/80 rounded-full flex items-center justify-center shadow-2xl">
+                  <div className="w-64 h-64 bg-white rounded-full flex items-center justify-center shadow-xl">
                     <ShopOutlined className="w-32 h-32 text-blue-600" />
                   </div>
                 </div>
@@ -98,12 +97,12 @@ export default function Home() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
             {[
-              { name: "Smartphones", icon: MobileOutlined, color: "from-blue-500 to-blue-600" },
-              { name: "Laptops", icon: LaptopOutlined, color: "from-purple-500 to-purple-600" },
-              { name: "Fashion", icon: SkinOutlined, color: "from-pink-500 to-pink-600" },
-              { name: "Home & Living", icon: HomeOutlined, color: "from-green-500 to-green-600" },
-              { name: "Sports", icon: TrophyOutlined, color: "from-orange-500 to-orange-600" },
-              { name: "Books", icon: BookOutlined, color: "from-indigo-500 to-indigo-600" },
+              { name: "Smartphones", icon: MobileOutlined, color: "bg-blue-600" },
+              { name: "Laptops", icon: LaptopOutlined, color: "bg-blue-600" },
+              { name: "Fashion", icon: SkinOutlined, color: "bg-blue-600" },
+              { name: "Home & Living", icon: HomeOutlined, color: "bg-blue-600" },
+              { name: "Sports", icon: TrophyOutlined, color: "bg-blue-600" },
+              { name: "Books", icon: BookOutlined, color: "bg-blue-600" },
             ].map((category, index) => {
               const IconComponent = category.icon;
               return (
@@ -111,7 +110,7 @@ export default function Home() {
                 key={index}
                 className="group cursor-pointer"
               >
-                <div className={`w-full h-32 bg-gradient-to-br ${category.color} rounded-2xl flex flex-col items-center justify-center text-white shadow-lg hover:shadow-xl transition-all duration-200 transform group-hover:scale-105`}>
+                <div className={`w-full h-32 ${category.color} hover:bg-blue-700 rounded-2xl flex flex-col items-center justify-center text-white shadow-md hover:shadow-lg transition-all transform group-hover:scale-105`}>
                   <IconComponent className="text-4xl mb-2" />
                   <span className="font-semibold text-sm">{category.name}</span>
                 </div>
@@ -123,7 +122,7 @@ export default function Home() {
       </section>
 
       {/* Flash Sale Section */}
-      <section className="py-16 bg-gradient-to-r from-red-500 to-pink-500">
+      <section className="py-16 bg-red-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-white mb-4">Flash Sale</h2>
@@ -188,7 +187,7 @@ export default function Home() {
                   ))}
                   <span className="text-sm text-gray-600">(128)</span>
                 </div>
-                <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all duration-200">
+                <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold hover:shadow-md transition-all">
                   Add to Cart
                 </button>
               </div>
@@ -203,7 +202,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold">S</span>
                 </div>
                 <span className="text-xl font-bold">SmartMall</span>

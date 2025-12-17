@@ -14,13 +14,13 @@ export const getCloudinaryUrl = (path: string): string => {
     return path;
   }
   
-  // API trả về path dạng: /dadr6xuhc/image/upload/...
-  // Ghép với base URL
-  const cleanBase = CLOUDINARY_API_URL.endsWith('/') 
-    ? CLOUDINARY_API_URL.slice(0, -1) 
-    : CLOUDINARY_API_URL;
+  // API trả về path dạng: /dadr6xuhc/image/upload/... hoặc dadr6xuhc/image/upload/...
+  // Loại bỏ tất cả slashes thừa và ghép lại
+  const cleanBase = CLOUDINARY_API_URL.replace(/\/+$/, ''); // Remove all trailing slashes
+  const cleanPath = path.replace(/^\/+/, ''); // Remove all leading slashes
   
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const finalUrl = `${cleanBase}/${cleanPath}`;
   
-  return `${cleanBase}${cleanPath}`;
+  // Fix any double slashes in the middle (except after http:// or https://)
+  return finalUrl.replace(/([^:]\/)\/+/g, '$1');
 };

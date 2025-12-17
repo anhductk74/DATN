@@ -100,22 +100,22 @@ export default function Login() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-pink-400/20 to-indigo-400/20 rounded-full blur-3xl"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-100 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-100 rounded-full blur-3xl"></div>
       </div>
       
       <div className="max-w-md w-full space-y-8 relative z-10">
         {/* Logo và Title */}
         <div className="text-center">
           <div className="flex items-center justify-center space-x-3 mb-8">
-            <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl flex items-center justify-center shadow-2xl transform rotate-12 hover:rotate-0 transition-transform duration-300">
-              <ShopOutlined className="text-white text-4xl transform -rotate-12" />
+            <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-xl">
+              <ShopOutlined className="text-white text-4xl" />
             </div>
             <div className="flex flex-col">
-              <span className="text-4xl font-extrabold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <span className="text-4xl font-extrabold text-blue-600">
                 SmartMall
               </span>
               <span className="text-sm text-gray-500 font-medium">Shopping Made Smart</span>
@@ -230,7 +230,7 @@ export default function Login() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-800 transition-all duration-200 hover:underline">
+                <a href="#" className="font-semibold text-blue-600 hover:text-blue-800 transition-all hover:underline">
                   Forgot password?
                 </a>
               </div>
@@ -241,10 +241,10 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading || isSubmitting}
-                className={`group relative w-full flex justify-center py-4 px-6 border border-transparent text-base font-bold rounded-2xl text-white transition-all duration-300 transform focus:outline-none focus:ring-4 focus:ring-purple-500/50 ${
+                className={`group relative w-full flex justify-center py-4 px-6 border border-transparent text-base font-bold rounded-2xl text-white transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/50 ${
                   loading || isSubmitting
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 hover:scale-105 hover:shadow-2xl active:scale-95"
+                    : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg"
                 }`}
               >
                 {loading || isSubmitting ? (

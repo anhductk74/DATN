@@ -667,7 +667,7 @@ export default function ProcessingOrdersPage() {
             })()}
 
             {/* Processing Pipeline */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
+            <div className="bg-blue-50 p-6 rounded-lg">
               <h4 className="text-lg font-medium mb-4 text-center">Processing Pipeline</h4>
               <Steps
                 current={selectedOrder.status === OrderStatus.CONFIRMED ? 0 : 1}

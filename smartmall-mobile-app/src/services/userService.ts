@@ -5,9 +5,11 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 interface UserProfile {
   id: string;
   username: string;
-  fullName: string;
+  fullName: string | null;
   phoneNumber: string | null;
   avatar: string | null;
+  gender: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  dateOfBirth: string | null;
   isActive: number;
   roles: string[];
 }
@@ -25,7 +27,9 @@ interface Address {
 
 interface UpdateProfileRequest {
   fullName: string;
-  phoneNumber?: string;
+  phoneNumber: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  dateOfBirth: string;
 }
 
 interface AddAddressRequest {
@@ -99,28 +103,28 @@ class UserService {
     }
   }
 
-  async updateProfile(token: string, data: UpdateProfileRequest): Promise<ApiResponse<UserProfile>> {
-    try {
-      const response = await axios.put(`${API_BASE_URL}/api/user/profile`, data, {
-        headers: this.getAuthHeader(token),
-      });
-      return this.handleResponse<UserProfile>(response);
-    } catch (error) {
-      return this.handleError(error);
-    }
-  }
-
-  async uploadAvatar(token: string, imageUri: string): Promise<ApiResponse<{ avatarUrl: string }>> {
+  async updateProfile(token: string, data: UpdateProfileRequest, avatarUri?: string): Promise<ApiResponse<UserProfile>> {
     try {
       const formData = new FormData();
-      formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'avatar.jpg',
-      } as any);
+      
+      // Add profile data as JSON string
+      formData.append('profileData', JSON.stringify(data));
+      
+      // Add avatar file if provided
+      if (avatarUri) {
+        const filename = avatarUri.split('/').pop() || 'avatar.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('avatar', {
+          uri: avatarUri,
+          type: type,
+          name: filename,
+        } as any);
+      }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/user/profile/avatar`,
+      const response = await axios.put(
+        `${API_BASE_URL}/api/user/profile`,
         formData,
         {
           headers: {
@@ -129,7 +133,37 @@ class UserService {
           },
         }
       );
-      return this.handleResponse<{ avatarUrl: string }>(response);
+      return this.handleResponse<UserProfile>(response);
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async uploadAvatar(token: string, imageUri: string): Promise<ApiResponse<UserProfile>> {
+    try {
+      const formData = new FormData();
+      
+      const filename = imageUri.split('/').pop() || 'avatar.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      formData.append('avatar', {
+        uri: imageUri,
+        type: type,
+        name: filename,
+      } as any);
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/user/profile`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return this.handleResponse<UserProfile>(response);
     } catch (error) {
       return this.handleError(error);
     }

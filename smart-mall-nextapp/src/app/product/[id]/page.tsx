@@ -46,6 +46,8 @@ export default function ProductDetail() {
   const [hasMoreReviews, setHasMoreReviews] = useState(true);
   // Review image modal state
   const [selectedReviewImage, setSelectedReviewImage] = useState<string | null>(null);
+  // Similar products
+  const [similarProducts, setSimilarProducts] = useState<any[]>([]);
   const router = useRouter();
   const params = useParams();
   const { status } = useAuth();
@@ -94,6 +96,28 @@ export default function ProductDetail() {
       fetchReviewStats();
     }
   }, [productId, activeTab, product]);
+
+  // Fetch similar products
+  useEffect(() => {
+    const fetchSimilarProducts = async () => {
+      if (!product?.category?.id) return;
+      
+      try {
+        const allProducts = await productService.getAllProducts();
+        // Filter products from same category, exclude current product
+        const similar = allProducts
+          .filter(p => p.category?.id === product.category?.id && p.id !== product.id)
+          .slice(0, 6); // Get 6 similar products
+        setSimilarProducts(similar);
+      } catch (error) {
+        console.error('Failed to fetch similar products:', error);
+      }
+    };
+
+    if (product) {
+      fetchSimilarProducts();
+    }
+  }, [product]);
 
   // Get selected variant details
   const currentVariant = product?.variants?.find(v => v.id === selectedVariant) || product?.variants?.[0];
@@ -305,22 +329,28 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <button onClick={() => router.push("/home")} className="hover:text-blue-600 transition-colors">
+          <div className="flex items-center space-x-2 text-sm">
+            <button 
+              onClick={() => router.push("/home")} 
+              className="text-gray-600 hover:text-blue-600 transition-colors"
+            >
               Home
             </button>
-            <span>/</span>
-            <button onClick={() => router.push("/products")} className="hover:text-blue-600 transition-colors">
+            <span className="text-gray-400">/</span>
+            <button 
+              onClick={() => router.push("/products")} 
+              className="text-gray-600 hover:text-blue-600 transition-colors"
+            >
               Products
             </button>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">{product.name}</span>
+            <span className="text-gray-400">/</span>
+            <span className="text-gray-900 font-medium truncate">{product.name}</span>
           </div>
         </div>
       </div>
@@ -330,17 +360,23 @@ export default function ProductDetail() {
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="relative bg-white rounded-3xl p-8 shadow-lg">
-              <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center relative overflow-hidden">
+            <div className="relative bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+              <div className="aspect-square bg-gray-50 rounded-xl flex items-center justify-center relative overflow-hidden">
                 {product.images && product.images.length > 0 ? (
-                  <NextImage 
-                    src={getCloudinaryUrl(product.images[selectedImage])} 
+                  <Image
+                    src={getCloudinaryUrl(product.images[selectedImage])}
                     alt={product.name}
-                    width={500}
-                    height={500}
-                    priority
-                    className="object-cover rounded-2xl w-full h-full"
-                    style={{ width: 'auto', height: 'auto' }}
+                    className="object-contain rounded-xl cursor-pointer"
+                    style={{ width: '100%', height: '100%' }}
+                    preview={{
+                      src: getCloudinaryUrl(product.images[selectedImage]),
+                      mask: (
+                        <div className="flex flex-col items-center justify-center text-white">
+                          <div className="text-2xl mb-2">🔍</div>
+                          <div>Click to zoom</div>
+                        </div>
+                      ),
+                    }}
                   />
                 ) : (
                   <span className="text-gray-400 text-lg font-medium text-center px-4">
@@ -349,14 +385,16 @@ export default function ProductDetail() {
                 )}
                 
                 {product.status === 'ACTIVE' && (
-                  <div className="absolute top-4 left-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                    ACTIVE
+                  <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                    In Stock
                   </div>
                 )}
                 
-                <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                  -{discount}%
-                </div>
+                {discount > 0 && (
+                  <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                    -{discount}%
+                  </div>
+                )}
               </div>
               
               {/* Navigation Arrows */}
@@ -364,15 +402,15 @@ export default function ProductDetail() {
                 <>
                   <button 
                     onClick={() => setSelectedImage(prev => prev > 0 ? prev - 1 : product.images!.length - 1)}
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
                   >
-                    <LeftOutlined className="text-gray-600" />
+                    <LeftOutlined />
                   </button>
                   <button 
                     onClick={() => setSelectedImage(prev => prev < product.images!.length - 1 ? prev + 1 : 0)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-colors"
                   >
-                    <RightOutlined className="text-gray-600" />
+                    <RightOutlined />
                   </button>
                 </>
               )}
@@ -382,22 +420,23 @@ export default function ProductDetail() {
             {product.images && product.images.length > 1 && (
               <div className="grid grid-cols-4 gap-4">
                 {product.images.map((image, index) => (
-                  <button
+                  <div
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    className={`aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center relative overflow-hidden transition-all duration-200 ${
-                      selectedImage === index ? 'ring-4 ring-blue-500 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300'
+                    className={`aspect-square bg-gray-50 rounded-lg flex items-center justify-center relative overflow-hidden transition-all border-2 cursor-pointer ${
+                      selectedImage === index ? 'border-blue-600' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <NextImage 
+                    <Image
                       src={getCloudinaryUrl(image)}
                       alt={`${product.name} ${index + 1}`}
-                      width={120}
-                      height={120}
-                      className="object-cover rounded-2xl w-full h-full"
-                      style={{ width: 'auto', height: 'auto' }}
+                      className="object-cover rounded-lg"
+                      style={{ width: '100%', height: '100%' }}
+                      preview={{
+                        src: getCloudinaryUrl(image),
+                      }}
                     />
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -407,14 +446,14 @@ export default function ProductDetail() {
           <div className="space-y-6">
             {/* Shop Info Banner */}
             {product.shop && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 border border-blue-100">
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center">
-                      <ShopOutlined className="text-blue-600 text-xl" />
+                    <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center">
+                      <ShopOutlined className="text-white text-xl" />
                     </div>
                     <div>
-                      <div className="text-sm text-gray-600">Sold by</div>
+                      <div className="text-xs text-gray-500">Sold by</div>
                       <button
                         onClick={() => router.push(`/shop-detail/${product.shop?.id}`)}
                         className="font-semibold text-gray-900 hover:text-blue-600 transition-colors"
@@ -423,14 +462,12 @@ export default function ProductDetail() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => router.push(`/shop-detail/${product.shop?.id}`)}
-                      className="border border-blue-600 text-blue-600 px-4 py-2 rounded-xl font-medium hover:bg-blue-50 transition-all duration-200"
-                    >
-                      View Shop
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => router.push(`/shop-detail/${product.shop?.id}`)}
+                    className="text-blue-600 text-sm font-medium hover:text-blue-700 transition-colors"
+                  >
+                    View Shop →
+                  </button>
                 </div>
               </div>
             )}
@@ -473,11 +510,15 @@ export default function ProductDetail() {
             </div>
 
             {/* Price */}
-            <div className="flex items-center space-x-4">
-              <span className="text-4xl font-bold text-red-500">${currentPrice.toLocaleString()}</span>
-              <span className="text-2xl text-gray-500 line-through">${originalPrice.toLocaleString()}</span>
-              <div className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-sm font-bold">
-                Save ${(originalPrice - currentPrice).toLocaleString()}
+            <div className="space-y-2">
+              <div className="flex items-baseline space-x-3">
+                <span className="text-3xl font-bold text-gray-900">${currentPrice.toLocaleString()}</span>
+                <span className="text-lg text-gray-500 line-through">${originalPrice.toLocaleString()}</span>
+                {discount > 0 && (
+                  <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-sm font-semibold">
+                    -{discount}%
+                  </span>
+                )}
               </div>
             </div>
 
@@ -489,10 +530,10 @@ export default function ProductDetail() {
                   <button
                     key={variant.id}
                     onClick={() => setSelectedVariant(variant.id || "")}
-                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
+                    className={`w-full p-4 rounded-lg border text-left transition-all ${
                       selectedVariant === variant.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-blue-600 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
                     }`}
                   >
                     <div className="flex justify-between items-center">
@@ -516,102 +557,89 @@ export default function ProductDetail() {
 
             {/* Quantity */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Quantity</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-2">Quantity</h3>
               <div className="flex items-center space-x-4">
-                <div className="flex items-center border border-gray-300 rounded-2xl">
+                <div className="flex items-center border border-gray-300 rounded-lg">
                   <button
                     onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 rounded-l-2xl"
+                    className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 text-gray-600"
                   >
-                    -
+                    −
                   </button>
-                  <span className="w-16 h-12 flex items-center justify-center font-semibold">{quantity}</span>
+                  <span className="w-12 h-10 flex items-center justify-center font-medium text-gray-900">{quantity}</span>
                   <button
                     onClick={() => setQuantity(prev => Math.min(currentVariant?.stock || 0, prev + 1))}
-                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-50 rounded-r-2xl"
+                    className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 text-gray-600"
                   >
                     +
                   </button>
                 </div>
-                <span className="text-gray-600">
-                  Available: {currentVariant?.stock || 0} items
-                </span>
+                <span className="text-sm text-gray-600">{currentVariant?.stock || 0} available</span>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-4 pt-4">
-              <div className="flex space-x-4">
-                <button
-                  onClick={handleBuyNow}
-                  disabled={buyingNow || addingToCart}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-8 rounded-2xl font-bold hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
-                >
-                  {buyingNow ? (
-                    <>
-                      <LoadingOutlined className="mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <ThunderboltOutlined className="mr-2" />
-                      Buy Now
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleAddToCart}
-                  disabled={addingToCart || buyingNow}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 px-8 rounded-2xl font-bold hover:shadow-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
-                >
-                  {addingToCart ? (
-                    <>
-                      <LoadingOutlined className="mr-2 animate-spin" />
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCartOutlined className="mr-2" />
-                      Add to Cart
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="space-y-3 pt-4">
+              <button
+                onClick={handleBuyNow}
+                disabled={buyingNow || addingToCart}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {buyingNow ? (
+                  <>
+                    <LoadingOutlined className="mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  'Buy Now'
+                )}
+              </button>
+              <button
+                onClick={handleAddToCart}
+                disabled={addingToCart || buyingNow}
+                className="w-full border-2 border-blue-600 text-blue-600 py-3 px-6 rounded-lg font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {addingToCart ? (
+                  <>
+                    <LoadingOutlined className="mr-2" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCartOutlined className="mr-2" />
+                    Add to Cart
+                  </>
+                )}
+              </button>
               
-              <div className="flex space-x-4">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setIsWishlisted(!isWishlisted)}
-                  className={`flex-1 border-2 py-3 px-6 rounded-2xl font-semibold transition-all duration-200 ${
+                  className={`border py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center ${
                     isWishlisted
                       ? 'border-red-500 bg-red-50 text-red-600'
-                      : 'border-gray-300 hover:border-red-300 text-gray-700 hover:text-red-600'
+                      : 'border-gray-300 hover:border-red-400 bg-white text-gray-700 hover:text-red-600'
                   }`}
                 >
-                  {isWishlisted ? <HeartFilled className="mr-2" /> : <HeartOutlined className="mr-2" />}
-                  {isWishlisted ? 'Wishlisted' : 'Add to Wishlist'}
+                  {isWishlisted ? <HeartFilled className="mr-1.5" /> : <HeartOutlined className="mr-1.5" />}
+                  Wishlist
                 </button>
-                <button className="border-2 border-gray-300 hover:border-blue-300 text-gray-700 hover:text-blue-600 py-3 px-6 rounded-2xl font-semibold transition-all duration-200">
-                  <ShareAltOutlined className="mr-2" />
+                <button className="border border-gray-300 hover:border-blue-600 bg-white text-gray-700 hover:text-blue-600 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center">
+                  <ShareAltOutlined className="mr-1.5" />
                   Share
                 </button>
               </div>
             </div>
 
             {/* Benefits */}
-            <div className="grid grid-cols-2 gap-4 pt-6">
-              <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-2xl">
-                <TruckOutlined className="text-green-600 text-xl" />
-                <div>
-                  <div className="font-semibold text-green-800">Free Shipping</div>
-                  <div className="text-sm text-green-600">Orders over $50</div>
-                </div>
+            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200">
+              <div className="flex items-center space-x-2 text-sm">
+                <TruckOutlined className="text-green-600" />
+                <span className="text-gray-700">Free Shipping</span>
               </div>
-              <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-2xl">
-                <SafetyOutlined className="text-blue-600 text-xl" />
-                <div>
-                  <div className="font-semibold text-blue-800">2 Year Warranty</div>
-                  <div className="text-sm text-blue-600">Full coverage</div>
-                </div>
+              <div className="flex items-center space-x-2 text-sm">
+                <SafetyOutlined className="text-blue-600" />
+                <span className="text-gray-700">2 Year Warranty</span>
               </div>
             </div>
           </div>
@@ -627,8 +655,8 @@ export default function ProductDetail() {
                   onClick={() => setActiveTab(tab)}
                   className={`py-4 px-1 border-b-2 font-medium text-sm capitalize transition-colors ${
                     activeTab === tab
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {tab}
@@ -749,7 +777,7 @@ export default function ProductDetail() {
               <div className="space-y-6">
                 {/* Review Statistics */}
                 {reviewStats && (
-                  <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-100">
+                  <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Overall Rating */}
                       <div className="text-center">
@@ -975,6 +1003,69 @@ export default function ProductDetail() {
           </div>
         )}
       </Modal>
+
+      {/* Similar Products */}
+      {similarProducts.length > 0 && (
+        <section className="bg-white py-16 border-t border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Similar Products
+              </h2>
+              <p className="text-gray-600">You might also like these products</p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+              {similarProducts.map((p) => {
+                const v = p.variants?.[0];
+                const rating = p.averageRating || 0;
+                const reviews = p.reviewCount || 0;
+                
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => router.push(`/product/${p.id}`)}
+                    className="group bg-white border-2 border-gray-100 rounded-2xl p-4 cursor-pointer hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300"
+                  >
+                    <div className="relative h-44 bg-gray-50 rounded-xl mb-3 overflow-hidden">
+                      {p.images?.[0] && (
+                        <NextImage
+                          src={getCloudinaryUrl(p.images[0])}
+                          alt={p.name}
+                          width={180}
+                          height={180}
+                          className="object-contain w-full h-full p-3 group-hover:scale-110 transition-transform duration-500"
+                        />
+                      )}
+                    </div>
+
+                    <h3 className="text-sm font-semibold line-clamp-2 mb-2 text-gray-800 group-hover:text-blue-600 transition-colors">
+                      {p.name}
+                    </h3>
+
+                    {rating > 0 && (
+                      <div className="flex items-center gap-1 mb-2">
+                        <div className="flex text-yellow-400 text-xs">
+                          {[...Array(5)].map((_, i) => (
+                            <StarFilled key={i} style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} />
+                          ))}
+                        </div>
+                        {reviews > 0 && (
+                          <span className="text-xs text-gray-500">({reviews})</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="font-bold text-blue-700 text-lg">
+                      ${v?.price?.toLocaleString()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       <Footer />
     </div>

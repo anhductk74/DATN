@@ -87,7 +87,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
         // Lưu user info
         await AsyncStorage.setItem('userInfo', JSON.stringify(response.data.userInfo));
-        navigation.replace('Home');
+        navigation.replace('MainTabs');
       } else {
         Alert.alert('Error', response.message || 'Invalid verification code');
       }
@@ -128,7 +128,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           await AsyncStorage.removeItem('rememberMe');
         }
         
-        navigation.replace('Home');
+        navigation.replace('MainTabs');
       } else {
         Alert.alert('Error', response.message || 'Login failed');
       }

@@ -241,7 +241,7 @@ function ProductsContent() {
             <div className="text-gray-400 text-xl mb-2">Không thể tải sản phẩm</div>
             <div className="text-gray-500 text-sm mb-6">Vui lòng thử lại sau</div>
             <button 
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium hover:shadow-md transition-all"
               onClick={() => refetch()}
             >
               Thử lại
