@@ -17,7 +17,9 @@ import {
   QuestionCircleOutlined,
   LogoutOutlined,
   LoadingOutlined,
-  ProductOutlined
+  ProductOutlined,
+  CameraOutlined,
+  CloseCircleOutlined
 } from "@ant-design/icons";
 import { Drawer, List, Button, Divider, Badge, InputNumber } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +37,11 @@ export default function Header() {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [cartHideTimeout, setCartHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // Search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchPopup, setShowSearchPopup] = useState(false);
   const router = useRouter();
   const { signOut, user } = useAuth();
   const { message } = useAntdApp();
@@ -166,6 +173,74 @@ export default function Header() {
     router.push(path);
   };
 
+  // Search handlers
+  const handleTextSearch = async () => {
+    if (!searchQuery.trim()) {
+      message.warning("Please enter search keywords");
+      return;
+    }
+
+    console.log('🔍 Header - Text search initiated:', searchQuery);
+    // Navigate to products page with search query and mode
+    router.push(`/products?search=${encodeURIComponent(searchQuery)}&mode=text`);
+    setShowSearchPopup(false);
+    setIsSearching(false);
+  };
+
+  const handleImageSearch = async (file: File) => {
+    setIsSearching(true);
+    const formData = new FormData();
+    formData.append('search_image', file);
+    formData.append('max_results', '20');
+
+    try {
+      const apiUrl = 'http://localhost:5001';
+      console.log('📸 Uploading image to:', `${apiUrl}/ai_search_by_image`);
+      
+      const response = await fetch(`${apiUrl}/ai_search_by_image`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      console.log('📥 Image search response status:', response.status);
+      const data = await response.json();
+      console.log('📦 Image search API response:', data);
+
+      if (data.success) {
+        const products = data.products || [];
+        console.log('✅ Storing', products.length, 'products in sessionStorage');
+        console.log('📄 Sample product:', products[0]);
+        
+        // Clear previous search results first
+        sessionStorage.removeItem('imageSearchResults');
+        
+        // Store image search results in sessionStorage with timestamp
+        const searchData = {
+          products: products,
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem('imageSearchResults', JSON.stringify(searchData));
+        
+        // Set loading state before navigation
+        sessionStorage.setItem('imageSearchLoading', 'true');
+        
+        // Navigate to products page with image search flag and unique timestamp
+        const timestamp = Date.now();
+        router.push(`/products?search=${timestamp}&mode=image`);
+        setShowSearchPopup(false);
+        message.success(`Found ${data.total_matches || products.length} similar products`);
+      } else {
+        console.error('❌ Image search failed:', data.error);
+        message.error(data.error || "Image search failed");
+      }
+    } catch (error) {
+      console.error("❌ Image search error:", error);
+      message.error("Unable to search by image. Please try again.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   // Click outside to close menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -186,6 +261,9 @@ export default function Header() {
       }
       if (!target.closest('.notification-popup-container')) {
         setShowNotificationPopup(false);
+      }
+      if (!target.closest('.relative.w-full')) {
+        setShowSearchPopup(false);
       }
     };
 
@@ -218,15 +296,73 @@ export default function Header() {
 
           {/* Search Bar - Hidden on mobile, shown on desktop */}
           <div className="hidden md:flex flex-1 max-w-2xl mx-8">
-            <div className="relative w-full group">
-              <input
-                type="text"
-                placeholder="Search products, brands, and more..."
-                className="w-full px-6 py-3 pl-12 pr-6 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              />
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                <SearchOutlined className="text-blue-600 text-lg" />
+            <div className="relative w-full flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleTextSearch()}
+                  onFocus={() => setShowSearchPopup(true)}
+                  placeholder="Search products, brands, and more..."
+                  className="w-full px-6 py-3 pl-12 pr-12 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  disabled={isSearching}
+                />
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                  <SearchOutlined className="text-blue-600 text-lg" />
+                </div>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <CloseCircleOutlined />
+                  </button>
+                )}
               </div>
+              
+              <label className={`px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl flex items-center justify-center transition-all ${
+                isSearching 
+                  ? 'cursor-not-allowed opacity-70' 
+                  : 'cursor-pointer hover:from-purple-700 hover:to-pink-700'
+              }`}>
+                {isSearching ? (
+                  <LoadingOutlined className="text-xl animate-spin" />
+                ) : (
+                  <CameraOutlined className="text-xl" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isSearching}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageSearch(file);
+                  }}
+                />
+              </label>
+
+              {/* Search Suggestions Popup */}
+              {showSearchPopup && searchQuery && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-[100]">
+                  <div className="text-sm text-gray-500 mb-2">Quick suggestions:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {['Samsung phone', 'gaming laptop', 'wireless headphones', 'smartwatch'].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => {
+                          setSearchQuery(suggestion);
+                          setTimeout(() => handleTextSearch(), 100);
+                        }}
+                        className="text-sm px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -611,13 +747,49 @@ export default function Header() {
 
         {/* Mobile Search Bar */}
         <div className="md:hidden pb-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search products..."
-              className="w-full px-4 py-2 pl-10 pr-4 bg-blue-50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-            />
-            <SearchOutlined className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600" />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleTextSearch()}
+                placeholder="Search products..."
+                className="w-full px-4 py-2 pl-10 pr-10 bg-blue-50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                disabled={isSearching}
+              />
+              <SearchOutlined className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                >
+                  <CloseCircleOutlined />
+                </button>
+              )}
+            </div>
+            
+            <label className={`px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center transition-all ${
+              isSearching 
+                ? 'cursor-not-allowed opacity-70' 
+                : 'cursor-pointer hover:from-purple-700 hover:to-pink-700'
+            }`}>
+              {isSearching ? (
+                <LoadingOutlined className="animate-spin" />
+              ) : (
+                <CameraOutlined />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={isSearching}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImageSearch(file);
+                }}
+              />
+            </label>
           </div>
         </div>
       </div>

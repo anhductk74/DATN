@@ -1,13 +1,13 @@
 "use client";
 export const dynamic = "force-dynamic";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
-import productService, { Product } from "@/services/ProductService";
+import productService, { Product, ProductVariant } from "@/services/ProductService";
 import categoryService from "@/services/CategoryService";
 import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
@@ -18,18 +18,58 @@ import {
   FilterOutlined,
   AppstoreOutlined,
   UnorderedListOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  SearchOutlined
 } from "@ant-design/icons";
+
+// API Response interfaces
+interface ApiCategory {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface ApiShop {
+  id: string;
+  name: string;
+  viewCount: number;
+}
+
+interface ApiProduct {
+  id: string;
+  name: string;
+  brand: string;
+  category: ApiCategory;
+  shop: ApiShop;
+  minPrice: number;
+  maxPrice: number;
+  images: string[];
+  description: string;
+  status: string;
+  rating: number;
+  reviewCount: number;
+  variants?: ProductVariant[];
+}
 
 function ProductsContent() {
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [sortBy, setSortBy] = useState("featured");
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const hasShownMessageRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const category = searchParams.get('category') || 'all';
+  const searchQuery = searchParams.get('search');
+  const searchMode = searchParams.get('mode');
   const { addItem } = useCart();
   const { message } = App.useApp();
+
+  // Reset message flag when search query changes
+  useEffect(() => {
+    hasShownMessageRef.current = false;
+  }, [searchQuery]);
 
   // Fetch categories
   const {
@@ -40,10 +80,192 @@ function ProductsContent() {
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
+  // Handle AI search when search query is present
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      console.log('🔄 useEffect triggered:', { searchQuery, searchMode });
+      
+      if (searchQuery && searchMode === 'text') {
+        console.log('🔍 Starting text search:', { searchQuery, searchMode });
+        setIsSearching(true);
+        try {
+          // Use hardcoded URL for client-side (env vars may not work in client components)
+          const apiUrl = 'http://localhost:5001';
+          const fullUrl = `${apiUrl}/ai_smart_search?query=${encodeURIComponent(searchQuery)}`;
+          console.log('🌐 API URL:', apiUrl);
+          console.log('📡 Calling API with URL:', fullUrl);
+          
+          const response = await fetch(fullUrl);
+          console.log('📥 Response status:', response.status);
+          
+          const data = await response.json();
+          console.log('📦 Search API Response:', data);
+
+          if (data.success) {
+            const apiProducts = data.data.products || [];
+            console.log('✅ API returned products:', apiProducts.length, 'products');
+            console.log('📄 First product sample:', apiProducts[0]);
+            
+            // Map API response to Product interface
+            const mappedProducts = apiProducts.map((p: ApiProduct) => ({
+              ...p,
+              categoryId: p.category?.id || '',
+              shopId: p.shop?.id || '',
+              // Ensure variants array exists, create minimal variant if missing
+              variants: p.variants || [{
+                id: `${p.id}-default`,
+                sku: `SKU-${p.id}`,
+                price: p.minPrice || p.maxPrice || 0,
+                stock: 100,
+                attributes: []
+              }]
+            }));
+            
+            console.log('✅ Mapped products:', mappedProducts.length, 'products');
+            console.log('📄 First mapped product:', mappedProducts[0]);
+            setSearchResults(mappedProducts);
+            console.log('✅ Search results state updated');
+            message.success(`Found ${data.data.totalItems || 0} products`);
+          } else {
+            message.error(data.message || "Search failed");
+            setSearchResults([]);
+          }
+        } catch (error) {
+          console.error("❌ Search error:", error);
+          console.error("Error details:", {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          message.error("Unable to search. Please try again.");
+          setSearchResults([]);
+        } finally {
+          console.log('🏁 Search completed, isSearching set to false');
+          setIsSearching(false);
+        }
+      } else if (searchQuery && searchMode === 'image') {
+        console.log('🖼️ Image search mode detected');
+        setIsSearching(true); // Start loading
+        
+        // Always load from sessionStorage for image search
+        console.log('📦 Loading image results from sessionStorage...');
+        const storedResults = sessionStorage.getItem('imageSearchResults');
+        if (storedResults) {
+          try {
+            const storedData = JSON.parse(storedResults);
+            // Handle both old format (array) and new format (object with timestamp)
+            const imageResults = Array.isArray(storedData) ? storedData : storedData.products;
+            
+            console.log('✅ Raw image results from storage:', imageResults);
+            console.log('✅ Number of image results:', imageResults.length);
+            
+            if (imageResults.length > 0) {
+              console.log('📄 Sample raw product:', imageResults[0]);
+              
+              // Map image search results to Product interface
+              const mappedResults = imageResults.map((p: any) => {
+                console.log('🔄 Mapping image product:', {
+                  id: p.id,
+                  name: p.name,
+                  brand: p.brand,
+                  category: p.category,
+                  shopName: p.shopName,
+                  image: p.image,
+                  minPrice: p.minPrice
+                });
+                
+                const mapped: Product = {
+                  id: p.id || '',
+                  name: p.name || 'Unnamed Product',
+                  description: p.description || '',
+                  brand: p.brand || '',
+                  images: p.image ? [p.image] : (p.images || []),
+                  status: 'ACTIVE' as const,
+                  categoryId: '',
+                  shopId: '',
+                  variants: [{
+                    id: p.id + '-default',
+                    sku: 'SKU-' + p.id,
+                    price: p.minPrice || p.maxPrice || 0,
+                    stock: 100,
+                    attributes: []
+                  }],
+                  category: {
+                    id: '',
+                    name: p.category || 'Uncategorized',
+                    description: ''
+                  },
+                  shop: {
+                    id: '',
+                    name: p.shopName || 'Unknown Shop',
+                    description: '',
+                    numberPhone: ''
+                  },
+                  averageRating: p.rating || 0,
+                  reviewCount: p.reviewCount || 0
+                };
+                
+                console.log('✅ Mapped product:', mapped);
+                return mapped;
+              });
+              
+                console.log('✅ Total mapped products:', mappedResults.length);
+              console.log('📄 First fully mapped product:', mappedResults[0]);
+              
+              // Set state BEFORE removing from storage
+              setSearchResults(mappedResults);
+              
+              // Check if this is a new search (loading flag exists) and message hasn't been shown
+              const shouldShowMessage = sessionStorage.getItem('imageSearchLoading') === 'true' && !hasShownMessageRef.current;
+              
+              // Remove loading flag
+              sessionStorage.removeItem('imageSearchLoading');
+              
+              // Wait a bit then remove from storage
+              setTimeout(() => {
+                sessionStorage.removeItem('imageSearchResults');
+                console.log('🗑️ Removed imageSearchResults from sessionStorage');
+              }, 100);
+              
+              // Only show message for new searches and only once
+              if (shouldShowMessage) {
+                hasShownMessageRef.current = true;
+                message.success(`Found ${mappedResults.length} similar products`);
+              }
+            } else {
+              console.log('⚠️ Image results array is empty');
+              setSearchResults([]);
+              sessionStorage.removeItem('imageSearchResults');
+              sessionStorage.removeItem('imageSearchLoading');
+            }
+          } catch (error) {
+            console.error('❌ Image search parsing error:', error);
+            console.error('Error stack:', error instanceof Error ? error.stack : undefined);
+            setSearchResults([]);
+            message.error('Error processing image search results');
+            sessionStorage.removeItem('imageSearchLoading');
+          } finally {
+            setIsSearching(false); // Stop loading
+          }
+        } else {
+          console.log('⚠️ No imageSearchResults found in sessionStorage');
+          setSearchResults([]);
+          sessionStorage.removeItem('imageSearchLoading');
+          setIsSearching(false);
+        }
+      } else {
+        // Clear search results if no search query
+        console.log('🧹 Clearing search results (no query or invalid mode)', { searchQuery, searchMode });
+        setSearchResults([]);
+      }
+    };
+
+    fetchSearchResults();
+  }, [searchQuery, searchMode, message]);
+
   // Fetch products using TanStack Query
   const {
-    data: products = [],
-    isLoading,
+    data: regularProducts = [],
+    isLoading: isLoadingRegular,
     isError,
     refetch
   } = useQuery({
@@ -85,9 +307,30 @@ function ProductsContent() {
       
       return sortedProducts;
     },
+    enabled: !searchQuery, // Only fetch when not searching
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
+
+  // Determine which products to display
+  const products = searchQuery ? searchResults : regularProducts;
+  const isLoading = searchQuery ? isSearching : isLoadingRegular;
+
+  // Debug logging after every render
+  useEffect(() => {
+    console.log('📊 Display state (after render):', {
+      searchQuery,
+      searchMode,
+      searchResultsCount: searchResults.length,
+      regularProductsCount: regularProducts.length,
+      displayProductsCount: products.length,
+      isLoading,
+      isSearching,
+      firstProduct: products[0],
+      searchResults_sample: searchResults[0],
+      products_array: products
+    });
+  }, [searchQuery, searchMode, searchResults, regularProducts, products, isLoading, isSearching]);
 
   // Handle add to cart
   const handleAddToCart = async (product: Product) => {
@@ -99,6 +342,7 @@ function ProductsContent() {
           await addItem(variant.id, 1);
           message.success(`Added "${product.name}" to cart successfully!`);
         } catch (error) {
+          console.error("Failed to add product to cart:", error);
           message.error("Failed to add product to cart");
         } finally {
           setAddingToCart(null);
@@ -154,6 +398,66 @@ function ProductsContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search Results Info */}
+        {searchQuery && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                <SearchOutlined className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {searchMode === 'image' ? 'Image Search Results' : `Search results for "${searchQuery}"`}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {isSearching ? 'Searching...' : `Found ${products.length} products`}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/products')}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+            >
+              Clear Search ✕
+            </button>
+          </div>
+        )}
+
+        {/* Category Filter Pills */}
+        {!searchQuery && (
+          <div className="mb-8 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FilterOutlined className="text-blue-600" />
+              Filter by Category
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => router.push('/products?category=all')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                  category === 'all'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Products
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => router.push(`/products?category=${cat.id}`)}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    category === cat.id
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
           <div>
@@ -252,10 +556,27 @@ function ProductsContent() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🛍️</div>
             <div className="text-gray-400 text-xl mb-2">Không có sản phẩm</div>
-            <div className="text-gray-500 text-sm mb-6">Chưa có sản phẩm nào trong danh mục này</div>
+            <div className="text-gray-500 text-sm mb-6">
+              {searchQuery 
+                ? `Không tìm thấy sản phẩm nào cho "${searchQuery}"`
+                : 'Chưa có sản phẩm nào trong danh mục này'
+              }
+            </div>
+            <div className="text-xs text-gray-400 mb-4">
+              Debug: searchResults={searchResults.length}, regularProducts={regularProducts.length}
+            </div>
             <button 
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
-              onClick={() => router.push('/home')}
+              onClick={() => {
+                console.log('🔍 Debug info:', {
+                  searchQuery,
+                  searchMode,
+                  searchResults,
+                  regularProducts,
+                  products
+                });
+                router.push('/home');
+              }}
             >
               Quay về trang chủ
             </button>
@@ -267,6 +588,7 @@ function ProductsContent() {
               : "space-y-4"
           }>
             {products.map((product: Product) => {
+              console.log('🎨 Rendering product:', product.id, product.name);
               const variant = product.variants?.[0];
               const price = variant?.price || 0;
               const originalPrice = Math.round(price * 1.3); // Mock original price
