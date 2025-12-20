@@ -258,7 +258,6 @@ export default function FinancePage() {
       handleBalanceFilterChange();
     }
   }, [balanceFilterType, selectedShipperId, balanceDateRange]);
-
   // Handle create COD reconciliation
   const handleCreateCodReconciliation = async (values: any) => {
     try {
@@ -578,9 +577,7 @@ export default function FinancePage() {
           >
             Tải lại
           </Button>
-          <Button icon={<ExportOutlined />}>
-            Xuất báo cáo tổng hợp
-          </Button>
+       
         </Space>
       </div>
 

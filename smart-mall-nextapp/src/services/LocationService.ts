@@ -1,31 +1,60 @@
 // Location service for Vietnam provinces, districts, and wards
+// Using static data instead of API to avoid external dependency
+
+import provincesData from '@/data/tinh_tp.json';
+import districtsData from '@/data/quan_huyen.json';
+import wardsData from '@/data/xa_phuong.json';
+
 export interface Province {
   code: string;
   name: string;
-  name_en: string;
-  full_name: string;
-  full_name_en: string;
-  code_name: string;
+  slug: string;
+  type: string;
+  name_with_type: string;
+  // For backward compatibility
+  name_en?: string;
+  full_name?: string;
+  full_name_en?: string;
+  code_name?: string;
 }
 
 export interface District {
   code: string;
   name: string;
-  name_en: string;
-  full_name: string;
-  full_name_en: string;
-  code_name: string;
-  province_code: string;
+  type: string;
+  slug: string;
+  name_with_type: string;
+  path: string;
+  path_with_type: string;
+  parent_code: string;
+  // For backward compatibility
+  province_code?: string | number;
+  division_type?: string;
+  codename?: string;
+  wards?: Ward[];
+  name_en?: string;
+  full_name?: string;
+  full_name_en?: string;
+  code_name?: string;
 }
 
 export interface Ward {
   code: string;
   name: string;
-  name_en: string;
-  full_name: string;
-  full_name_en: string;
-  code_name: string;
-  district_code: string;
+  type: string;
+  slug: string;
+  name_with_type: string;
+  path: string;
+  path_with_type: string;
+  parent_code: string;
+  // For backward compatibility
+  district_code?: string | number;
+  division_type?: string;
+  codename?: string;
+  name_en?: string;
+  full_name?: string;
+  full_name_en?: string;
+  code_name?: string;
 }
 
 export interface LocationResponse<T> {
@@ -33,117 +62,112 @@ export interface LocationResponse<T> {
 }
 
 class LocationService {
-  private baseUrl = 'https://provinces.open-api.vn/api/v1';
+  // Static data loaded from JSON files
+  private provincesMap: Record<string, Province> = provincesData as Record<string, Province>;
+  private districtsMap: Record<string, District> = districtsData as Record<string, District>;
+  private wardsMap: Record<string, Ward> = wardsData as Record<string, Ward>;
 
-  // Fetch all provinces
+  // Convert map to array
+  private get provinces(): Province[] {
+    return Object.values(this.provincesMap);
+  }
+
+  private get districts(): District[] {
+    return Object.values(this.districtsMap);
+  }
+
+  private get wards(): Ward[] {
+    return Object.values(this.wardsMap);
+  }
+
+  // Fetch all provinces from static data
   async getProvinces(): Promise<Province[]> {
     try {
-      console.log('Fetching provinces from:', `${this.baseUrl}/p/`);
-      const response = await fetch(`${this.baseUrl}/p/`);
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Raw API response:', data);
-      
-      // API trả về array trực tiếp, không có results wrapper
-      const provinces = Array.isArray(data) ? data : data.results || [];
-      console.log('Processed provinces:', provinces.length);
-      
-      return provinces;
+      console.log('Loading provinces from static data...');
+      // Simulate async operation
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const provinceList = this.provinces;
+      console.log('Provinces loaded:', provinceList.length);
+      return provinceList;
     } catch (error) {
-      console.error('Error fetching provinces:', error);
-      throw error; // Re-throw để component có thể handle
+      console.error('Error loading provinces:', error);
+      throw error;
     }
   }
 
-  // Fetch districts by province code
+  // Fetch districts by province code from static data
   async getDistricts(provinceCode: string): Promise<District[]> {
     try {
-      console.log('Fetching districts for province:', provinceCode);
-      const response = await fetch(`${this.baseUrl}/p/${provinceCode}?depth=2`);
+      console.log('Loading districts for province:', provinceCode);
+      // Simulate async operation
+      await new Promise(resolve => setTimeout(resolve, 50));
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Filter districts by parent_code (province code)
+      const filteredDistricts = this.districts.filter(
+        district => district.parent_code === provinceCode
+      );
       
-      const data = await response.json();
-      console.log('Districts response:', data);
-      
-      const districts = data.districts || [];
-      console.log('Processed districts:', districts.length);
-      
-      return districts;
+      console.log('Districts loaded:', filteredDistricts.length);
+      return filteredDistricts;
     } catch (error) {
-      console.error('Error fetching districts:', error);
+      console.error('Error loading districts:', error);
       throw error;
     }
   }
 
-  // Fetch wards by district code
+  // Fetch wards by district code from static data
   async getWards(districtCode: string): Promise<Ward[]> {
     try {
-      console.log('Fetching wards for district:', districtCode);
-      const response = await fetch(`${this.baseUrl}/d/${districtCode}?depth=2`);
+      console.log('Loading wards for district:', districtCode);
+      // Simulate async operation
+      await new Promise(resolve => setTimeout(resolve, 50));
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Filter wards by parent_code (district code)
+      const filteredWards = this.wards.filter(
+        ward => ward.parent_code === districtCode
+      );
       
-      const data = await response.json();
-      console.log('Wards response:', data);
-      
-      const wards = data.wards || [];
-      console.log('Processed wards:', wards.length);
-      
-      return wards;
+      console.log('Wards loaded:', filteredWards.length);
+      return filteredWards;
     } catch (error) {
-      console.error('Error fetching wards:', error);
+      console.error('Error loading wards:', error);
       throw error;
     }
   }
 
-  // Get province by code
+  // Get province by code from static data
+  // Get province by code from static data
   async getProvinceByCode(code: string): Promise<Province | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/p/${code}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch province');
-      }
-      return await response.json();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const province = this.provincesMap[code] || null;
+      return province;
     } catch (error) {
-      console.error('Error fetching province:', error);
+      console.error('Error loading province:', error);
       return null;
     }
   }
 
-  // Get district by code
+  // Get district by code from static data
   async getDistrictByCode(code: string): Promise<District | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/d/${code}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch district');
-      }
-      return await response.json();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const district = this.districtsMap[code] || null;
+      return district;
     } catch (error) {
-      console.error('Error fetching district:', error);
+      console.error('Error loading district:', error);
       return null;
     }
   }
 
-  // Get ward by code
+  // Get ward by code from static data
   async getWardByCode(code: string): Promise<Ward | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/w/${code}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch ward');
-      }
-      return await response.json();
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const ward = this.wardsMap[code] || null;
+      return ward;
     } catch (error) {
-      console.error('Error fetching ward:', error);
+      console.error('Error loading ward:', error);
       return null;
     }
   }

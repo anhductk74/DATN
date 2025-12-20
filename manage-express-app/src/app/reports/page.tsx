@@ -505,10 +505,7 @@ export default function ReportsPage() {
           <Title level={2}>Báo cáo & Thống kê - {session?.user?.company?.companyName}</Title>
         <Space>
           <Button icon={<PrinterOutlined />} onClick={() => window.print()}>In báo cáo</Button>
-          <Button icon={<FileExcelOutlined />} type="primary" onClick={handleExportExcel}>
-            Xuất Excel
-          </Button>
-          <Button icon={<FilePdfOutlined />} disabled>Xuất PDF</Button>
+        
         </Space>
       </div>
 

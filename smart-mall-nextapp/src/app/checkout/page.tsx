@@ -679,16 +679,16 @@ export default function CheckoutPage() {
                 <div className="space-y-3">
                   {shippingOptions.map(option => (
                     <Radio key={option.id} value={option.id} className="w-full">
-                      <div className="flex items-center justify-between w-full pr-6">
-                        <div className="flex items-center">
-                          <TruckOutlined className="text-orange-500 mr-2" />
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center flex-1">
+                          <TruckOutlined className="text-orange-500 mr-3" />
                           <div>
                             <div className="font-medium">{option.name}</div>
                             <div className="text-sm text-gray-500">{option.description}</div>
                             <div className="text-xs text-gray-400">{option.time}</div>
                           </div>
                         </div>
-                        <div className="text-orange-600 font-medium">
+                        <div className="text-orange-600 font-semibold text-right ml-4 whitespace-nowrap">
                           {formatCurrency(option.price)} VND
                         </div>
                       </div>

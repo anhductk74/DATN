@@ -13,15 +13,19 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RouteProp, CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { RootStackParamList, TabParamList } from '../navigation/AppNavigator';
 import { orderService, Order } from '../services/OrderService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCloudinaryUrl } from '../config/config';
 import { orderReturnRequestService, OrderReturnResponseDto } from '../services/OrderReturnRequestService';
 
-type OrdersScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Orders'>;
-type OrdersScreenRouteProp = RouteProp<RootStackParamList, 'Orders'>;
+type OrdersScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, 'Orders'>,
+  StackNavigationProp<RootStackParamList>
+>;
+type OrdersScreenRouteProp = RouteProp<TabParamList, 'Orders'>;
 
 interface OrdersScreenProps {
   navigation: OrdersScreenNavigationProp;
@@ -355,9 +359,9 @@ export default function OrdersScreen({ navigation, route }: OrdersScreenProps) {
       </Text>
       <TouchableOpacity
         style={styles.shopNowButton}
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => navigation.goBack()}
       >
-        <Text style={styles.shopNowButtonText}>Start Shopping</Text>
+        <Text style={styles.shopNowButtonText}>Go Back</Text>
       </TouchableOpacity>
     </View>
   );

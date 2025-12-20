@@ -77,10 +77,10 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
     try {
       console.log('Loading address detail for ID:', addressId);
       const response = await addressService.getAddress(addressId);
-      console.log('Address detail response:', response);
+    
       if (response.success && response.data) {
         setAddressDetail(response.data);
-        console.log('Address detail loaded:', response.data);
+       
       } else {
         console.warn('Failed to load address detail:', response.message);
       }
@@ -235,7 +235,7 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+        <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
@@ -267,7 +267,7 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
         </View>
 
         {/* Shipping Information - Clickable Card */}
-        {order.status !== 'CANCELLED' && order.status !== 'PENDING' && (
+        {(order.status !== 'CANCELLED' && order.status !== 'PENDING') ? (
           <TouchableOpacity 
             style={styles.shippingInfoCard}
             onPress={handleViewTracking}
@@ -295,15 +295,15 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
               </View>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </View>
-            {trackingLogs.length > 0 && (
+            {trackingLogs.length > 0 ? (
               <View style={styles.deliveryStatusRow}>
                 <Ionicons name="checkmark-circle" size={16} color="#4caf50" />
                 <Text style={styles.deliveryStatusText} numberOfLines={1}>
                   {trackingLogs[0].statusDescription}
                 </Text>
               </View>
-            )}
-            {trackingLogs.length > 0 && trackingLogs[0].updatedAt && (
+            ) : null}
+            {(trackingLogs.length > 0 && trackingLogs[0].updatedAt) ? (
               <Text style={styles.deliveryTime}>
                 {new Date(trackingLogs[0].updatedAt).toLocaleDateString('vi-VN', {
                   day: '2-digit',
@@ -313,9 +313,9 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                   minute: '2-digit'
                 })}
               </Text>
-            )}
+            ) : null}
           </TouchableOpacity>
-        )}
+        ) : null}
 
         {/* Delivery Address */}
         <View style={styles.section}>
@@ -346,12 +346,12 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                     ].filter(Boolean).join(', ')
                   : 'No City/District Information'}
             </Text>
-            {addressDetail?.addressType && (
+            {addressDetail?.addressType ? (
               <View style={styles.addressTypeContainer}>
                 <View style={[
                   styles.addressTypeBadge,
-                  addressDetail.addressType === 'HOME' && styles.addressTypeBadgeHome,
-                  addressDetail.addressType === 'WORK' && styles.addressTypeBadgeWork,
+                  addressDetail.addressType === 'HOME' ? styles.addressTypeBadgeHome : null,
+                  addressDetail.addressType === 'WORK' ? styles.addressTypeBadgeWork : null,
                 ]}>
                   <Text style={styles.addressTypeText}>
                     {addressDetail.addressType === 'HOME' ? '🏠 Home' : 
@@ -359,13 +359,13 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                      '📍 Other'}
                   </Text>
                 </View>
-                {addressDetail.isDefault && (
+                {addressDetail.isDefault ? (
                   <View style={styles.defaultBadge}>
                     <Text style={styles.defaultBadgeText}>Default</Text>
                   </View>
-                )}
+                ) : null}
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -411,11 +411,11 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                   <Text style={styles.itemName} numberOfLines={2}>
                     {item.productName}
                   </Text>
-                  {item.variant?.attributes && item.variant.attributes.length > 0 && (
+                  {(item.variant?.attributes && item.variant.attributes.length > 0) ? (
                     <Text style={styles.itemVariant}>
                       {item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', ')}
                     </Text>
-                  )}
+                  ) : null}
                   <View style={styles.itemBottom}>
                     <Text style={styles.itemPrice}>
                       {item.price.toLocaleString('vi-VN')}đ
@@ -444,14 +444,14 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                 {!order.shippingFee || order.shippingFee === 0 ? 'Free' : `${order.shippingFee.toLocaleString('vi-VN')}đ`}
               </Text>
             </View>
-            {order.discountAmount && order.discountAmount > 0 && (
+            {(order.discountAmount && order.discountAmount > 0) ? (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Discount</Text>
                 <Text style={[styles.summaryValue, styles.discountValue]}>
                   -{order.discountAmount.toLocaleString('vi-VN')}đ
                 </Text>
               </View>
-            )}
+            ) : null}
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>Total Amount</Text>
@@ -494,17 +494,17 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
                 {new Date(order.createdAt).toLocaleString()}
               </Text>
             </View>
-            {order.trackingNumber && (
+            {order.trackingNumber ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Tracking Number</Text>
                 <Text style={styles.infoValue}>{order.trackingNumber}</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
         {/* Support Section */}
-        {order.status === 'DELIVERED' && (
+        {order.status === 'DELIVERED' ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Need Help?</Text>
             <View style={styles.supportContainer}>
@@ -524,14 +524,14 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
               </TouchableOpacity>
             </View>
           </View>
-        )}
+        ) : null}
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Action Buttons */}
       <View style={styles.actionBar}>
-        {order.status === 'PENDING' && (
+        {order.status === 'PENDING' ? (
           <>
             <TouchableOpacity 
               style={[styles.actionButton, styles.cancelButton]}
@@ -546,16 +546,16 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
               <Text style={styles.contactButtonText}>Contact Shop</Text>
             </TouchableOpacity>
           </>
-        )}
-        {(order.status === 'CONFIRMED' || order.status === 'SHIPPING' || order.status === 'CANCELLED') && (
+        ) : null}
+        {(order.status === 'CONFIRMED' || order.status === 'SHIPPING' || order.status === 'CANCELLED') ? (
           <TouchableOpacity 
             style={[styles.actionButton, styles.contactButton, styles.fullButton]}
             onPress={handleContact}
           >
             <Text style={styles.contactButtonText}>Contact Shop</Text>
           </TouchableOpacity>
-        )}
-        {order.status === 'DELIVERED' && (
+        ) : null}
+        {order.status === 'DELIVERED' ? (
           <>
             <TouchableOpacity 
               style={[styles.actionButton, styles.buyAgainButton]}
@@ -569,15 +569,15 @@ export default function OrderDetailScreen({ navigation, route }: OrderDetailScre
               <Text style={styles.contactButtonText}>Review</Text>
             </TouchableOpacity>
           </>
-        )}
-        {order.status === 'RETURN_REQUESTED' && (
+        ) : null}
+        {order.status === 'RETURN_REQUESTED' ? (
           <View style={styles.returnRequestedBanner}>
             <Ionicons name="hourglass-outline" size={20} color="#ff9800" />
             <Text style={styles.returnRequestedText}>
               Your return request is being reviewed
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
     </SafeAreaView>
   );

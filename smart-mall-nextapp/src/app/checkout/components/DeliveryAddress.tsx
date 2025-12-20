@@ -717,12 +717,14 @@ export default function DeliveryAddress({
           footer={null}
           width={600}
           destroyOnClose
+          forceRender={false}
         >
           <Form
             form={addressForm}
             layout="vertical"
             onFinish={handleSaveAddress}
             className="mt-4"
+            preserve={false}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Form.Item
