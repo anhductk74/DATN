@@ -752,12 +752,6 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ open, onClose }) => {
           {/* Search Results Section */}
           {(() => {
             const shouldShow = searchResults.length > 0 || searching;
-            console.log('🎨 Render check - Search Results Section:', {
-              searchResults_length: searchResults.length,
-              searching: searching,
-              shouldShow: shouldShow,
-              searchResults_sample: searchResults[0]
-            });
             return shouldShow;
           })() && (
             <div className="p-6 pt-0 bg-gray-50">
