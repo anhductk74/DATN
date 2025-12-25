@@ -1,13 +1,13 @@
 "use client";
 export const dynamic = "force-dynamic";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
-import productService, { Product } from "@/services/ProductService";
+import productService, { Product, ProductVariant } from "@/services/ProductService";
 import categoryService from "@/services/CategoryService";
 import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
@@ -18,18 +18,56 @@ import {
   FilterOutlined,
   AppstoreOutlined,
   UnorderedListOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  SearchOutlined
 } from "@ant-design/icons";
+
+// API Response interfaces
+interface ApiCategory {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface ApiShop {
+  id: string;
+  name: string;
+  viewCount: number;
+}
+
+interface ApiProduct {
+  id: string;
+  name: string;
+  brand: string;
+  category: ApiCategory;
+  shop: ApiShop;
+  minPrice: number;
+  maxPrice: number;
+  images: string[];
+  description: string;
+  status: string;
+  rating: number;
+  reviewCount: number;
+  variants?: ProductVariant[];
+}
 
 function ProductsContent() {
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [sortBy, setSortBy] = useState("featured");
-  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const hasShownMessageRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const category = searchParams.get('category') || 'all';
-  const { addItem } = useCart();
+  const searchQuery = searchParams.get('search');
+  const searchMode = searchParams.get('mode');
   const { message } = App.useApp();
+
+  // Reset message flag when search query changes
+  useEffect(() => {
+    hasShownMessageRef.current = false;
+  }, [searchQuery]);
 
   // Fetch categories
   const {
@@ -40,35 +78,226 @@ function ProductsContent() {
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
+  // Handle AI search when search query is present
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      console.log('🔄 useEffect triggered:', { searchQuery, searchMode });
+      
+      if (searchQuery && searchMode === 'text') {
+        console.log('🔍 Starting text search:', { searchQuery, searchMode });
+        setIsSearching(true);
+        try {
+          // Use hardcoded URL for client-side (env vars may not work in client components)
+          const apiUrl = 'http://localhost:5001';
+          const fullUrl = `${apiUrl}/ai_smart_search?query=${encodeURIComponent(searchQuery)}`;
+          console.log('🌐 API URL:', apiUrl);
+          console.log('📡 Calling API with URL:', fullUrl);
+          
+          const response = await fetch(fullUrl);
+          console.log('📥 Response status:', response.status);
+          
+          const data = await response.json();
+          console.log('📦 Search API Response:', data);
+
+          if (data.success) {
+            const apiProducts = data.data.products || [];
+            console.log('✅ API returned products:', apiProducts.length, 'products');
+            console.log('📄 First product sample:', apiProducts[0]);
+            
+            // Map API response to Product interface
+            const mappedProducts = apiProducts.map((p: ApiProduct) => ({
+              ...p,
+              categoryId: p.category?.id || '',
+              shopId: p.shop?.id || '',
+              // Ensure variants array exists, create minimal variant if missing
+              variants: p.variants || [{
+                id: `${p.id}-default`,
+                sku: `SKU-${p.id}`,
+                price: p.minPrice || p.maxPrice || 0,
+                stock: 100,
+                attributes: []
+              }]
+            }));
+            
+            console.log('✅ Mapped products:', mappedProducts.length, 'products');
+            console.log('📄 First mapped product:', mappedProducts[0]);
+            setSearchResults(mappedProducts);
+            console.log('✅ Search results state updated');
+            message.success(`Found ${data.data.totalItems || 0} products`);
+          } else {
+            message.error(data.message || "Search failed");
+            setSearchResults([]);
+          }
+        } catch (error) {
+          console.error("❌ Search error:", error);
+          console.error("Error details:", {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          message.error("Unable to search. Please try again.");
+          setSearchResults([]);
+        } finally {
+          console.log('🏁 Search completed, isSearching set to false');
+          setIsSearching(false);
+        }
+      } else if (searchQuery && searchMode === 'image') {
+        console.log('🖼️ Image search mode detected');
+        setIsSearching(true); // Start loading
+        
+        // Always load from sessionStorage for image search
+        console.log('📦 Loading image results from sessionStorage...');
+        const storedResults = sessionStorage.getItem('imageSearchResults');
+        if (storedResults) {
+          try {
+            const storedData = JSON.parse(storedResults);
+            // Handle both old format (array) and new format (object with timestamp)
+            const imageResults = Array.isArray(storedData) ? storedData : storedData.products;
+            
+            console.log('✅ Raw image results from storage:', imageResults);
+            console.log('✅ Number of image results:', imageResults.length);
+            
+            if (imageResults.length > 0) {
+              console.log('📄 Sample raw product:', imageResults[0]);
+              
+              // Map image search results to Product interface
+              const mappedResults = imageResults.map((p: any) => {
+                console.log('🔄 Mapping image product:', {
+                  id: p.id,
+                  name: p.name,
+                  brand: p.brand,
+                  category: p.category,
+                  shopName: p.shopName,
+                  image: p.image,
+                  minPrice: p.minPrice
+                });
+                
+                const mapped: Product = {
+                  id: p.id || '',
+                  name: p.name || 'Unnamed Product',
+                  description: p.description || '',
+                  brand: p.brand || '',
+                  images: p.image ? [p.image] : (p.images || []),
+                  status: 'ACTIVE' as const,
+                  categoryId: '',
+                  shopId: '',
+                  variants: [{
+                    id: p.id + '-default',
+                    sku: 'SKU-' + p.id,
+                    price: p.minPrice || p.maxPrice || 0,
+                    stock: 100,
+                    attributes: []
+                  }],
+                  category: {
+                    id: '',
+                    name: p.category || 'Uncategorized',
+                    description: ''
+                  },
+                  shop: {
+                    id: '',
+                    name: p.shopName || 'Unknown Shop',
+                    description: '',
+                    numberPhone: ''
+                  },
+                  averageRating: p.rating || 0,
+                  reviewCount: p.reviewCount || 0
+                };
+                
+                console.log('✅ Mapped product:', mapped);
+                return mapped;
+              });
+              
+                console.log('✅ Total mapped products:', mappedResults.length);
+              console.log('📄 First fully mapped product:', mappedResults[0]);
+              
+              // Set state BEFORE removing from storage
+              setSearchResults(mappedResults);
+              
+              // Check if this is a new search (loading flag exists) and message hasn't been shown
+              const shouldShowMessage = sessionStorage.getItem('imageSearchLoading') === 'true' && !hasShownMessageRef.current;
+              
+              // Remove loading flag
+              sessionStorage.removeItem('imageSearchLoading');
+              
+              // Wait a bit then remove from storage
+              setTimeout(() => {
+                sessionStorage.removeItem('imageSearchResults');
+                console.log('🗑️ Removed imageSearchResults from sessionStorage');
+              }, 100);
+              
+              // Only show message for new searches and only once
+              if (shouldShowMessage) {
+                hasShownMessageRef.current = true;
+                message.success(`Found ${mappedResults.length} similar products`);
+              }
+            } else {
+              console.log('⚠️ Image results array is empty');
+              setSearchResults([]);
+              sessionStorage.removeItem('imageSearchResults');
+              sessionStorage.removeItem('imageSearchLoading');
+            }
+          } catch (error) {
+            console.error('❌ Image search parsing error:', error);
+            console.error('Error stack:', error instanceof Error ? error.stack : undefined);
+            setSearchResults([]);
+            message.error('Error processing image search results');
+            sessionStorage.removeItem('imageSearchLoading');
+          } finally {
+            setIsSearching(false); // Stop loading
+          }
+        } else {
+          console.log('⚠️ No imageSearchResults found in sessionStorage');
+          setSearchResults([]);
+          sessionStorage.removeItem('imageSearchLoading');
+          setIsSearching(false);
+        }
+      } else {
+        // Clear search results if no search query
+        console.log('🧹 Clearing search results (no query or invalid mode)', { searchQuery, searchMode });
+        setSearchResults([]);
+      }
+    };
+
+    fetchSearchResults();
+  }, [searchQuery, searchMode, message]);
+
   // Fetch products using TanStack Query
   const {
-    data: products = [],
-    isLoading,
+    data: regularProducts = [],
+    isLoading: isLoadingRegular,
     isError,
     refetch
   } = useQuery({
-    queryKey: ['products', category, sortBy],
+    queryKey: ['products', category, sortBy, categories.length],
     queryFn: async () => {
-      const allProducts = await productService.getAllProducts();
-      
-      // Filter by category if not 'all'
-      let filteredProducts = allProducts;
-      if (category !== 'all') {
-        // Filter products by categoryId
-        const selectedCategory = categories.find(cat => 
+      let allProducts: Product[] = [];
+
+      // If 'all' selected, fetch all products and shuffle (like home)
+      if (category === 'all') {
+        allProducts = await productService.getAllProducts();
+        allProducts = [...allProducts].sort(() => Math.random() - 0.5);
+      } else {
+        // Find the selected category by id or slug
+        const selectedCategory = categories.find(cat =>
           cat.name.toLowerCase().replace(/\s+/g, '-') === category ||
           cat.id === category
         );
-        
+
         if (selectedCategory) {
-          filteredProducts = allProducts.filter(product => 
-            product.categoryId === selectedCategory.id
-          );
+          // Use ProductService helper to fetch by category id
+          try {
+            allProducts = await productService.getProductsByCategory(selectedCategory.id);
+          } catch (error) {
+            console.error('Error fetching products by category via service:', error);
+            allProducts = [];
+          }
+        } else {
+          // If category not found, return empty
+          allProducts = [];
         }
       }
-      
+
       // Sort products based on sortBy
-      const sortedProducts = [...filteredProducts].sort((a, b) => {
+      const sortedProducts = [...allProducts].sort((a, b) => {
         switch (sortBy) {
           case 'price-low':
             return (a.variants?.[0]?.price || 0) - (b.variants?.[0]?.price || 0);
@@ -79,37 +308,36 @@ function ProductsContent() {
           case 'rating':
           case 'featured':
           default:
-            return 0; // Keep original order for now
+            return 0;
         }
       });
-      
+
       return sortedProducts;
     },
+    enabled: !searchQuery && categories.length > 0, // Only fetch when not searching and categories loaded
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  // Handle add to cart
-  const handleAddToCart = async (product: Product) => {
-    if (product.variants && product.variants.length > 0) {
-      const variant = product.variants[0]; // Use first variant
-      if (variant.id) {
-        try {
-          setAddingToCart(product.id || null);
-          await addItem(variant.id, 1);
-          message.success(`Added "${product.name}" to cart successfully!`);
-        } catch (error) {
-          message.error("Failed to add product to cart");
-        } finally {
-          setAddingToCart(null);
-        }
-      } else {
-        message.error("Biến thể sản phẩm không hợp lệ");
-      }
-    } else {
-      message.error("Sản phẩm không có phiên bản để bán");
-    }
-  };
+  // Determine which products to display
+  const products = searchQuery ? searchResults : regularProducts;
+  const isLoading = searchQuery ? isSearching : isLoadingRegular;
+
+  // Debug logging after every render
+  useEffect(() => {
+    console.log('📊 Display state (after render):', {
+      searchQuery,
+      searchMode,
+      searchResultsCount: searchResults.length,
+      regularProductsCount: regularProducts.length,
+      displayProductsCount: products.length,
+      isLoading,
+      isSearching,
+      firstProduct: products[0],
+      searchResults_sample: searchResults[0],
+      products_array: products
+    });
+  }, [searchQuery, searchMode, searchResults, regularProducts, products, isLoading, isSearching]);
 
   const getCategoryTitle = (category: string) => {
     if (category === 'all') return 'All Products';
@@ -154,6 +382,66 @@ function ProductsContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search Results Info */}
+        {searchQuery && (
+          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                <SearchOutlined className="text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {searchMode === 'image' ? 'Image Search Results' : `Search results for "${searchQuery}"`}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {isSearching ? 'Searching...' : `Found ${products.length} products`}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/products')}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+            >
+              Clear Search ✕
+            </button>
+          </div>
+        )}
+
+        {/* Category Filter Pills */}
+        {!searchQuery && (
+          <div className="mb-8 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FilterOutlined className="text-blue-600" />
+              Filter by Category
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => router.push('/products?category=all')}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                  category === 'all'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Products
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => router.push(`/products?category=${cat.id}`)}
+                  className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    category === cat.id
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
           <div>
@@ -252,10 +540,27 @@ function ProductsContent() {
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🛍️</div>
             <div className="text-gray-400 text-xl mb-2">Không có sản phẩm</div>
-            <div className="text-gray-500 text-sm mb-6">Chưa có sản phẩm nào trong danh mục này</div>
+            <div className="text-gray-500 text-sm mb-6">
+              {searchQuery 
+                ? `Không tìm thấy sản phẩm nào cho "${searchQuery}"`
+                : 'Chưa có sản phẩm nào trong danh mục này'
+              }
+            </div>
+            <div className="text-xs text-gray-400 mb-4">
+              Debug: searchResults={searchResults.length}, regularProducts={regularProducts.length}
+            </div>
             <button 
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
-              onClick={() => router.push('/home')}
+              onClick={() => {
+                console.log('🔍 Debug info:', {
+                  searchQuery,
+                  searchMode,
+                  searchResults,
+                  regularProducts,
+                  products
+                });
+                router.push('/home');
+              }}
             >
               Quay về trang chủ
             </button>
@@ -267,105 +572,122 @@ function ProductsContent() {
               : "space-y-4"
           }>
             {products.map((product: Product) => {
+              console.log('🎨 Rendering product:', product.id, product.name);
               const variant = product.variants?.[0];
               const price = variant?.price || 0;
-              const originalPrice = Math.round(price * 1.3); // Mock original price
+              const originalPrice = Math.round(price * 1.3);
+              const discount = Math.floor(((originalPrice - price) / originalPrice) * 100);
               
               return (
               <div
                 key={product.id}
-                className={`group bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-gray-100 cursor-pointer ${
-                  viewMode === "list" ? "flex items-center p-4 space-x-6" : "p-4"
+                className={`group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 border border-gray-100 cursor-pointer overflow-hidden ${
+                  viewMode === "list" ? "flex items-center" : ""
                 }`}
                 onClick={() => router.push(`/product/${product.id}`)}
               >
-                <div className={`bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center relative overflow-hidden ${
-                  viewMode === "list" ? "w-24 h-24 flex-shrink-0" : "w-full h-40 mb-4"
+                {/* Image Container */}
+                <div className={`relative overflow-hidden ${
+                  viewMode === "list" ? "w-48 h-48 flex-shrink-0" : "w-full aspect-square"
                 }`}>
-                  {product.images?.[0] ? (
-                    <Image 
-                      src={getCloudinaryUrl(product.images[0])} 
-                      alt={product.name}
-                      width={160}
-                      height={160}
-                      priority
-                      className="object-cover rounded-2xl w-full h-full"
-                      style={{ width: 'auto', height: 'auto' }}
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-sm text-center px-2">
-                      {product.name}
-                    </span>
-                  )}
-                  
-                  {product.status === 'ACTIVE' && (
-                    <div className="absolute top-2 left-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                      ACTIVE
-                    </div>
-                  )}
-                  
-                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                    -{Math.floor(((originalPrice - price) / originalPrice) * 100)}%
+                  <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                    {product.images?.[0] ? (
+                      <Image 
+                        src={getCloudinaryUrl(product.images[0])} 
+                        alt={product.name}
+                        width={300}
+                        height={300}
+                        priority
+                        className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
+                        style={{ width: 'auto', height: 'auto' }}
+                      />
+                    ) : (
+                      <span className="text-gray-400 text-sm text-center px-4">
+                        {product.name}
+                      </span>
+                    )}
                   </div>
 
+                  {/* Discount Badge */}
+                  {discount > 0 && (
+                    <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">
+                      -{discount}%
+                    </div>
+                  )}
+
+                  {/* Wishlist Button */}
                   <button 
-                    className={`absolute bg-white/80 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 ${
-                      viewMode === "list" ? "w-6 h-6 bottom-2 right-2" : "w-8 h-8 bottom-3 right-3"
-                    }`}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 hover:scale-110"
                     onClick={(e) => {
                       e.stopPropagation();
                       message.info("Wishlist feature coming soon!");
                     }}
                   >
-                    <HeartOutlined className="text-gray-400 hover:text-red-500 text-sm" />
+                    <HeartOutlined className="text-gray-600 hover:text-red-500 text-base" />
                   </button>
+
+                  {/* View Details Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">
+                    <span className="text-white font-semibold text-sm px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full">
+                      View Details →
+                    </span>
+                  </div>
                 </div>
 
-                <div className={viewMode === "list" ? "flex-1" : ""}>
-                  <h3 className={`font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors line-clamp-2 ${
-                    viewMode === "list" ? "text-lg" : "text-sm"
+                {/* Product Info */}
+                <div className={`p-4 ${
+                  viewMode === "list" ? "flex-1" : ""
+                }`}>
+                  {/* Product Name */}
+                  <h3 className={`font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2 ${
+                    viewMode === "list" ? "text-xl mb-3" : "text-sm h-10"
                   }`}>
                     {product.name}
                   </h3>
                   
-                  <div className="text-sm text-gray-500 mb-2">{product.brand}</div>
+                  {/* Brand */}
+                  {product.brand && (
+                    <div className="flex items-center gap-1 mb-2">
+                      <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                        {product.brand}
+                      </span>
+                    </div>
+                  )}
                   
-                  <div className="flex items-center space-x-1 mb-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <StarFilled key={star} className="w-3 h-3 text-yellow-400" />
-                    ))}
-                    <span className="text-xs text-gray-500">(4.8)</span>
+                  {/* Rating */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <StarFilled key={star} className="text-yellow-400 text-xs" />
+                      ))}
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium">4.8</span>
+                    <span className="text-xs text-gray-400">(256)</span>
                   </div>
 
-                  <div className={`flex items-center space-x-2 mb-3 ${viewMode === "list" ? "text-xl" : ""}`}>
-                    <span className="text-red-500 font-bold">${price.toLocaleString()}</span>
-                    <span className="text-gray-500 line-through text-sm">${originalPrice.toLocaleString()}</span>
-                  </div>
-
-                  <button 
-                    className={`bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none ${
-                      viewMode === "list" 
-                        ? "px-6 py-2" 
-                        : "w-full py-2 text-sm"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddToCart(product);
-                    }}
-                    disabled={addingToCart === product.id}
-                  >
-                    {addingToCart === product.id ? (
-                      <>
-                        <LoadingOutlined className="text-sm animate-spin" />
-                        <span>Adding...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingCartOutlined className="text-sm" />
-                        <span>Add to Cart</span>
-                      </>
+                  {/* Price */}
+                  <div className="flex items-baseline gap-2">
+                    <span className={`font-bold text-blue-600 ${
+                      viewMode === "list" ? "text-2xl" : "text-lg"
+                    }`}>
+                      ${price.toLocaleString()}
+                    </span>
+                    {discount > 0 && (
+                      <span className="text-sm text-gray-400 line-through">
+                        ${originalPrice.toLocaleString()}
+                      </span>
                     )}
-                  </button>
+                  </div>
+
+                  {/* Shop Info */}
+                  {product.shop?.name && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-xs text-gray-500 truncate">
+                        <ShoppingCartOutlined className="mr-1" />
+                        {product.shop.name}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             );

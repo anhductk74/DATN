@@ -296,37 +296,56 @@ export default function Chatbot() {
     ];
     setHistory(initialHistory);
   };
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [modalRight, setModalRight] = useState<string | undefined>(undefined);
+
+  const openFromButton = () => {
+    const btn = buttonRef.current;
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setModalRight(`${window.innerWidth - rect.left}px`);
+    }
+    window.dispatchEvent(new CustomEvent('closeAllWidgets', { detail: { source: 'chatbot' } }));
+    setOpen(true);
+  };
 
   return (
     <>
       {/* Floating Button */}
-  <button
-  onClick={() => setOpen(true)}
-  className={`fixed bottom-22 right-6 z-99 rounded-full w-14 h-14 overflow-hidden shadow-xl flex items-center justify-center hover:scale-105 hover:shadow-2xl transition-transform duration-300 border-2 border-blue-500 ${
-    open
-      ? "scale-0 opacity-0 pointer-events-none"
-      : "scale-100 opacity-100"
-  }`}
-  aria-label="Open Smart-mall AI Assistant"
->
-  <Image
-    src="/images/chatbox.webp"
-    alt="Chatbot"
-    width={56}
-    height={56}
-    className="w-full h-full object-cover"
-  />
-</button>
-
+      <button
+        ref={buttonRef}
+        onClick={() => {
+          if (!open) {
+            openFromButton();
+          } else {
+            setOpen(false);
+          }
+        }}
+        className={`fixed bottom-22 right-6 z-40 rounded-full w-14 h-14 overflow-hidden shadow-xl flex items-center justify-center hover:scale-105 hover:shadow-2xl transition-transform duration-300 border-2 border-blue-500 ${
+          open
+            ? "scale-0 opacity-0 pointer-events-none"
+            : "scale-100 opacity-100"
+        }`}
+        aria-label="Open Smart-mall AI Assistant"
+      >
+        <Image
+          src="/images/chatbox.webp"
+          alt="Chatbot"
+          width={56}
+          height={56}
+          className="w-full h-full object-cover"
+        />
+      </button>
 
       {/* Chat Modal */}
       {anim && (
         <div
-          className={`fixed bottom-28 right-8 z-50 bg-white border border-gray-200 rounded-xl shadow-2xl max-w-sm w-full h-[520px] flex flex-col transition-all duration-300 ${
+          className={`fixed bottom-28 bg-white border border-gray-200 rounded-xl shadow-2xl max-w-sm w-full h-[520px] flex flex-col transition-all duration-300 ${
             open
               ? "scale-100 opacity-100"
               : "scale-90 opacity-0 pointer-events-none"
           }`}
+          style={{ zIndex: 2000, right: modalRight || '24px' }}
         >
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-200 bg-blue-600 text-white rounded-t-xl flex justify-between items-center">

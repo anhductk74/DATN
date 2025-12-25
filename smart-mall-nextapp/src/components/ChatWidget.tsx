@@ -36,6 +36,19 @@ const ChatWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const chatBtnRef = useRef<HTMLDivElement | null>(null);
+  const [chatModalRight, setChatModalRight] = useState<string | undefined>(undefined);
+
+  const openChatFromButton = () => {
+    const btn = chatBtnRef.current;
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      setChatModalRight(`${window.innerWidth - rect.left}px`);
+    }
+    window.dispatchEvent(new CustomEvent('closeAllWidgets', { detail: { source: 'chatwidget' } }));
+    setIsOpen(true);
+  };
+
   const currentUserId = session?.user?.id || "";
 
   // Lắng nghe event mở chat từ bên ngoài
@@ -341,12 +354,25 @@ const ChatWidget: React.FC = () => {
     });
   };
 
+  // Close this widget when other widgets open
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const src = (e as CustomEvent).detail?.source;
+      if (src && src !== 'chatwidget') {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('closeAllWidgets', handler);
+    return () => window.removeEventListener('closeAllWidgets', handler);
+  }, []);
+
   if (!session) return null;
 
   return (
     <>
       {/* Chat Icon Button */}
       <div
+        ref={chatBtnRef}
         style={{
           position: "fixed",
           bottom: "24px",
@@ -360,7 +386,13 @@ const ChatWidget: React.FC = () => {
             shape="circle"
             size="large"
             icon={<MessageOutlined />}
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={() => {
+              if (!isOpen) {
+                openChatFromButton();
+              } else {
+                setIsOpen(false);
+              }
+            }}
             style={{
               width: "56px",
               height: "56px",
@@ -377,7 +409,7 @@ const ChatWidget: React.FC = () => {
           style={{
             position: "fixed",
             bottom: "96px",
-            right: "24px",
+            right: chatModalRight || "24px",
             width: "750px",
             height: "600px",
             backgroundColor: "white",

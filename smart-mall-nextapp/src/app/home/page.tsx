@@ -299,8 +299,14 @@ export default function Home() {
               </h2>
               <p className="text-gray-600">Handpicked products just for you</p>
             </div>
-            <button className="hidden md:block text-blue-600 font-semibold hover:text-blue-700 transition-colors">
-              View All →
+            <button
+              type="button"
+              onClick={() => router.push('/products')}
+              aria-label="View all products"
+              className="hidden md:inline-flex items-center space-x-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:from-blue-700 hover:to-purple-700 transform hover:-translate-y-0.5 transition-all"
+            >
+              <span>View All</span>
+              <span className="text-sm">→</span>
             </button>
           </div>
 
