@@ -45,6 +45,7 @@ export interface CreatePaymentRequest {
   orderInfo: string;
   userId: string;
   orderId?: string; // Thêm orderId để backend có thể liên kết
+  platform: string; // 'WEB' hoặc 'MOBILE'
 }
 
 export interface RefundPaymentRequest {
@@ -61,7 +62,8 @@ export const vnPayService = {
     const requestParams: any = {
       amount: params.amount,
       orderInfo: params.orderInfo,
-      userId: params.userId
+      userId: params.userId,
+      platform: params.platform || 'web' // Mặc định là WEB
     };
     
     // Thêm orderId vào params nếu có
