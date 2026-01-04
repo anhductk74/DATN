@@ -17,6 +17,8 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { storageService } from '../services/storage.service';
 import { UserInfo } from '../types/auth.types';
 import { shipperSubOrderService, ShipperDashboardResponseDto } from '../services/ShipperSubOrderService';
+import { websocketService, DeliveryMessage } from '../services/websocket.service';
+import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +38,21 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
 
   useEffect(() => {
     loadUserInfo();
+    
+    // Kết nối WebSocket
+    websocketService.connect()
+      .catch((error) => {
+        Alert.alert('Lỗi kết nối', 'Không thể kết nối WebSocket. Vui lòng thử lại.');
+      });
+
+    // Đăng ký listener cho WebSocket
+    const removeListener = websocketService.addListener(handleWebSocketMessage);
+
+    // Cleanup khi unmount
+    return () => {
+      removeListener();
+      websocketService.disconnect();
+    };
   }, []);
 
   const loadUserInfo = async () => {
@@ -55,6 +72,37 @@ export default function HomeScreen({ onLogout, onNavigateToOrders, onNavigateToI
       }
     } catch (error) {
       console.error('Error loading dashboard:', error);
+    }
+  };
+
+  const handleWebSocketMessage = (message: DeliveryMessage) => {
+    // Reload dashboard khi có message mới
+    if (userInfo?.shipper?.shipperId) {
+      loadDashboard(userInfo.shipper.shipperId);
+    }
+
+    // Hiển thị thông báo cho user
+    if (message.type === 'ASSIGNED') {
+      Alert.alert(
+        '🚚 Đơn hàng mới',
+        message.message || 'Bạn có đơn hàng mới được giao',
+        [
+          {
+            text: 'Xem ngay',
+            onPress: () => onNavigateToOrders?.(),
+          },
+          {
+            text: 'Đóng',
+            style: 'cancel',
+          },
+        ]
+      );
+    } else if (message.type === 'STATUS_UPDATE') {
+      Alert.alert(
+        '📦 Cập nhật trạng thái',
+        message.message || 'Đơn hàng đã được cập nhật',
+        [{ text: 'OK' }]
+      );
     }
   };
 

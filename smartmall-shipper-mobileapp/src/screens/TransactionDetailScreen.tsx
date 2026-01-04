@@ -121,7 +121,7 @@ export default function TransactionDetailScreen({ transaction, onBack }: Transac
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Mã đơn hàng:</Text>
               <Text style={styles.infoValueHighlight}>
-                ...{transaction.shipmentOrderCode.split('-').pop()}
+                ...{transaction.shipmentOrderCode?.split('-').pop() || 'N/A'}
               </Text>
             </View>
           )}
@@ -171,7 +171,7 @@ export default function TransactionDetailScreen({ transaction, onBack }: Transac
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Mã vận đơn:</Text>
                 <Text style={styles.infoValueHighlight}>
-                  ...{shipmentOrder.trackingCode.split('.').pop()}
+                  ...{shipmentOrder.trackingCode?.split('.').pop() || 'N/A'}
                 </Text>
               </View>
 

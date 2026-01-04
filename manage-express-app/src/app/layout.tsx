@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AntdRegistry from "@/components/AntdRegistry";
 import AuthProvider from "@/components/AuthProvider";
+import { ToastProvider } from "@/components/providers/ToastProvider";
+import { WebSocketProvider } from "@/components/providers/WebSocketProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,8 +33,13 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <AntdRegistry>{children}</AntdRegistry>
+          <AntdRegistry>
+            <WebSocketProvider enabled={true}>
+              {children}
+            </WebSocketProvider>
+          </AntdRegistry>
         </AuthProvider>
+        <ToastProvider />
       </body>
     </html>
   );

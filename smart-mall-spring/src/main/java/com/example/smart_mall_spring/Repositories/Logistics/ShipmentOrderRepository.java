@@ -107,20 +107,41 @@ AND s.warehouse.shippingCompany.id = :companyId
 
 
 
-    @Query("""
-SELECT s FROM ShipmentOrder s
-LEFT JOIN s.warehouse w
+//    @Query("""
+//SELECT s FROM ShipmentOrder s
+//LEFT JOIN s.warehouse w
+//LEFT JOIN w.shippingCompany sc
+//WHERE (:companyId IS NULL OR sc.id = :companyId)
+//AND (:status IS NULL OR s.status = :status)
+//AND (:search IS NULL OR LOWER(s.trackingCode) LIKE LOWER(CONCAT('%', :search, '%')))
+//""")
+//    Page<ShipmentOrder> findByCompanyFilters(
+//            @Param("companyId") UUID companyId,
+//            @Param("status") ShipmentStatus status,
+//            @Param("search") String search,
+//            Pageable pageable
+//    );
+@Query("""
+SELECT DISTINCT so
+FROM ShipmentOrder so
+LEFT JOIN so.warehouse w
 LEFT JOIN w.shippingCompany sc
-WHERE (:companyId IS NULL OR sc.id = :companyId)
-AND (:status IS NULL OR s.status = :status)
-AND (:search IS NULL OR LOWER(s.trackingCode) LIKE LOWER(CONCAT('%', :search, '%')))
+LEFT JOIN SubShipmentOrder sub ON sub.shipmentOrder = so
+LEFT JOIN sub.toWarehouse tw
+LEFT JOIN tw.shippingCompany sc2
+WHERE (
+    sc.id = :companyId
+    OR sc2.id = :companyId
+)
+AND (:status IS NULL OR so.status = :status)
+AND (:search IS NULL OR LOWER(so.trackingCode) LIKE LOWER(CONCAT('%', :search, '%')))
 """)
-    Page<ShipmentOrder> findByCompanyFilters(
-            @Param("companyId") UUID companyId,
-            @Param("status") ShipmentStatus status,
-            @Param("search") String search,
-            Pageable pageable
-    );
+Page<ShipmentOrder> findVisibleShipmentsForCompany(
+        @Param("companyId") UUID companyId,
+        @Param("status") ShipmentStatus status,
+        @Param("search") String search,
+        Pageable pageable
+);
 
     @Query("""
     SELECT o FROM ShipmentOrder o

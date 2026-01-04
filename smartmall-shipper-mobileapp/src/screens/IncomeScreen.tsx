@@ -11,11 +11,13 @@ import {
   Dimensions,
   Alert,
   TextInput,
+  Linking,
 } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { shipperTransactionService, ShipperTransactionResponseDto } from '../services/ShipperTransactionService';
 import { shipperSubOrderService, ShipperDashboardResponseDto } from '../services/ShipperSubOrderService';
 import { storageService } from '../services/storage.service';
+import { vnPayService } from '../services/vnPayService';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +37,7 @@ export default function IncomeScreen({ onBack, onNavigateToDetail }: IncomeScree
   const [shipperId, setShipperId] = useState<string>('');
   const [depositAmount, setDepositAmount] = useState<string>('');
   const [depositLoading, setDepositLoading] = useState(false);
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     loadShipperData();
@@ -50,6 +53,9 @@ export default function IncomeScreen({ onBack, onNavigateToDetail }: IncomeScree
     const userInfo = await storageService.getUserInfo();
     if (userInfo?.shipper?.shipperId) {
       setShipperId(userInfo.shipper.shipperId);
+    }
+    if (userInfo?.id) {
+      setUserId(userInfo.id);
     }
   };
 
@@ -143,32 +149,68 @@ export default function IncomeScreen({ onBack, onNavigateToDetail }: IncomeScree
     }
 
     Alert.alert(
-      'Xác nhận nộp COD',
-      `Bạn có chắc muốn nộp ${amount.toLocaleString('vi-VN')}đ?`,
+      'Xác nhận thanh toán',
+      `Bạn sẽ thanh toán ${amount.toLocaleString('vi-VN')}đ qua VNPay để nộp COD về công ty. Tiếp tục?`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
-          text: 'Xác nhận',
+          text: 'Thanh toán',
           onPress: async () => {
             try {
               setDepositLoading(true);
               
-              const response = await shipperTransactionService.create({
-                shipperId: shipperId,
-                shipmentOrderId: '00000000-0000-0000-0000-000000000000', // Dummy ID for deposit
+              // Tạo orderInfo theo format backend yêu cầu
+              const transactionId = `DEPOSIT_${Date.now()}`;
+              const orderInfo = `DepositId:${transactionId}|Nop COD ${amount.toLocaleString('vi-VN')}d`;
+              
+              console.log('🔄 Calling VNPay API for deposit with params:', {
                 amount: amount,
-                transactionType: 'DEPOSIT_COD',
+                orderInfo: orderInfo,
+                userId: userId,
               });
 
-              if (response.success) {
-                Alert.alert('Thành công', 'Nộp COD thành công');
-                setDepositAmount('');
-                await loadData(); // Reload data
+              // Gọi API VNPay để tạo payment URL
+              const vnPayResponse = await vnPayService.createPaymentUrl({
+                amount: amount,
+                orderInfo: orderInfo,
+                userId: userId,
+              });
+
+              console.log('📥 VNPay Response:', vnPayResponse);
+
+              if (vnPayResponse.success && vnPayResponse.data) {
+                const paymentUrl = vnPayResponse.data;
+                const canOpen = await Linking.canOpenURL(paymentUrl);
+                
+                if (canOpen) {
+                  // Mở trình duyệt thanh toán
+                  await Linking.openURL(paymentUrl);
+                  
+                  Alert.alert(
+                    'Đang chuyển đến VNPay',
+                    'Sau khi hoàn tất thanh toán trên VNPay, trang web sẽ tự động mở lại ứng dụng và hiển thị kết quả.',
+                    [
+                      {
+                        text: 'Đã hiểu',
+                        onPress: () => {
+                          setDepositAmount('');
+                        },
+                      },
+                    ]
+                  );
+                } else {
+                  Alert.alert('Lỗi', 'Không thể mở trang thanh toán');
+                }
               } else {
-                Alert.alert('Lỗi', response.message || 'Không thể nộp COD');
+                console.error('VNPay Error Response:', vnPayResponse);
+                Alert.alert(
+                  'Lỗi thanh toán', 
+                  vnPayResponse.message || 'Không thể tạo liên kết thanh toán VNPay'
+                );
               }
             } catch (error) {
-              Alert.alert('Lỗi', 'Có lỗi xảy ra khi nộp COD');
+              console.error('Error during VNPay payment:', error);
+              Alert.alert('Lỗi', 'Có lỗi xảy ra khi tạo thanh toán VNPay');
             } finally {
               setDepositLoading(false);
             }
@@ -420,7 +462,7 @@ export default function IncomeScreen({ onBack, onNavigateToDetail }: IncomeScree
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color="#FF9800" />
           <Text style={styles.depositInfoText}>
-            Sau khi nộp COD, số tiền sẽ được chuyển về công ty. Bạn có thể xem lịch sử nộp tại tab Giao dịch.
+            Bạn sẽ thanh toán qua VNPay để nộp COD về công ty. Sau khi thanh toán thành công, hệ thống sẽ tự động ghi nhận giao dịch.
           </Text>
         </View>
       </View>

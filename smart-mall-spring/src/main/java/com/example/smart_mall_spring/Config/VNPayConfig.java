@@ -17,6 +17,9 @@ public class VNPayConfig {
     @Value("${vnpay.url}")
     private String vnpUrl;
 
-    @Value("${vnpay.return-url}")
-    private String returnUrl;
+    @Value("${vnpay.return-url.web}")
+    private String returnUrlWeb;
+
+    @Value("${vnpay.return-url.mobile}")
+    private String returnUrlMobile;
 }

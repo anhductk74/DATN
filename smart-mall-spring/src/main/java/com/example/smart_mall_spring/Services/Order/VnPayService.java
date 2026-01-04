@@ -43,7 +43,7 @@ public class VnPayService {
     /**
      *  Tạo URL thanh toán VNPay
      */
-    public String createPaymentUrl(HttpServletRequest request, double amount, String orderInfo, User user) {
+    public String createPaymentUrl(HttpServletRequest request, double amount, String orderInfo, User user,   String platform ) {
         try {
             //  Tạo mã giao dịch ngẫu nhiên (orderCode)
             String vnp_TxnRef = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
@@ -63,7 +63,18 @@ public class VnPayService {
             params.put("vnp_OrderInfo", orderInfo);
             params.put("vnp_OrderType", "other");
             params.put("vnp_Locale", "vn");
-            params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl() + "?userId=" + user.getId());
+            String returnUrl;
+
+            if ("mobile".equalsIgnoreCase(platform)) {
+                returnUrl = vnPayConfig.getReturnUrlMobile();
+            } else {
+                returnUrl = vnPayConfig.getReturnUrlWeb();
+            }
+
+            params.put(
+                    "vnp_ReturnUrl",
+                    returnUrl + "?txnRef=" + vnp_TxnRef
+            );
             params.put("vnp_IpAddr", vnp_IpAddr);
             params.put("vnp_CreateDate", vnp_CreateDate);
 

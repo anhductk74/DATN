@@ -154,7 +154,8 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
     return parts.join(', ');
   };
 
-  const getShortTrackingCode = (code: string): string => {
+  const getShortTrackingCode = (code: string | null | undefined): string => {
+    if (!code) return 'N/A';
     const parts = code.split('-');
     return parts.length > 0 ? parts[parts.length - 1] : code;
   };

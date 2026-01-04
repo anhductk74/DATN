@@ -12,6 +12,7 @@
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.1.0",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@stomp/stompjs": "^7.2.1",
     "axios": "^1.13.2",
     "expo": "~54.0.27",
     "expo-camera": "~17.0.10",
@@ -20,10 +21,12 @@
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-reanimated": "^4.2.0"
+    "react-native-reanimated": "^4.2.0",
+    "sockjs-client": "^1.6.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "@types/sockjs-client": "^1.5.4",
     "babel-preset-expo": "^54.0.8",
     "typescript": "~5.9.2"
   },

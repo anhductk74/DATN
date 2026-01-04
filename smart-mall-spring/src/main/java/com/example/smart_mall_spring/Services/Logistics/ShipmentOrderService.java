@@ -2,12 +2,14 @@ package com.example.smart_mall_spring.Services.Logistics;
 
 import com.example.smart_mall_spring.Dtos.Logistic.ShipmentOrder.ShipmentOrderRequestDto;
 import com.example.smart_mall_spring.Dtos.Logistic.ShipmentOrder.ShipmentOrderResponseDto;
+import com.example.smart_mall_spring.Dtos.WebSocket.DeliveryMessage;
 import com.example.smart_mall_spring.Entities.Logistics.*;
 import com.example.smart_mall_spring.Entities.Orders.Order;
 import com.example.smart_mall_spring.Enum.ShipmentStatus;
 import com.example.smart_mall_spring.Enum.ShipperStatus;
 import com.example.smart_mall_spring.Repositories.Logistics.*;
 import com.example.smart_mall_spring.Repositories.OrderRepository;
+import com.example.smart_mall_spring.Services.DeliverySocketService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +38,7 @@ public class ShipmentOrderService {
     private final ShipperTransactionService shipperTransactionService;
     private final ShipmentReportService shipmentReportService;
     private final GhtkService ghtkService; //  Thêm GhtkService vào
+    private final DeliverySocketService  deliverySocketService;
 
     // ========== Mapper ==========
     public ShipmentOrderResponseDto toResponseDto(ShipmentOrder entity) {
@@ -135,6 +138,20 @@ public class ShipmentOrderService {
 
             // Lưu sub shipment
             subShipmentOrderRepository.save(sub);
+            // ================== SOCKET: THÔNG BÁO CHO SHIPPER ==================
+            DeliveryMessage message = new DeliveryMessage(
+                    "ASSIGNED",
+                    sub.getId(),                       // subShipmentId (ĐÃ CÓ ID)
+                    shipmentOrder.getId(),             // shipmentOrderId
+                    shipper.getId(),                   // shipperId
+                    sub.getStatus().name(),
+                    "You have been assigned a new delivery task"
+            );
+
+            deliverySocketService.notifyShipper(
+                    shipper.getId(),
+                    message
+            );
 
             // GHI LOG
             // Build địa chỉ shop dưới dạng text
@@ -360,7 +377,7 @@ public class ShipmentOrderService {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<ShipmentOrder> shipmentPage = shipmentOrderRepository
-                .findByCompanyFilters(companyId, status, search, pageable);
+                .findVisibleShipmentsForCompany(companyId, status, search, pageable);
 
         return Map.of(
                 "data", shipmentPage.getContent().stream().map(this::toResponseDto).toList(),

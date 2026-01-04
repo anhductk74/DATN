@@ -294,7 +294,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
                       onPress: () => {
                         navigation.reset({
                           index: 0,
-                          routes: [{ name: 'Home' }],
+                          routes: [{ name: 'MainTabs' }],
                         });
                       },
                     },
@@ -325,7 +325,7 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
                   onPress: () => {
                     navigation.reset({
                       index: 0,
-                      routes: [{ name: 'Home' }],
+                      routes: [{ name: 'MainTabs' }],
                     });
                   },
                 },

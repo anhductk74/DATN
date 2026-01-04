@@ -10,17 +10,34 @@ export interface ShipperResponseDto {
   id: string;
   fullName: string;
   phoneNumber: string;
-  email: string;
+  email?: string;
   status: string;
-  latitude?: number;
-  longitude?: number;
-  vehicleType?: string;
-  licensePlate?: string;
-  region?: string;
+  currentLatitude?: number;
+  currentLongitude?: number;
+  vehicleType: string;
+  licensePlate: string;
+  operationalCommune: string;
+  operationalDistrict: string;
+  operationalCity: string;
+  operationalRegionFull: string;
+  maxDeliveryRadius?: number;
+  idCardNumber?: string;
+  idCardFrontImage?: string;
+  idCardBackImage?: string;
+  driverLicenseNumber?: string;
+  driverLicenseImage?: string;
+  vehicleBrand?: string;
+  vehicleColor?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  avatar?: string;
   shippingCompanyId: string;
   shippingCompanyName: string;
   userId: string;
   username: string;
+  address?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WarehouseResponseDto {

@@ -1185,7 +1185,7 @@ export default function ShipmentOrderDetailPage() {
             >
               {shippers.map(shipper => (
                 <Select.Option key={shipper.id} value={shipper.id}>
-                  {shipper.fullName} - {shipper.phoneNumber} ({shipper.vehicleType}) - {shipper.region}
+                  {shipper.fullName} - {shipper.phoneNumber} ({shipper.vehicleType}) - {shipper.operationalRegionFull}
                 </Select.Option>
               ))}
             </Select>

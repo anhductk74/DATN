@@ -16,6 +16,7 @@ export { default as dashboardService } from './DashboardService';
 export { orderApiService } from './OrderApiService';
 export { shopService } from './ShopService';
 export { subShipmentOrderService } from './SubShipmentOrderService';
+export { webSocketService } from './WebSocketService';
 
 // Export types and interfaces from ShipmentOrderService
 export type {

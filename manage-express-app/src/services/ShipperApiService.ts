@@ -55,17 +55,16 @@ export interface ShipperResponseDto {
   id: string;
   fullName: string;
   phoneNumber: string;
-  email: string;
+  email?: string;
   status: ShipperStatus;
-  latitude?: number;
-  longitude?: number;
+  currentLatitude?: number;
+  currentLongitude?: number;
   vehicleType: string;
   licensePlate: string;
-  region: string;
-  operationalCommune?: string;
-  operationalDistrict?: string;
-  operationalCity?: string;
-  operationalRegionFull?: string;
+  operationalCommune: string;
+  operationalDistrict: string;
+  operationalCity: string;
+  operationalRegionFull: string;
   maxDeliveryRadius?: number;
   idCardNumber?: string;
   idCardFrontImage?: string;
@@ -93,7 +92,7 @@ export interface ShipperListResponseDto {
   status: ShipperStatus;
   vehicleType: string;
   licensePlate: string;
-  region: string;
+  operationalRegionFull: string;
 }
 
 export enum ShipperStatus {

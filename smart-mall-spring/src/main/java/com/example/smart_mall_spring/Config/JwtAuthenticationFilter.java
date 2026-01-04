@@ -30,15 +30,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain
-    ) throws ServletException, IOException {
-        
-        // Skip JWT check for login and Google login only, but allow register to be authenticated
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
+
+        // Skip JWT check for login and Google login only, but allow register to be
+        // authenticated
         String servletPath = request.getServletPath();
-        if (servletPath.equals("/api/auth/login") 
+        if (servletPath.equals("/api/auth/login")
                 || servletPath.equals("/api/auth/google-login")
                 || servletPath.equals("/api/auth/refresh-token")
-                || servletPath.contains("/api/auth/mobile/")) {
+                || servletPath.contains("/api/auth/mobile/")
+                || servletPath.startsWith("/ws")
+                || servletPath.contains("/sockjs")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -57,16 +59,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-            
+
             if (jwtService.isTokenValid(jwt, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
-                        userDetails.getAuthorities()
-                );
+                        userDetails.getAuthorities());
                 authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                        new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         }

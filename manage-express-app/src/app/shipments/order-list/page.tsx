@@ -700,9 +700,27 @@ export default function OrderListPage() {
                   optionFilterProp="children"
                 >
                   {shippers.map(shipper => (
-                    <Option key={shipper.id} value={shipper.id}>
-                      {shipper.fullName} ({shipper.region || 'N/A'})
-                  
+                    <Option 
+                      key={shipper.id} 
+                      value={shipper.id}
+                      title={`${shipper.fullName}\nPhone: ${shipper.phoneNumber}\nVehicle: ${shipper.vehicleType || 'N/A'} - ${shipper.licensePlate || 'N/A'}\nOperational Region: ${shipper.operationalRegionFull || 'N/A'}`}
+                    >
+                      <Tooltip 
+                        title={
+                          <div>
+                            <div><strong>{shipper.fullName}</strong></div>
+                            <div>Phone: {shipper.phoneNumber}</div>
+                            <div>Vehicle: {shipper.vehicleType || 'N/A'} - {shipper.licensePlate || 'N/A'}</div>
+                            <div>Status: {shipper.status}</div>
+                            <div>Operational Region: {shipper.operationalRegionFull || 'N/A'}</div>
+                          </div>
+                        }
+                        placement="right"
+                      >
+                        <div className="truncate">
+                          {shipper.fullName} - {shipper.operationalRegionFull || 'N/A'}
+                        </div>
+                      </Tooltip>
                     </Option>
                   ))}
                 </Select>

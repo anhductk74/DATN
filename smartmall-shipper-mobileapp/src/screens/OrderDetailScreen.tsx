@@ -29,7 +29,7 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
   const [loadingProof, setLoadingProof] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [scannedCode, setScannedCode] = useState('');
-  const [isOrderVerified, setIsOrderVerified] = useState(true); // Auto-verify when order is loaded
+  const [isOrderVerified, setIsOrderVerified] = useState(false); // Require QR verification for sequence 1
   const [permission, requestPermission] = useCameraPermissions();
   const [uploadingProof, setUploadingProof] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -46,8 +46,8 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
       customerAddress: order.customerAddress
     });
     setOrderData(order);
-    // Auto-verify when coming from QR scan or order list
-    setIsOrderVerified(true);
+    // Don't auto-verify - require QR scan for sequence 1
+    // For other sequences, verification is not required
   }, [order]);
 
   useEffect(() => {
@@ -75,11 +75,20 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
   };
 
   const handleStatusAction = async (action: 'pickup' | 'transit' | 'deliver') => {
+    console.log('🎬 [handleStatusAction] Starting action:', action);
+    console.log('📦 [handleStatusAction] Order data:', {
+      id: orderData.id,
+      shipmentOrderCode: orderData.shipmentOrderCode,
+      status: orderData.status,
+      sequence: orderData.sequence
+    });
+    
     try {
       setLoading(true);
       let response;
       const actionText = action === 'pickup' ? 'lấy hàng' : action === 'transit' ? 'vận chuyển' : 'giao hàng';
       
+      console.log(`🚀 [handleStatusAction] Calling API for: ${actionText}`);
       switch (action) {
         case 'pickup':
           response = await shipperSubOrderService.confirmPickup(orderData.shipmentOrderCode);
@@ -92,18 +101,27 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
           break;
       }
 
+      console.log('📨 [handleStatusAction] API Response:', response);
+      
       if (response.success && response.data) {
+        console.log('✅ [handleStatusAction] Success! New order data:', response.data);
         Alert.alert('Thành công', `Đã xác nhận ${actionText}`);
         setOrderData(response.data);
         if (onOrderUpdated) {
           onOrderUpdated();
         }
       } else {
+        console.log('❌ [handleStatusAction] Failed:', response.message);
         Alert.alert('Lỗi', response.message || `Không thể xác nhận ${actionText}`);
       }
-    } catch (error) {
-      console.error('Error performing action:', error);
-      Alert.alert('Lỗi', 'Đã xảy ra lỗi khi thực hiện thao tác');
+    } catch (error: any) {
+      console.error('❌ [handleStatusAction] Exception caught:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      Alert.alert('Lỗi', error.message || 'Đã xảy ra lỗi khi thực hiện thao tác');
     } finally {
       setLoading(false);
     }
@@ -372,7 +390,8 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
     }
   };
 
-  const getShortTrackingCode = (code: string): string => {
+  const getShortTrackingCode = (code: string | null | undefined): string => {
+    if (!code) return 'N/A';
     const parts = code.split('-');
     return parts.length > 0 ? parts[parts.length - 1] : code;
   };

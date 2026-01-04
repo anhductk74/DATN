@@ -574,7 +574,7 @@ export default function DashboardPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div>
               <Title level={3} className="m-0 text-gray-900">
-                🚚 Logistics Dashboard - {session?.user?.company?.companyName}
+                🚚 Logistics Dashboard 
               </Title>
               <Text className="text-gray-600 text-xs mt-0.5">
                 Tổng quan hệ thống vận chuyển và COD

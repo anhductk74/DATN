@@ -391,13 +391,13 @@ export default function WarehousesPage() {
       <div className="flex justify-between items-center mb-6">
         <Title level={3}>Quản lý Kho - {session?.user?.company?.companyName}</Title>
         <Space>
-          <Button 
+          {/* <Button 
             type="primary" 
             icon={<PlusOutlined />}
             onClick={() => setCreateModalVisible(true)}
           >
             Thêm kho mới
-          </Button>
+          </Button> */}
         </Space>
       </div>
 

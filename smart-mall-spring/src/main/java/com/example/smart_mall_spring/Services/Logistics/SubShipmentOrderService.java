@@ -7,6 +7,7 @@
     import com.example.smart_mall_spring.Dtos.Logistic.SubShipmentOrder.SubShipmentOrderResponseDto;
     import com.example.smart_mall_spring.Dtos.Logistic.SubShipmentOrder.SubShipmentOrderUpdateDto;
     import com.example.smart_mall_spring.Dtos.Orders.OrderTrackingLog.OrderTrackingLogRequest;
+    import com.example.smart_mall_spring.Dtos.WebSocket.DeliveryMessage;
     import com.example.smart_mall_spring.Entities.Address;
     import com.example.smart_mall_spring.Entities.Logistics.*;
     import com.example.smart_mall_spring.Entities.Orders.Order;
@@ -17,10 +18,13 @@
     import com.example.smart_mall_spring.Repositories.Logistics.*;
     import com.example.smart_mall_spring.Repositories.OrderRepository;
     import com.example.smart_mall_spring.Repositories.OrderStatusHistoryRepository;
+    import com.example.smart_mall_spring.Services.DeliverySocketService;
     import com.example.smart_mall_spring.Services.Order.OrderTrackingLogService;
     import jakarta.persistence.EntityNotFoundException;
     import lombok.RequiredArgsConstructor;
+    import lombok.extern.java.Log;
     import org.springframework.stereotype.Service;
+    import org.springframework.transaction.annotation.Transactional;
 
     import java.time.LocalDateTime;
     import java.util.Comparator;
@@ -43,6 +47,7 @@
         private final ShipmentReportService shipmentReportService;
         private final ShipmentLogService shipmentLogService;
         private final OrderTrackingLogService  orderTrackingLogService;
+        private final DeliverySocketService  deliverySocketService;
 
         private SubShipmentOrderResponseDto toResponseDto(SubShipmentOrder entity) {
             return SubShipmentOrderResponseDto.builder()
@@ -137,6 +142,8 @@
 
             SubShipmentOrder sub = getCurrentSubByTrackingCode(code);
 
+            ShipmentStatus oldStatus = sub.getStatus();
+
             if (sub.getStatus() != ShipmentStatus.PENDING) {
                 throw new IllegalStateException("Đơn không ở trạng thái cho phép nhận");
             }
@@ -144,12 +151,19 @@
             sub.setStatus(ShipmentStatus.PICKING_UP);
             sub.setStartTime(LocalDateTime.now());
 
-            return toResponseDto(subShipmentOrderRepository.save(sub));
+            sub = subShipmentOrderRepository.save(sub);
+
+            // 🔔 WebSocket
+            notifySubShipmentStatusChange(sub, oldStatus);
+
+            return toResponseDto(sub);
         }
 
         public SubShipmentOrderResponseDto confirmDeliveryByCode(String code) {
 
             SubShipmentOrder sub = getCurrentSubByTrackingCode(code);
+
+            ShipmentStatus oldStatus = sub.getStatus();
 
             if (sub.getStatus() != ShipmentStatus.IN_TRANSIT &&
                     sub.getStatus() != ShipmentStatus.PICKING_UP) {
@@ -159,7 +173,12 @@
             sub.setStatus(ShipmentStatus.DELIVERED);
             sub.setEndTime(LocalDateTime.now());
 
-            return toResponseDto(subShipmentOrderRepository.save(sub));
+            sub = subShipmentOrderRepository.save(sub);
+
+            // 🔔 WebSocket
+            notifySubShipmentStatusChange(sub, oldStatus);
+
+            return toResponseDto(sub);
         }
 
 
@@ -167,15 +186,48 @@
 
             SubShipmentOrder sub = getCurrentSubByTrackingCode(code);
 
+            ShipmentStatus oldStatus = sub.getStatus();
+
             if (sub.getStatus() != ShipmentStatus.PICKING_UP) {
                 throw new IllegalStateException("Đơn chưa được pickup");
             }
 
             sub.setStatus(ShipmentStatus.IN_TRANSIT);
 
-            return toResponseDto(subShipmentOrderRepository.save(sub));
-        }
+            sub = subShipmentOrderRepository.save(sub);
 
+            // 🔔 WebSocket
+            notifySubShipmentStatusChange(sub, oldStatus);
+
+            return toResponseDto(sub);
+        }
+        private void notifySubShipmentStatusChange(SubShipmentOrder sub,
+                                                   ShipmentStatus oldStatus) {
+
+            if (oldStatus == sub.getStatus()) return;
+
+            DeliveryMessage message = new DeliveryMessage(
+                    "SUB_STATUS_UPDATE",
+                    sub.getShipmentOrder().getId(),   // shipmentOrderId
+                    sub.getId(),                      // subShipmentId
+                    sub.getShipper() != null
+                            ? sub.getShipper().getId()
+                            : null,
+                    sub.getStatus().name(),
+                    "Sub-shipment status updated"
+            );
+
+            // 🔔 Manager luôn nhận
+            deliverySocketService.notifyManager(message);
+
+            // 🔔 Shipper nhận (nếu có)
+            if (sub.getShipper() != null) {
+                deliverySocketService.notifyShipper(
+                        sub.getShipper().getId(),
+                        message
+                );
+            }
+        }
 
 
         private SubShipmentOrder getCurrentSubByTrackingCode(String code) {
@@ -206,12 +258,33 @@
 
 
 
-
+        @Transactional
         public SubShipmentOrderResponseDto create(SubShipmentOrderRequestDto dto) {
+
             SubShipmentOrder sub = toEntity(dto);
             SubShipmentOrder saved = subShipmentOrderRepository.save(sub);
+
+            // 🔔 REAL-TIME → SHIPPER (khi được assign)
+            if (saved.getShipper() != null) {
+
+                DeliveryMessage message = new DeliveryMessage(
+                        "ASSIGNED",
+                        saved.getId(), // subShipmentId
+                        saved.getShipmentOrder().getId(), // shipmentOrderId
+                        saved.getShipper().getId(),
+                        saved.getStatus().name(),
+                        "You have been assigned a new delivery task"
+                );
+
+                deliverySocketService.notifyShipper(
+                        saved.getShipper().getId(),
+                        message
+                );
+            }
+
             return toResponseDto(saved);
         }
+
         public SubShipmentOrderResponseDto update(UUID id, SubShipmentOrderUpdateDto dto) {
 
             SubShipmentOrder sub = subShipmentOrderRepository.findById(id)
@@ -276,6 +349,31 @@
                 shipperTransactionService.createTransactionForDeliveredShipment(sub.getShipmentOrder());
                 shipperTransactionService.createBonusForDeliveredShipment(sub.getShipmentOrder());
             }
+            // 🔔 ===== REAL-TIME WEBSOCKET =====
+            if (dto.getStatus() != null && oldStatus != sub.getStatus()) {
+
+                DeliveryMessage message = new DeliveryMessage(
+                        "STATUS_UPDATE",
+                        sub.getId(),                         // subShipmentId
+                        sub.getShipmentOrder().getId(),       // shipmentOrderId
+                        sub.getShipper() != null
+                                ? sub.getShipper().getId()
+                                : null,
+                        sub.getStatus().name(),
+                        "Sub-shipment status updated"
+                );
+
+                // ➜ Manager Web
+                deliverySocketService.notifyManager(message);
+
+                // ➜ Shipper App (nếu có)
+                if (sub.getShipper() != null) {
+                    deliverySocketService.notifyShipper(
+                            sub.getShipper().getId(),
+                            message
+                    );
+                }
+            }
 
             return toResponseDto(sub);
         }
@@ -286,6 +384,7 @@
             subShipmentOrderRepository.delete(sub);
         }
         private void updateParentShipmentStatus(ShipmentOrder shipmentOrder) {
+            ShipmentStatus oldStatus = shipmentOrder.getStatus();
 
             List<SubShipmentOrder> subs = subShipmentOrderRepository
                     .findByShipmentOrder_Id(shipmentOrder.getId());
@@ -358,7 +457,24 @@
             }
 
             shipmentOrderRepository.save(shipmentOrder);
+            // ===== 🔔 REAL-TIME CHO MANAGER =====
+            if (oldStatus != shipmentOrder.getStatus()) {
+
+                DeliveryMessage message = new DeliveryMessage(
+                        "SHIPMENT_STATUS_UPDATE",
+                        shipmentOrder.getId(),    // shipmentOrderId
+                        null,                     // subShipmentId (không cần)
+                        shipmentOrder.getShipper() != null
+                                ? shipmentOrder.getShipper().getId()
+                                : null,
+                        shipmentOrder.getStatus().name(),
+                        "Shipment order status updated"
+                );
+
+                deliverySocketService.notifyManager(message);
+            }
         }
+
         private void updateOrderStatusFromShipment(ShipmentOrder shipmentOrder) {
 
             Order order = shipmentOrder.getOrder();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, View, StyleSheet, Platform, TouchableOpacity, Text, Alert, Modal } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Platform, TouchableOpacity, Text, Alert, Modal, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Camera, CameraView, useCameraPermissions } from 'expo-camera';
 import LoginScreen from '../screens/LoginScreen';
@@ -30,11 +30,62 @@ export default function AppNavigator() {
 
   useEffect(() => {
     checkAuth();
+    setupDeepLinking();
   }, []);
 
   useEffect(() => {
     // Auth state changed
   }, [isAuthenticated]);
+
+  const setupDeepLinking = () => {
+    // Xử lý deep link khi app đang mở
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    // Xử lý deep link khi app được mở từ đóng
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  };
+
+  const handleDeepLink = (url: string) => {
+    try {
+      // Parse URL: smartmallshipper://payment-return?success=true&transactionCode=xxx&message=xxx
+      if (url.includes('payment-return')) {
+        const queryString = url.split('?')[1];
+        const params = new URLSearchParams(queryString);
+        
+        const success = params.get('success') === 'true';
+        const message = params.get('message') || '';
+        const transactionCode = params.get('transactionCode') || '';
+
+        // Hiển thị kết quả thanh toán
+        Alert.alert(
+          success ? 'Thanh toán thành công' : 'Thanh toán thất bại',
+          decodeURIComponent(message),
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Quay về màn hình Income và reload data
+                setCurrentScreen('income');
+                // Có thể gọi reload data ở đây nếu cần
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error handling deep link:', error);
+    }
+  };
 
   const checkAuth = async () => {
     try {

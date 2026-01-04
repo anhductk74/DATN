@@ -77,6 +77,16 @@ export default function ShipperDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shipperId]);
 
+  const getCloudinaryUrl = (path: string | undefined): string | undefined => {
+    if (!path) return undefined;
+    // Nếu đã có protocol (http/https) thì trả về nguyên
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+    // Thêm Cloudinary base URL
+    return `https://res.cloudinary.com${path}`;
+  };
+
   const fetchShipperDetails = async () => {
     setLoading(true);
     try {
@@ -373,7 +383,7 @@ export default function ShipperDetailPage() {
                 {shipper.operationalCommune && shipper.operationalDistrict && shipper.operationalCity ? (
                   <div>📍 {shipper.operationalCommune}, {shipper.operationalDistrict}, {shipper.operationalCity}</div>
                 ) : (
-                  <div>📍 {shipper.region}</div>
+                  <div>📍 {shipper.operationalRegionFull}</div>
                 )}
                 {shipper.maxDeliveryRadius && (
                   <div className="text-blue-600">🎯 Bán kính: {shipper.maxDeliveryRadius}km</div>
@@ -469,17 +479,23 @@ export default function ShipperDetailPage() {
                       )}
                     </div>
                   ) : (
-                    <span>{shipper.region || 'Chưa cập nhật'}</span>
+                    <span>{shipper.operationalRegionFull || 'Chưa cập nhật'}</span>
                   )}
                 </Descriptions.Item>
+                {shipper.idCardNumber && (
+                  <Descriptions.Item label="Số CCCD">{shipper.idCardNumber}</Descriptions.Item>
+                )}
+                {shipper.driverLicenseNumber && (
+                  <Descriptions.Item label="Số GPLX">{shipper.driverLicenseNumber}</Descriptions.Item>
+                )}
                 <Descriptions.Item label="Trạng thái">
                   <Tag color={shipperApiService.getStatusColor(shipper.status)}>
                     {shipperApiService.formatStatus(shipper.status)}
                   </Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Vị trí" span={2}>
-                  {shipper.latitude && shipper.longitude ? (
-                    `📍 ${shipper.latitude.toFixed(6)}, ${shipper.longitude.toFixed(6)}`
+                  {shipper.currentLatitude && shipper.currentLongitude ? (
+                    `📍 ${shipper.currentLatitude.toFixed(6)}, ${shipper.currentLongitude.toFixed(6)}`
                   ) : (
                     <span className="text-gray-400">Chưa cập nhật</span>
                   )}
@@ -487,6 +503,44 @@ export default function ShipperDetailPage() {
                 {shipper.createdAt && (
                   <Descriptions.Item label="Ngày tạo" span={2}>
                     {new Date(shipper.createdAt).toLocaleString('vi-VN')}
+                  </Descriptions.Item>
+                )}
+                {(shipper.idCardFrontImage || shipper.idCardBackImage) && (
+                  <Descriptions.Item label="Ảnh CCCD" span={2}>
+                    <Space size="middle">
+                      {shipper.idCardFrontImage && (
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Mặt trước</div>
+                          <img 
+                            src={getCloudinaryUrl(shipper.idCardFrontImage)} 
+                            alt="CCCD mặt trước" 
+                            className="max-w-xs h-auto border rounded cursor-pointer hover:opacity-80"
+                            onClick={() => window.open(getCloudinaryUrl(shipper.idCardFrontImage), '_blank')}
+                          />
+                        </div>
+                      )}
+                      {shipper.idCardBackImage && (
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Mặt sau</div>
+                          <img 
+                            src={getCloudinaryUrl(shipper.idCardBackImage)} 
+                            alt="CCCD mặt sau" 
+                            className="max-w-xs h-auto border rounded cursor-pointer hover:opacity-80"
+                            onClick={() => window.open(getCloudinaryUrl(shipper.idCardBackImage), '_blank')}
+                          />
+                        </div>
+                      )}
+                    </Space>
+                  </Descriptions.Item>
+                )}
+                {shipper.driverLicenseImage && (
+                  <Descriptions.Item label="Ảnh GPLX" span={2}>
+                    <img 
+                      src={getCloudinaryUrl(shipper.driverLicenseImage)} 
+                      alt="Giấy phép lái xe" 
+                      className="max-w-xs h-auto border rounded cursor-pointer hover:opacity-80"
+                      onClick={() => window.open(getCloudinaryUrl(shipper.driverLicenseImage), '_blank')}
+                    />
                   </Descriptions.Item>
                 )}
               </Descriptions>
