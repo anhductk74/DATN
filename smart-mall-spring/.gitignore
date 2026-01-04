@@ -40,7 +40,8 @@ out/
 
 # Environment files
 .env
-*.env
+.env.local
+.env.*.local
 
 # Logs
 *.log
