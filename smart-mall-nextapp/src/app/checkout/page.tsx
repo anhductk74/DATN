@@ -456,7 +456,8 @@ export default function CheckoutPage() {
         amount: total, // Use total checkout amount
         orderInfo: orderInfo,
         userId: currentUserId,
-        orderId: orderId // Truyền orderId trực tiếp để backend liên kết
+        orderId: orderId, // Truyền orderId trực tiếp để backend liên kết
+        platform: 'web' // Xác định platform là WEB
       });
 
       // Redirect to VNPay payment page
