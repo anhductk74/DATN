@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import WishlistButton from "@/components/WishlistButton";
 import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAuth } from "@/contexts/AuthContext";
 import productService, { Product } from "@/services/ProductService";
@@ -247,6 +248,11 @@ export default function Home() {
                     -{Math.floor(Math.random() * 50) + 20}%
                   </div>
 
+                  {/* Wishlist Button */}
+                  <div className="absolute top-2 right-2 z-10">
+                    <WishlistButton productId={p.id} size="small" />
+                  </div>
+
                   <div className="relative h-36 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl mb-3 overflow-hidden">
                     {p.images?.[0] && (
                       <Image
@@ -323,6 +329,11 @@ export default function Home() {
                   className="group relative bg-white border-2 border-gray-100 rounded-2xl p-4 cursor-pointer
                              hover:border-blue-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
                 >
+                  {/* Wishlist Button */}
+                  <div className="absolute top-2 right-2 z-10">
+                    <WishlistButton productId={p.id} size="small" />
+                  </div>
+
                   <div className="relative h-44 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl mb-3 overflow-hidden">
                     {p.images?.[0] && (
                       <Image

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import NextImage from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import WishlistButton from "@/components/WishlistButton";
 import { useCart } from "@/contexts/CartContext";
 import productService from "@/services/ProductService";
 import { App, Avatar, Modal, Image } from "antd";
@@ -33,7 +34,6 @@ export default function ProductDetail() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeTab, setActiveTab] = useState("description");
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
@@ -613,17 +613,13 @@ export default function ProductDetail() {
               </button>
               
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                  className={`border py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center ${
-                    isWishlisted
-                      ? 'border-red-500 bg-red-50 text-red-600'
-                      : 'border-gray-300 hover:border-red-400 bg-white text-gray-700 hover:text-red-600'
-                  }`}
-                >
-                  {isWishlisted ? <HeartFilled className="mr-1.5" /> : <HeartOutlined className="mr-1.5" />}
-                  Wishlist
-                </button>
+                <WishlistButton 
+                  productId={productId}
+                  productName={product.name}
+                  showText={true}
+                  size="medium"
+                  className="border-0"
+                />
                 <button className="border border-gray-300 hover:border-blue-600 bg-white text-gray-700 hover:text-blue-600 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center">
                   <ShareAltOutlined className="mr-1.5" />
                   Share

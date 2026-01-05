@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import WishlistButton from "@/components/WishlistButton";
 import { useCart } from "@/contexts/CartContext";
 import productService, { Product, ProductVariant } from "@/services/ProductService";
 import categoryService from "@/services/CategoryService";
@@ -616,15 +617,12 @@ function ProductsContent() {
                   )}
 
                   {/* Wishlist Button */}
-                  <button 
-                    className="absolute top-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 hover:scale-110"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      message.info("Wishlist feature coming soon!");
-                    }}
+                  <div 
+                    className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <HeartOutlined className="text-gray-600 hover:text-red-500 text-base" />
-                  </button>
+                    {product.id && <WishlistButton productId={product.id} size="small" />}
+                  </div>
 
                   {/* View Details Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4">

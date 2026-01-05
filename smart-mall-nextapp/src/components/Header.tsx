@@ -27,6 +27,7 @@ import type { CartItem } from "@/contexts/CartContext";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/hooks/useWishlist";
 import { getCloudinaryUrl } from "@/config/config";
 import Image from "next/image";
 
@@ -37,6 +38,12 @@ export default function Header() {
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [cartHideTimeout, setCartHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  const { count: wishlistCount } = useWishlist();
+  
+  // Debug wishlist count
+  useEffect(() => {
+    console.log('💖 Header - Wishlist count updated:', wishlistCount);
+  }, [wishlistCount]);
   
   // Search states
   const [searchQuery, setSearchQuery] = useState("");
@@ -475,7 +482,11 @@ export default function Header() {
                   className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group"
                 >
                   <HeartOutlined className="text-xl transition-transform group-hover:scale-110" />
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">3</span>
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">
+                      {wishlistCount > 99 ? '99+' : wishlistCount}
+                    </span>
+                  )}
                 </button>
                 
                 {/* Cart (hover to preview, click to open /cart) */}
@@ -839,7 +850,11 @@ export default function Header() {
                 <button onClick={() => handleNavigate('/wishlist')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <HeartOutlined className="mr-3 text-gray-400" />
                   Wishlist
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                  {wishlistCount > 0 && (
+                    <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {wishlistCount > 99 ? '99+' : wishlistCount}
+                    </span>
+                  )}
                 </button>
                 <button onClick={() => handleNavigate('/cart')} className="flex items-center w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
                   <ShoppingCartOutlined className="mr-3 text-gray-400" />
