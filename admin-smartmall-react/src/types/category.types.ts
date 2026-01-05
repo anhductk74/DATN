@@ -1,13 +1,18 @@
 export type CategoryStatus = 'ACTIVE' | 'INACTIVE';
 
+export interface CategoryParent {
+  id: string;
+  name: string;
+}
+
 export interface Category {
   id: string;
   name: string;
-  description: string;
-  image: string;
+  description?: string;
+  image?: string;
   status: CategoryStatus;
-  isActive: boolean;
-  isDeleted: boolean;
+  parent?: CategoryParent | null;
+  subCategories?: Category[] | null;
   productCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -37,13 +42,16 @@ export interface CategoryDetailApiResponse {
 
 export interface CreateCategoryRequest {
   name: string;
-  description: string;
+  description?: string;
   image?: string;
+  parentId?: string | null;
+  status?: CategoryStatus;
 }
 
 export interface UpdateCategoryRequest {
   name?: string;
   description?: string;
   image?: string;
+  parentId?: string | null;
   status?: CategoryStatus;
 }

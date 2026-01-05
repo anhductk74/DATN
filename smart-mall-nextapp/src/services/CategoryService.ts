@@ -4,6 +4,8 @@ export interface Category {
   id: string;
   name: string;
   description: string;
+  image?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
   parent?: {
     id: string;
     name: string;
@@ -22,18 +24,30 @@ export interface CreateCategoryData {
   name: string;
   description?: string;
   parentId?: string | null;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface UpdateCategoryData {
   name?: string;
   description?: string;
   parentId?: string | null;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 class CategoryService {
-  // Create new category
+  // Create new category (JSON)
   async createCategory(categoryData: CreateCategoryData): Promise<Category> {
     const response = await apiClient.post('/categories', categoryData);
+    return response.data.data;
+  }
+
+  // Create category with image upload (Multipart)
+  async createCategoryWithUpload(formData: FormData): Promise<Category> {
+    const response = await apiClient.post('/categories/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data.data;
   }
 
@@ -61,9 +75,19 @@ class CategoryService {
     return response.data.data;
   }
 
-  // Update category
+  // Update category (JSON)
   async updateCategory(id: string, categoryData: UpdateCategoryData): Promise<Category> {
     const response = await apiClient.put(`/categories/${id}`, categoryData);
+    return response.data.data;
+  }
+
+  // Update category with image upload (Multipart)
+  async updateCategoryWithUpload(id: string, formData: FormData): Promise<Category> {
+    const response = await apiClient.put(`/categories/${id}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data.data;
   }
 

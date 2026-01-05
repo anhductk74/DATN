@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
@@ -37,109 +37,12 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ hours: 2, minutes: 30, seconds: 45 });
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
-  const categoryScrollRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [velocity, setVelocity] = useState(0);
-  const [lastX, setLastX] = useState(0);
-  const [lastTime, setLastTime] = useState(0);
-  const animationRef = useRef<number>();
+  const categoryScrollRef = useState<HTMLDivElement | null>(null)[0];
 
   useAutoLogout({
     timeout: 30 * 60 * 1000,
     onLogout: () => router.push("/login"),
   });
-
-  const checkScrollButtons = () => {
-    if (categoryScrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
-      setShowLeftArrow(scrollLeft > 0);
-      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  const scrollCategories = (direction: 'left' | 'right') => {
-    if (categoryScrollRef.current) {
-      const scrollAmount = 400;
-      const newPosition = direction === 'left' 
-        ? categoryScrollRef.current.scrollLeft - scrollAmount
-        : categoryScrollRef.current.scrollLeft + scrollAmount;
-      
-      categoryScrollRef.current.scrollTo({
-        left: newPosition,
-        behavior: 'smooth'
-      });
-      
-      setTimeout(() => checkScrollButtons(), 300);
-    }
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (categoryScrollRef.current) {
-      setIsDragging(true);
-      setStartX(e.pageX - categoryScrollRef.current.offsetLeft);
-      setScrollLeft(categoryScrollRef.current.scrollLeft);
-      setLastX(e.pageX);
-      setLastTime(Date.now());
-      setVelocity(0);
-      categoryScrollRef.current.style.scrollBehavior = 'auto';
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !categoryScrollRef.current) return;
-    e.preventDefault();
-    
-    const x = e.pageX - categoryScrollRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    categoryScrollRef.current.scrollLeft = scrollLeft - walk;
-    
-    // Calculate velocity cho momentum scrolling
-    const now = Date.now();
-    const timeDelta = now - lastTime;
-    if (timeDelta > 0) {
-      const newVelocity = (e.pageX - lastX) / timeDelta;
-      setVelocity(newVelocity);
-    }
-    setLastX(e.pageX);
-    setLastTime(now);
-  };
-
-  const applyMomentum = () => {
-    if (!categoryScrollRef.current || Math.abs(velocity) < 0.1) return;
-    
-    categoryScrollRef.current.scrollLeft -= velocity * 10;
-    setVelocity(velocity * 0.95); // Friction
-    
-    animationRef.current = requestAnimationFrame(applyMomentum);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    if (categoryScrollRef.current) {
-      categoryScrollRef.current.style.scrollBehavior = 'smooth';
-    }
-    // Apply momentum scrolling
-    if (Math.abs(velocity) > 0.5) {
-      applyMomentum();
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (isDragging) {
-      setIsDragging(false);
-      if (categoryScrollRef.current) {
-        categoryScrollRef.current.style.scrollBehavior = 'smooth';
-      }
-      if (Math.abs(velocity) > 0.5) {
-        applyMomentum();
-      }
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -179,15 +82,31 @@ export default function Home() {
         setLoading(false);
       }
     };
-    fetchData();
-  }, []);
+  const checkScrollButtons = () => {
+    if (categoryScrollRef) {
+      const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
 
-  useEffect(() => {
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef) {
+      const scrollAmount = 400;
+      const newPosition = direction === 'left' 
+        ? categoryScrollRef.scrollLeft - scrollAmount
+        : categoryScrollRef.scrollLeft + scrollAmount;
+      
+      categoryScrollRef.scrollTo({
+        left: newPosition,
+        behavior: 'smooth'
+      });
+      
+      setTimeout(() => checkScrollButtons(), 300);
+    }
+  };
+
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -279,8 +198,42 @@ export default function Home() {
               <div className="bg-white/15 border border-white/30 rounded-3xl p-8 backdrop-blur-xl shadow-2xl hover:scale-105 transition-transform">
                 <h3 className="text-white text-2xl font-bold mb-6">Why Choose Us?</h3>
                 <div className="space-y-4 text-blue-50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">✓</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => scrollCategories('left')}
+                disabled={!showLeftArrow}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all
+                  ${showLeftArrow 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              >
+                <LeftOutlined />
+              </button>
+              <button
+                onClick={() => scrollCategories('right')}
+                disabled={!showRightArrow}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all
+                  ${showRightArrow 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              >
+                <RightOutlined />
+              </button>
+            </div>
+                             flex-shrink-0 w-40 snap-start
+          </div>
+          
+          <div 
+            ref={(el) => {
+              if (el) {
+                (categoryScrollRef as any) = el;
+                checkScrollButtons();
+              }
+            }}
+            onScroll={checkScrollButtons}
+            className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          y-center">✓</div>
                     <span className="text-lg">100% Genuine Products</span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -306,45 +259,8 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-gray-800">Shop by Category</h2>
               <p className="text-sm text-gray-500 mt-1">{categories.length} categories available</p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => scrollCategories('left')}
-                disabled={!showLeftArrow}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all
-                  ${showLeftArrow 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-              >
-                <LeftOutlined />
-              </button>
-              <button
-                onClick={() => scrollCategories('right')}
-                disabled={!showRightArrow}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all
-                  ${showRightArrow 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-              >
-                <RightOutlined />
-              </button>
-            </div>
           </div>
-          
-          <div 
-            ref={categoryScrollRef}
-            onScroll={checkScrollButtons}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 cursor-grab active:cursor-grabbing select-none"
-            style={{ 
-              scrollbarWidth: 'none', 
-              msOverflowStyle: 'none',
-              scrollSnapType: isDragging ? 'none' : 'x proximity',
-              WebkitOverflowScrolling: 'touch'
-            }}
-          >
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
             {categories.map((category, i) => {
               const colors = [
                 "from-blue-500 to-cyan-500",
@@ -364,9 +280,7 @@ export default function Home() {
                   key={category.id}
                   onClick={() => router.push(`/products?category=${category.id}`)}
                   className="group relative bg-white border-2 border-gray-100 rounded-2xl p-6 text-center cursor-pointer
-                             hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300
-                             flex-shrink-0 w-40"
-                  style={{ scrollSnapAlign: 'start' }}
+                             hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300"
                 >
                   <div className={`w-16 h-16 mx-auto mb-3 bg-gradient-to-br ${colors[i % colors.length]} rounded-2xl flex items-center justify-center overflow-hidden
                                    group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-lg`}>

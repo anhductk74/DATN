@@ -68,6 +68,37 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, ex.getStatus());
     }
 
+    // Category specific exception handlers
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryNotFoundException(CategoryNotFoundException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                ex.getStatus().value(), 
+                List.of(ex.getMessage()),
+                ex.getStatus().getReasonPhrase()
+        );
+        return new ResponseEntity<>(errorResponse, ex.getStatus());
+    }
+
+    @ExceptionHandler(DuplicateCategoryException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateCategoryException(DuplicateCategoryException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                ex.getStatus().value(), 
+                List.of(ex.getMessage()),
+                ex.getStatus().getReasonPhrase()
+        );
+        return new ResponseEntity<>(errorResponse, ex.getStatus());
+    }
+
+    @ExceptionHandler(InvalidCategoryOperationException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCategoryOperationException(InvalidCategoryOperationException ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                ex.getStatus().value(), 
+                List.of(ex.getMessage()),
+                ex.getStatus().getReasonPhrase()
+        );
+        return new ResponseEntity<>(errorResponse, ex.getStatus());
+    }
+
     // Custom HTTP exception handler
     @ExceptionHandler(HttpException.class)
     public ResponseEntity<ErrorResponse> handleHttpException(HttpException ex) {

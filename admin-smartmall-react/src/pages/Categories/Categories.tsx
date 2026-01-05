@@ -13,6 +13,7 @@ import {
   Popconfirm,
   Modal,
   Form,
+  Select,
   Upload,
 } from 'antd';
 import type { TableProps, TablePaginationConfig, UploadFile } from 'antd';
@@ -21,15 +22,18 @@ import {
   EditOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  UploadOutlined,
   SaveOutlined,
   SearchOutlined,
+  FolderOutlined,
+  FileOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import {
   useCategories,
+  useAllCategories,
   useCreateCategory,
   useUpdateCategory,
-  useSoftDeleteCategory,
+  useDeleteCategory,
 } from '../../hooks/useCategories';
 import type { Category } from '../../types/category.types';
 import { getCloudinaryUrl, DEFAULT_PRODUCT_IMAGE } from '../../config/config';
@@ -37,6 +41,7 @@ import './Categories.css';
 
 const { Title } = Typography;
 const { TextArea } = Input;
+const { Option } = Select;
 
 export default function Categories() {
   const { message } = App.useApp();
@@ -51,9 +56,10 @@ export default function Categories() {
 
   // Fetch all categories with React Query (with cache)
   const { data: categoriesData, isLoading, refetch } = useCategories(page, pageSize);
+  const { data: allCategoriesData } = useAllCategories(); // For parent selection
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
-  const softDeleteMutation = useSoftDeleteCategory();
+  const deleteMutation = useDeleteCategory();
 
   // Client-side filtering from cached data
   const allCategories = Array.isArray(categoriesData?.data) 
@@ -91,10 +97,12 @@ export default function Categories() {
 
   const handleDelete = async (id: string) => {
     try {
-      await softDeleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(id);
       message.success('Category deleted successfully');
     } catch (error) {
-      message.error('Failed to delete category');
+      const err = error as { response?: { data?: { errors?: string[]; message?: string } } };
+      const errorMsg = err?.response?.data?.errors?.[0] || err?.response?.data?.message || 'Failed to delete category';
+      message.error(errorMsg);
       console.error('Error deleting category:', error);
     }
   };
@@ -117,8 +125,20 @@ export default function Categories() {
     form.setFieldsValue({
       name: record.name,
       description: record.description,
+      parentId: record.parent?.id || null,
+      status: record.status,
     });
-    setFileList([]);
+    // Set existing image to fileList if exists
+    if (record.image) {
+      setFileList([{
+        uid: '-1',
+        name: 'current-image',
+        status: 'done',
+        url: getCloudinaryUrl(record.image),
+      }]);
+    } else {
+      setFileList([]);
+    }
     setIsModalOpen(true);
   };
 
@@ -133,11 +153,20 @@ export default function Categories() {
     try {
       const values = await form.validateFields();
       setIsSaving(true);
-      const formData = new FormData();
       
+      const formData = new FormData();
       formData.append('name', values.name);
       formData.append('description', values.description || '');
       
+      if (values.parentId) {
+        formData.append('parentId', values.parentId);
+      }
+      
+      if (values.status) {
+        formData.append('status', values.status);
+      }
+      
+      // Add image file if selected
       if (fileList.length > 0 && fileList[0].originFileObj) {
         formData.append('image', fileList[0].originFileObj);
       }
@@ -155,9 +184,18 @@ export default function Categories() {
       setFileList([]);
     } catch (error) {
       console.error('Error saving category:', error);
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string } } };
-        message.error(axiosError.response?.data?.message || 'Failed to save category');
+      const err = error as { response?: { data?: { errors?: string[]; message?: string } } };
+      if (err?.response?.data) {
+        const errorData = err.response.data;
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          message.error(errorData.errors.join(', '));
+        } else if (errorData.message) {
+          message.error(errorData.message);
+        } else {
+          message.error('Failed to save category');
+        }
+      } else {
+        message.error('Failed to save category');
       }
     } finally {
       setIsSaving(false);
@@ -203,8 +241,28 @@ export default function Categories() {
       dataIndex: 'name',
       key: 'name',
       width: 200,
-      render: (text: string) => (
-        <span style={{ fontWeight: 500 }}>{text}</span>
+      render: (text: string, record: Category) => (
+        <Space>
+          {record.subCategories && record.subCategories.length > 0 ? (
+            <FolderOutlined style={{ color: '#faad14' }} />
+          ) : (
+            <FileOutlined style={{ color: '#1890ff' }} />
+          )}
+          <span style={{ fontWeight: 500 }}>{text}</span>
+        </Space>
+      ),
+    },
+    {
+      title: 'Parent Category',
+      dataIndex: 'parent',
+      key: 'parent',
+      width: 150,
+      render: (parent: Category['parent']) => (
+        parent ? (
+          <Tag color="blue">{parent.name}</Tag>
+        ) : (
+          <Tag color="default">Root</Tag>
+        )
       ),
     },
     {
@@ -219,10 +277,20 @@ export default function Categories() {
       ),
     },
     {
+      title: 'Subcategories',
+      key: 'subCategoriesCount',
+      width: 120,
+      align: 'center',
+      render: (_: unknown, record: Category) => (
+        <Tag color="purple">{record.subCategories?.length || 0}</Tag>
+      ),
+    },
+    {
       title: 'Products',
       dataIndex: 'productCount',
       key: 'productCount',
       width: 100,
+      align: 'center',
       render: (count: number) => (
         <Tag color="blue">{count || 0}</Tag>
       ),
@@ -364,15 +432,42 @@ export default function Categories() {
             name="name"
             rules={[
               { required: true, message: 'Please input category name!' },
-              { min: 2, message: 'Category name must be at least 2 characters!' },
+              { min: 2, max: 100, message: 'Category name must be between 2 and 100 characters!' },
             ]}
           >
             <Input placeholder="Enter category name" size="large" />
           </Form.Item>
 
           <Form.Item
+            label="Parent Category"
+            name="parentId"
+            tooltip="Leave empty to create a root category"
+          >
+            <Select
+              placeholder="Select parent category (optional)"
+              size="large"
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {Array.isArray(allCategoriesData?.data) && 
+                allCategoriesData.data
+                  .filter(cat => !editingCategory || cat.id !== editingCategory.id) // Don't allow selecting self
+                  .map(category => (
+                    <Option key={category.id} value={category.id}>
+                      {category.parent ? `${category.parent.name} > ${category.name}` : category.name}
+                    </Option>
+                  ))
+              }
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             label="Description"
             name="description"
+            rules={[
+              { max: 500, message: 'Description must not exceed 500 characters!' },
+            ]}
           >
             <TextArea
               placeholder="Enter category description"
@@ -388,6 +483,7 @@ export default function Categories() {
               beforeUpload={() => false}
               onChange={({ fileList: newFileList }) => setFileList(newFileList.slice(-1))}
               maxCount={1}
+              accept="image/*"
             >
               {fileList.length === 0 && (
                 <div>
@@ -396,6 +492,17 @@ export default function Categories() {
                 </div>
               )}
             </Upload>
+          </Form.Item>
+
+          <Form.Item
+            label="Status"
+            name="status"
+            initialValue="ACTIVE"
+          >
+            <Select size="large">
+              <Option value="ACTIVE">Active</Option>
+              <Option value="INACTIVE">Inactive</Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>
