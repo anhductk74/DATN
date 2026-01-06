@@ -12,6 +12,8 @@ import {
   Badge,
   Button,
   Popconfirm,
+  Form,
+  message,
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,6 +27,7 @@ import {
   DeleteOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router';
@@ -33,6 +36,7 @@ import {
   useDeleteManager,
   useToggleManagerStatus,
 } from '../../hooks/useManagers';
+import { shippingCompanyService } from '../../services/shippingCompany.service';
 import type { Manager } from '../../types/manager.types';
 import { getCloudinaryUrl } from '../../config/config';
 import './Managers.css';
@@ -45,7 +49,9 @@ function Managers() {
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
+  const [form] = Form.useForm();
 
   const { data, isLoading, refetch } = useManagers(
     page,
@@ -59,6 +65,46 @@ function Managers() {
   const handleViewDetails = (manager: Manager) => {
     setSelectedManager(manager);
     setDetailModalVisible(true);
+  };
+
+  const handleOpenUpdate = (manager: Manager) => {
+    setSelectedManager(manager);
+    form.setFieldsValue({
+      companyName: manager.companyName,
+      companyCode: manager.companyCode,
+      companyContactEmail: manager.companyContactEmail,
+      companyContactPhone: manager.companyContactPhone,
+      companyStreet: manager.companyStreet,
+      companyCommune: manager.companyCommune,
+      companyDistrict: manager.companyDistrict,
+      companyCity: manager.companyCity,
+    });
+    setUpdateModalVisible(true);
+  };
+
+  const handleUpdate = async (values: any) => {
+    if (!selectedManager) return;
+    
+    try {
+      await shippingCompanyService.update(selectedManager.companyId, {
+        name: values.companyName,
+        code: values.companyCode,
+        contactEmail: values.companyContactEmail,
+        contactPhone: values.companyContactPhone,
+        street: values.companyStreet,
+        commune: values.companyCommune,
+        district: values.companyDistrict,
+        city: values.companyCity,
+      });
+      
+      message.success('Shipping company updated successfully');
+      setUpdateModalVisible(false);
+      form.resetFields();
+      refetch();
+    } catch (error: any) {
+      message.error(error.response?.data?.message || 'Failed to update shipping company');
+      console.error('Update error:', error);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -177,7 +223,7 @@ function Managers() {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 180,
+      width: 150,
       render: (_, record) => (
         <Space size="small">
           <Button
@@ -185,18 +231,20 @@ function Managers() {
             size="small"
             icon={<EyeOutlined />}
             onClick={() => handleViewDetails(record)}
-          >
-            View
-          </Button>
+          />
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleOpenUpdate(record)}
+          />
           <Button
             type="link"
             size="small"
             icon={record.isActive ? <CloseCircleOutlined /> : <CheckCircleOutlined />}
             onClick={() => handleToggleStatus(record.managerId)}
             danger={!!record.isActive}
-          >
-            {record.isActive ? 'Deactivate' : 'Activate'}
-          </Button>
+          />
           <Popconfirm
             title="Delete Manager"
             description="Are you sure you want to delete this manager? This action cannot be undone."
@@ -210,9 +258,7 @@ function Managers() {
               size="small"
               icon={<DeleteOutlined />}
               danger
-            >
-              Delete
-            </Button>
+            />
           </Popconfirm>
         </Space>
       ),
@@ -414,6 +460,106 @@ function Managers() {
             </Descriptions>
           </Space>
         )}
+      </Modal>
+
+      {/* Update Modal */}
+      <Modal
+        title={
+          <Space>
+            <EditOutlined />
+            Update Shipping Company
+          </Space>
+        }
+        open={updateModalVisible}
+        onCancel={() => {
+          setUpdateModalVisible(false);
+          form.resetFields();
+        }}
+        onOk={() => form.submit()}
+        width={800}
+        okText="Update"
+        cancelText="Cancel"
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleUpdate}
+        >
+          <Typography.Title level={5}>Company Information</Typography.Title>
+          
+          <Form.Item
+            label="Company Name"
+            name="companyName"
+            rules={[{ required: true, message: 'Please enter company name' }]}
+          >
+            <Input placeholder="Enter company name" />
+          </Form.Item>
+
+          <Form.Item
+            label="Company Code"
+            name="companyCode"
+          >
+            <Input placeholder="Enter company code (optional)" />
+          </Form.Item>
+
+          <Form.Item
+            label="Company Contact Email"
+            name="companyContactEmail"
+            rules={[
+              { type: 'email', message: 'Please enter a valid email' },
+            ]}
+          >
+            <Input placeholder="Enter company contact email (optional)" />
+          </Form.Item>
+
+          <Form.Item
+            label="Company Contact Phone"
+            name="companyContactPhone"
+            rules={[
+              { pattern: /^[0-9]{10,11}$/, message: 'Phone number must be 10-11 digits' },
+            ]}
+          >
+            <Input placeholder="Enter company contact phone (optional)" />
+          </Form.Item>
+
+          <Typography.Title level={5} style={{ marginTop: 24 }}>Company Address</Typography.Title>
+
+          <Form.Item
+            label="Street"
+            name="companyStreet"
+            rules={[{ required: true, message: 'Please enter street address' }]}
+          >
+            <Input placeholder="Enter street address" />
+          </Form.Item>
+
+          <Form.Item
+            label="Commune/Ward"
+            name="companyCommune"
+            rules={[{ required: true, message: 'Please enter commune/ward' }]}
+          >
+            <Input placeholder="Enter commune or ward" />
+          </Form.Item>
+
+          <Space style={{ width: '100%' }} size="large">
+            <Form.Item
+              label="District"
+              name="companyDistrict"
+              rules={[{ required: true, message: 'Please enter district' }]}
+              style={{ width: 300 }}
+            >
+              <Input placeholder="Enter district" />
+            </Form.Item>
+
+            <Form.Item
+              label="City/Province"
+              name="companyCity"
+              rules={[{ required: true, message: 'Please enter city' }]}
+              style={{ width: 300 }}
+            >
+              <Input placeholder="Enter city or province" />
+            </Form.Item>
+          </Space>
+        </Form>
       </Modal>
     </div>
   );

@@ -40,7 +40,6 @@ export default function AdminLayout() {
     if (path.includes('/orders')) openKeys.push('orders');
     if (path.includes('/customers')) openKeys.push('customers');
     if (path.includes('/managers')) openKeys.push('managers');
-    if (path.includes('/marketing')) openKeys.push('marketing');
     
     return openKeys;
   };
@@ -145,26 +144,10 @@ export default function AdminLayout() {
       ],
     },
     {
-      key: 'marketing',
+      key: '/dashboard/vouchers',
       icon: <GiftOutlined />,
-      label: 'Marketing',
-      children: [
-        {
-          key: '/dashboard/marketing/coupons',
-          label: 'Coupons',
-          onClick: () => navigate('/dashboard/marketing/coupons'),
-        },
-        {
-          key: '/dashboard/marketing/promotions',
-          label: 'Promotions',
-          onClick: () => navigate('/dashboard/marketing/promotions'),
-        },
-        {
-          key: '/dashboard/marketing/banners',
-          label: 'Banners',
-          onClick: () => navigate('/dashboard/marketing/banners'),
-        },
-      ],
+      label: 'Voucher Management',
+      onClick: () => navigate('/dashboard/vouchers'),
     },
     {
       key: '/dashboard/analytics',

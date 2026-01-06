@@ -180,7 +180,6 @@ export class ChatService {
   // Lưu thông tin user
   static async saveUserInfo(userInfo: UserInfo): Promise<void> {
     try {
-      console.log('Saving user info:', userInfo);
       const userRef = doc(db, "users", userInfo.id);
       await setDoc(userRef, {
         name: userInfo.name,
@@ -188,7 +187,6 @@ export class ChatService {
         email: userInfo.email || "",
         updatedAt: serverTimestamp(),
       }, { merge: true });
-      console.log('User info saved successfully');
     } catch (error) {
       console.error('Error saving user info:', error);
       throw error;
