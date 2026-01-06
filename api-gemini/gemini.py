@@ -308,10 +308,30 @@ def ai_chatbot():
 
             # Compact text cho AI
             products_text += f"{product_obj['name']} | {product_obj['brand']} | {product_obj['category']} | {product_obj['minPrice']}-{product_obj['maxPrice']} VNĐ\n"
-
         # System prompt với instruction rõ ràng
+        def detect_language_from_text(text):
+            if not text:
+                return 'vi'
+            txt = text.lower()
+            vi_markers = ['xin chào', 'cảm ơn', 'tìm', 'sản phẩm', 'giá', 'mua', 'điện thoại', 'áo', 'quần', 'giày', 'shop']
+            if 'đ' in txt or any(m in txt for m in vi_markers):
+                return 'vi'
+            # Has non-ascii letters (common for Vietnamese) -> treat as Vietnamese
+            if any(ord(c) > 127 for c in text):
+                return 'vi'
+            return 'en'
+
         if not history or 'Smart-mall Shopping Assistant' not in str(history[0]):
-            initial_prompt = (
+            # detect language from last user message in history (if any)
+            user_msg = ''
+            for turn in reversed(history):
+                if turn.get('role') == 'user' and turn.get('text'):
+                    user_msg = turn.get('text')
+                    break
+
+            lang = detect_language_from_text(user_msg)
+
+            initial_prompt_vi = (
                 "Bạn là **Trợ lý mua sắm Smart-mall**.\n\n"
                 "**NHIỆM VỤ:**\n"
                 "1. Khi khách hỏi về sản phẩm (ví dụ: 'tìm tai nghe', 'điện thoại giá rẻ', 'laptop'), bạn phải:\n"
@@ -321,9 +341,25 @@ def ai_chatbot():
                 "   - KẾT THÚC bằng dòng: PRODUCTS:[id1,id2,id3]\n\n"
                 "2. Với câu chào hỏi thông thường ('xin chào', 'cảm ơn'), trả lời thân thiện KHÔNG cần gợi ý sản phẩm.\n\n"
                 "3. Nếu không tìm thấy sản phẩm phù hợp, nói: 'Xin lỗi, hiện không có sản phẩm phù hợp.'\n\n"
-                f"**DANH MUC SẢN PHẨM:**\n{products_text}\n"
+                f"**DANH MỤC SẢN PHẨM:**\n{products_text}\n"
                 "**LƯU Ý:** Luôn ưu tiên sản phẩm có rating cao, giá phù hợp với yêu cầu."
             )
+
+            initial_prompt_en = (
+                "You are **Smart-mall Shopping Assistant**.\n\n"
+                "**TASK:**\n"
+                "1. When a customer asks about products (e.g., 'find headphones', 'cheap phone', 'laptop'), you must:\n"
+                "   - Analyze the request (product type, price range, brand)\n"
+                "   - Find the 3-5 MOST RELEVANT products from the catalog\n"
+                "   - Reply in English with a short introduction\n"
+                "   - END with a line: PRODUCTS:[id1,id2,id3]\n\n"
+                "2. For simple greetings ('hello', 'thanks'), reply friendly WITHOUT suggesting products.\n\n"
+                "3. If no matching products found, say: 'Sorry, no matching product found.'\n\n"
+                f"**PRODUCT CATALOG:**\n{products_text}\n"
+                "**NOTE:** Always prioritize high-rated products and prices that match the request."
+            )
+
+            initial_prompt = initial_prompt_vi if lang == 'vi' else initial_prompt_en
             history = [{'role': 'user', 'text': initial_prompt}] + history
 
         API_KEY = os.getenv("API_KEY")

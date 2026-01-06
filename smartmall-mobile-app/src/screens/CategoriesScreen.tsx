@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { categoryService, Category } from '../services/categoryService';
@@ -20,6 +21,7 @@ interface CategoriesScreenProps {
 export default function CategoriesScreen({ navigation }: CategoriesScreenProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     loadCategories();
@@ -47,6 +49,28 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
       categoryId: category.id,
       categoryName: category.name 
     });
+  };
+
+  const renderCategoryImage = (category: Category) => {
+    const hasImage = category.image && !imageErrors[category.id];
+    
+    if (!hasImage) {
+      return (
+        <View style={styles.categoryImagePlaceholder}>
+          <Text style={styles.categoryEmoji}>📦</Text>
+        </View>
+      );
+    }
+
+    return (
+      <Image 
+        source={{ uri: getCloudinaryUrl(category.image!) }} 
+        style={styles.categoryImage}
+        onError={() => {
+          setImageErrors(prev => ({ ...prev, [category.id]: true }));
+        }}
+      />
+    );
   };
 
   if (isLoading) {
@@ -83,19 +107,10 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
               key={category.id}
               style={styles.categoryCard}
               onPress={() => handleCategoryPress(category)}
+              activeOpacity={0.7}
             >
               <View style={styles.categoryImageContainer}>
-                {category.image ? (
-                  <Image 
-                    source={{ uri: getCloudinaryUrl(category.image) }} 
-                    style={styles.categoryImage}
-                    defaultSource={require('../../assets/icon.png')}
-                  />
-                ) : (
-                  <View style={styles.categoryImagePlaceholder}>
-                    <Text style={styles.categoryEmoji}>📦</Text>
-                  </View>
-                )}
+                {renderCategoryImage(category)}
               </View>
               <Text style={styles.categoryName} numberOfLines={2}>
                 {category.name}
@@ -163,6 +178,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#f0f0f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   categoryImageContainer: {
     width: '100%',
@@ -170,6 +190,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: '#f8f9fa',
   },
   categoryImage: {
     width: '100%',

@@ -13,14 +13,8 @@ import categoryService, { Category } from "@/services/CategoryService";
 import { App } from "antd";
 import { getCloudinaryUrl } from "@/config/config";
 import {
-  MobileOutlined,
-  LaptopOutlined,
-  SkinOutlined,
-  HomeOutlined,
-  TrophyOutlined,
-  StarFilled,
   ThunderboltOutlined,
-  AppstoreOutlined,
+  StarFilled,
   LeftOutlined,
   RightOutlined,
 } from "@ant-design/icons";
@@ -337,7 +331,7 @@ export default function Home() {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
-            className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 cursor-grab active:cursor-grabbing select-none"
+            className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 pt-2 cursor-grab active:cursor-grabbing select-none"
             style={{ 
               scrollbarWidth: 'none', 
               msOverflowStyle: 'none',
@@ -345,20 +339,7 @@ export default function Home() {
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            {categories.map((category, i) => {
-              const colors = [
-                "from-blue-500 to-cyan-500",
-                "from-purple-500 to-pink-500",
-                "from-pink-500 to-rose-500",
-                "from-green-500 to-emerald-500",
-                "from-indigo-500 to-blue-500",
-                "from-yellow-500 to-orange-500",
-                "from-red-500 to-pink-500",
-                "from-teal-500 to-cyan-500",
-              ];
-              const icons = [MobileOutlined, LaptopOutlined, SkinOutlined, HomeOutlined, AppstoreOutlined];
-              const Icon = icons[i % icons.length];
-              
+            {categories.map((category) => {
               return (
                 <div
                   key={category.id}
@@ -368,18 +349,21 @@ export default function Home() {
                              flex-shrink-0 w-40"
                   style={{ scrollSnapAlign: 'start' }}
                 >
-                  <div className={`w-16 h-16 mx-auto mb-3 bg-gradient-to-br ${colors[i % colors.length]} rounded-2xl flex items-center justify-center overflow-hidden
-                                   group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-lg`}>
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center overflow-hidden
+                                  bg-white border-2 border-gray-200 group-hover:scale-110 group-hover:rotate-3 
+                                  transition-transform duration-300 shadow-lg">
                     {category.image ? (
                       <Image
                         src={getCloudinaryUrl(category.image)}
                         alt={category.name}
                         width={64}
                         height={64}
-                        className="object-cover w-full h-full"
+                        className="object-cover w-full h-full rounded-xl"
                       />
                     ) : (
-                      <Icon className="text-white text-2xl" />
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center rounded-xl">
+                        <span className="text-gray-400 text-xs">No Image</span>
+                      </div>
                     )}
                   </div>
                   <div className="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors line-clamp-2">

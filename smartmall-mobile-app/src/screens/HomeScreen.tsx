@@ -21,20 +21,6 @@ interface HomeScreenProps {
   navigation: any;
 }
 
-// Map category names to local asset images
-const getCategoryImage = (categoryName: string) => {
-  const name = categoryName.toLowerCase();
-  if (name.includes('camera')) return require('../../assets/camera.png');
-  if (name.includes('cuộc sống gia đình')) return require('../../assets/cuocsonggiadinh.png');
-  if (name.includes('điện thoại')) return require('../../assets/phone.png');
-  if (name.includes('điện tử')) return require('../../assets/dientu.png');
-  if (name.includes('dụng cụ bếp')) return require('../../assets/dungcubep.png');
-  if (name.includes('gimbal')) return require('../../assets/gimbal.png');
-  if (name.includes('nội thất')) return require('../../assets/noithat.png');
-  if (name.includes('phòng tắm')) return require('../../assets/bathroom.png'); // fallback to icon
-  return null;
-};
-
 // use local banner images from assets
 const banners = [
   { id: '1', title: '', subtitle: '', image: require('../../assets/banner2.jpg') },
@@ -117,6 +103,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [hasMoreFeatured, setHasMoreFeatured] = useState(true);
   const [isLoadingMoreFeatured, setIsLoadingMoreFeatured] = useState(false);
   const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = useState(true);
+  const [categoryImageErrors, setCategoryImageErrors] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     loadHomeData();
@@ -142,7 +129,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
       if (categoriesRes.success && categoriesRes.data) {
         const cats = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
-        setRealCategories(cats.slice(0, 8));
+        // Flatten all categories including subcategories
+        const allCategories: Category[] = [];
+        cats.forEach((cat: Category) => {
+          allCategories.push(cat);
+          if (cat.subCategories && cat.subCategories.length > 0) {
+            allCategories.push(...cat.subCategories);
+          }
+        });
+        setRealCategories(allCategories);
       }
 
       if (featuredRes.success && featuredRes.data) {
@@ -217,7 +212,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   const renderCategory = ({ item }: any) => {
-    const localImage = getCategoryImage(item.name);
+    const hasImage = item.image && !categoryImageErrors[item.id];
     
     return (
       <TouchableOpacity 
@@ -225,15 +220,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         onPress={() => navigation.navigate('ProductList', { categoryId: item.id, categoryName: item.name })}
       >
         <View style={styles.categoryIcon}>
-          {localImage ? (
-            <Image 
-              source={localImage}
-              style={styles.categoryIconImage}
-            />
-          ) : item.image ? (
+          {hasImage ? (
             <Image 
               source={{ uri: getCloudinaryUrl(item.image) }} 
               style={styles.categoryIconImage}
+              onError={() => {
+                setCategoryImageErrors(prev => ({ ...prev, [item.id]: true }));
+              }}
             />
           ) : (
             <MaterialCommunityIcons name="shape-outline" size={32} color="#2563eb" />
