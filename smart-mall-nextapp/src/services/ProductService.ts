@@ -14,6 +14,39 @@ export interface ProductVariant {
   weight?: number;
   dimensions?: string;
   attributes: ProductAttribute[];
+  // Flash Sale fields (as per FLASH_SALE_API_README.md)
+  flashSalePrice?: number;         // Giá flash sale, null nếu không có
+  flashSaleStartTime?: string;     // ISO format: "YYYY-MM-DDTHH:mm:ss"
+  flashSaleEndTime?: string;       // ISO format: "YYYY-MM-DDTHH:mm:ss"
+  flashSaleQuantity?: number;      // Số lượng sản phẩm dành cho flash sale (optional, min: 1)
+  isFlashSaleActive?: boolean;     // Auto-calculated: now >= startTime && now < endTime
+  discountPercent?: number;        // Auto-calculated: ((price - flashSalePrice) / price) * 100
+  timeUntilFlashSale?: number;     // Seconds until flash sale starts (null if already started)
+  // Product info (from shop flash sales endpoint enrichment)
+  productId?: string;              // Product ID this variant belongs to
+  productName?: string;            // Product name for display
+  productBrand?: string;           // Product brand for display
+  productImages?: string[];        // Product images for display
+}
+
+// Flash Sale Product DTO (as per FLASH_SALE_API_README.md)
+export interface FlashSaleProductDto {
+  productId: string;
+  productName: string;
+  productBrand: string;
+  productImage: string;  // Changed from productImages[] to single productImage
+  variantId: string;
+  variantSku: string;
+  originalPrice: number;
+  flashSalePrice: number;
+  discountPercent: number;
+  stock: number;
+  flashSaleQuantity?: number;  // Số lượng giới hạn cho flash sale (optional)
+  flashSaleStartTime: string;
+  flashSaleEndTime: string;
+  isFlashSaleActive: boolean;
+  timeRemaining: number; // seconds until end
+  shopId?: string; // Added to filter by shop
 }
 
 export interface Product {
@@ -228,6 +261,79 @@ class ProductService {
   // Get product count by category
   async getProductCountByCategory(categoryId: string): Promise<number> {
     const response = await apiClient.get(`/products/count/category/${categoryId}`);
+    return response.data.data;
+  }
+
+  // ================= FLASH SALE OPERATIONS =================
+  
+  // Set flash sale for a product variant
+  // Endpoint: PUT /api/products/variants/{variantId}/flash-sale
+  // Request body: { flashSalePrice, startTime, endTime, flashSaleQuantity (optional) }
+  async setFlashSale(
+    variantId: string,
+    data: {
+      flashSalePrice: number;
+      startTime: string;           // Format: "YYYY-MM-DDTHH:mm:ss" (ISO 8601)
+      endTime: string;             // Format: "YYYY-MM-DDTHH:mm:ss" (ISO 8601)
+      flashSaleQuantity?: number;  // Optional: Số lượng giới hạn cho flash sale (min: 1)
+    }
+  ): Promise<ProductVariant> {
+    const response = await apiClient.put(`/products/variants/${variantId}/flash-sale`, data);
+    return response.data.data;
+  }
+
+  // Remove flash sale from a product variant
+  async removeFlashSale(variantId: string): Promise<void> {
+    await apiClient.delete(`/products/variants/${variantId}/flash-sale`);
+  }
+
+  // Get active flash sale products
+  async getActiveFlashSaleProducts(page: number = 0, size: number = 20): Promise<{
+    content: FlashSaleProductDto[];
+    totalPages: number;
+    totalElements: number;
+    size: number;
+    number: number;
+  }> {
+    const response = await apiClient.get(`/products/flash-sales/active?page=${page}&size=${size}`);
+    return response.data.data;
+  }
+
+  // Get upcoming flash sale products
+  async getUpcomingFlashSaleProducts(page: number = 0, size: number = 20): Promise<{
+    content: FlashSaleProductDto[];
+    totalPages: number;
+    totalElements: number;
+    size: number;
+    number: number;
+  }> {
+    const response = await apiClient.get(`/products/flash-sales/upcoming?page=${page}&size=${size}`);
+    return response.data.data;
+  }
+
+  // Get flash sale products by shop (NEW: As per updated docs)
+  // Endpoint: GET /api/products/shops/{shopId}/flash-sales
+  async getShopFlashSales(shopId: string, page: number = 0, size: number = 20): Promise<{
+    content: ProductVariant[];
+    totalPages: number;
+    totalElements: number;
+    size: number;
+    number: number;
+  }> {
+    const response = await apiClient.get(`/products/shops/${shopId}/flash-sales?page=${page}&size=${size}`);
+    return response.data.data;
+  }
+
+  // Get ALL flash sale products by shop (including upcoming, active, expired) - for management
+  // Endpoint: GET /api/products/shops/{shopId}/flash-sales/all
+  async getAllShopFlashSales(shopId: string, page: number = 0, size: number = 20): Promise<{
+    content: ProductVariant[];
+    totalPages: number;
+    totalElements: number;
+    size: number;
+    number: number;
+  }> {
+    const response = await apiClient.get(`/products/shops/${shopId}/flash-sales/all?page=${page}&size=${size}`);
     return response.data.data;
   }
 }

@@ -1,14 +1,13 @@
 package com.example.smart_mall_spring.Controllers;
 
-import com.example.smart_mall_spring.Dtos.Products.CreateProductDto;
-import com.example.smart_mall_spring.Dtos.Products.PagedProductResponseDto;
-import com.example.smart_mall_spring.Dtos.Products.ProductResponseDto;
-import com.example.smart_mall_spring.Dtos.Products.UpdateProductDto;
+import com.example.smart_mall_spring.Dtos.Products.*;
 import com.example.smart_mall_spring.Enum.Status;
 import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Products.ProductService;
 import com.example.smart_mall_spring.Services.Shop.ShopService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -324,5 +323,93 @@ public class ProductController {
     public ResponseEntity<ApiResponse<Long>> getProductCountByCategory(@PathVariable UUID categoryId) {
         long count = productService.getProductCountByCategory(categoryId);
         return ResponseEntity.ok(ApiResponse.success("Get Product Count Success!", count));
+    }
+    
+    // ===== FLASH SALE ENDPOINTS =====
+    
+    /**
+     * Set flash sale for a product variant
+     * PUT /api/products/variants/{variantId}/flash-sale
+     */
+    @PutMapping("/variants/{variantId}/flash-sale")
+    public ResponseEntity<ApiResponse<ProductVariantDto>> setFlashSale(
+            @PathVariable UUID variantId,
+            @Valid @RequestBody SetFlashSaleDto flashSaleDto) {
+        try {
+            ProductVariantDto result = productService.setFlashSale(variantId, flashSaleDto);
+            return ResponseEntity.ok(ApiResponse.success("Flash sale set successfully!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to set flash sale: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Remove flash sale from a product variant
+     * DELETE /api/products/variants/{variantId}/flash-sale
+     */
+    @DeleteMapping("/variants/{variantId}/flash-sale")
+    public ResponseEntity<ApiResponse<ProductVariantDto>> removeFlashSale(@PathVariable UUID variantId) {
+        try {
+            ProductVariantDto result = productService.removeFlashSale(variantId);
+            return ResponseEntity.ok(ApiResponse.success("Flash sale removed successfully!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to remove flash sale: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Get all active flash sale products
+     * GET /api/products/flash-sales/active?page=0&size=20
+     */
+    @GetMapping("/flash-sales/active")
+    public ResponseEntity<ApiResponse<Page<ProductVariantDto>>> getActiveFlashSales(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Page<ProductVariantDto> result = productService.getActiveFlashSaleProducts(page, size);
+            return ResponseEntity.ok(ApiResponse.success("Active flash sales retrieved successfully!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get flash sales: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Get flash sale products by shop
+     * GET /api/products/shops/{shopId}/flash-sales?page=0&size=20
+     */
+    @GetMapping("/shops/{shopId}/flash-sales")
+    public ResponseEntity<ApiResponse<Page<ProductVariantDto>>> getFlashSalesByShop(
+            @PathVariable UUID shopId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Page<ProductVariantDto> result = productService.getFlashSaleProductsByShop(shopId, page, size);
+            return ResponseEntity.ok(ApiResponse.success("Shop flash sales retrieved successfully!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get shop flash sales: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Get all flash sale products by shop (including upcoming and expired)
+     * For management purposes
+     * GET /api/products/shops/{shopId}/flash-sales/all?page=0&size=20
+     */
+    @GetMapping("/shops/{shopId}/flash-sales/all")
+    public ResponseEntity<ApiResponse<Page<ProductVariantDto>>> getAllFlashSalesByShop(
+            @PathVariable UUID shopId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        try {
+            Page<ProductVariantDto> result = productService.getAllFlashSaleProductsByShop(shopId, page, size);
+            return ResponseEntity.ok(ApiResponse.success("All shop flash sales retrieved successfully!", result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Failed to get all shop flash sales: " + e.getMessage()));
+        }
     }
 }

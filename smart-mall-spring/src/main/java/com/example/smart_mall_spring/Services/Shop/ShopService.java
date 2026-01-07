@@ -152,6 +152,12 @@ public class ShopService {
         }
         return convertDto(shopOptional.get());
     }
+    
+    // Get shop entity by ID (for internal use)
+    public Shop getShopEntityById(UUID id) {
+        return shopRes.findById(id)
+                .orElseThrow(() -> new RuntimeException("Shop not found with id: " + id));
+    }
 
     // Update shop
     public ShopResponseDto updateShop(UUID id, UpdateShopDto updateShopDto) {

@@ -21,8 +21,21 @@ public class ProductVariantDto {
     private Double weight;
     private String dimensions;
     private List<VariantAttributeDto> attributes;
+    private UUID productId;
     private String productName;
     private String productBrand;
+    private String productImage;
+    
+    // Flash Sale fields
+    private Boolean isFlashSale;
+    private Double flashSalePrice;
+    private LocalDateTime flashSaleStart;
+    private LocalDateTime flashSaleEnd;
+    private Integer flashSaleQuantity;
+    private Double effectivePrice;
+    private Boolean isFlashSaleActive;
+    private Integer discountPercent;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { categoryService, Category } from '../services/categoryService';
-import { productService, Product } from '../services/productService';
+import { productService, Product, FlashSaleProduct } from '../services/productService';
 import CartService from '../services/CartService';
 import { getCloudinaryUrl } from '../config/config';
 
@@ -96,8 +96,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   
   const [realCategories, setRealCategories] = useState<Category[]>([]);
   const [featuredProductsReal, setFeaturedProductsReal] = useState<Product[]>([]);
-  const [flashDealsReal, setFlashDealsReal] = useState<Product[]>([]);
+  const [flashDealsReal, setFlashDealsReal] = useState<FlashSaleProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [flashSaleTimers, setFlashSaleTimers] = useState<{ [key: string]: string }>({});
   const [cartCount, setCartCount] = useState(0);
   const [featuredPage, setFeaturedPage] = useState(0);
   const [hasMoreFeatured, setHasMoreFeatured] = useState(true);
@@ -117,6 +118,43 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     return unsubscribe;
   }, [navigation]);
 
+  useEffect(() => {
+    if (flashDealsReal.length === 0) return;
+
+    const updateTimers = () => {
+      const newTimers: { [key: string]: string } = {};
+      const now = new Date();
+      
+      flashDealsReal.forEach((deal) => {
+        // Calculate time remaining from flashSaleEnd
+        const endTime = new Date(deal.flashSaleEnd);
+        const timeLeftMs = endTime.getTime() - now.getTime();
+        const timeLeftSeconds = Math.floor(timeLeftMs / 1000);
+        
+        if (timeLeftSeconds > 0) {
+          const days = Math.floor(timeLeftSeconds / 86400);
+          const hours = Math.floor((timeLeftSeconds % 86400) / 3600);
+          const minutes = Math.floor((timeLeftSeconds % 3600) / 60);
+          const seconds = timeLeftSeconds % 60;
+          
+          if (days > 0) {
+            newTimers[deal.id] = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+          } else {
+            newTimers[deal.id] = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+          }
+        } else {
+          newTimers[deal.id] = 'Ended';
+        }
+      });
+      setFlashSaleTimers(newTimers);
+    };
+
+    updateTimers();
+    const interval = setInterval(updateTimers, 1000);
+
+    return () => clearInterval(interval);
+  }, [flashDealsReal]);
+
   const loadHomeData = async () => {
     try {
       setIsLoading(true);
@@ -124,7 +162,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       const [categoriesRes, featuredRes, dealsRes] = await Promise.all([
         categoryService.getAllCategories(),
         productService.getProducts({ page: 0, size: 8, sort: 'createdAt,desc' }),
-        productService.getProductsOnSale(0, 4, 10)
+        productService.getActiveFlashSales(0, 10)
       ]);
 
       if (categoriesRes.success && categoriesRes.data) {
@@ -148,7 +186,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       }
 
       if (dealsRes.success && dealsRes.data) {
-        const deals = dealsRes.data.content || dealsRes.data || [];
+        const deals = dealsRes.data.content || [];
         setFlashDealsReal(deals);
       }
     } catch (error) {
@@ -283,43 +321,99 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     );
   };
 
-  const renderFlashDeal = (deal: any, index: number) => (
-    <TouchableOpacity 
-      key={`deal-${deal.id}-${index}`} 
-      style={styles.flashDealCard}
-      onPress={() => navigation.navigate('ProductDetail', { productId: deal.id })}
-    >
-      <View style={styles.flashDealImageContainer}>
-        <View style={styles.flashDealImagePlaceholder}>
-          <Ionicons name="flash" size={48} color="#f59e0b" />
-        </View>
-      </View>
-      <View style={styles.flashDealInfo}>
-        <Text style={styles.flashDealName} numberOfLines={2}>
-          {deal.name}
-        </Text>
-        <View style={styles.flashDealPriceContainer}>
-          <Text style={styles.flashDealPrice}>${deal.price}</Text>
-          <Text style={styles.flashDealOriginalPrice}>${deal.originalPrice}</Text>
-        </View>
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${deal.soldPercentage}%` },
-              ]}
-            />
+  const renderFlashDeal = (deal: FlashSaleProduct | any, index: number) => {
+    // Real flash sale has 'productName' field, fallback has 'name'
+    const isRealFlashSale = deal.productName !== undefined;
+    const variantId = deal.id;
+    const productName = isRealFlashSale ? deal.productName : deal.name;
+    const flashPrice = deal.flashSalePrice || deal.price;
+    const originalPrice = deal.price;
+    const discount = deal.discountPercent;
+    const productImage = deal.productImage;
+    const timeLeft = isRealFlashSale && deal.id ? flashSaleTimers[deal.id] || '00:00:00' : deal.timeLeft;
+    const soldPercentage = deal.soldPercentage || 0;
+    const flashSaleQuantity = deal.flashSaleQuantity;
+    const stock = deal.stock;
+    
+    // Calculate sold percentage if we have flashSaleQuantity and stock
+    let calculatedSoldPercentage = soldPercentage;
+    if (flashSaleQuantity && stock !== null) {
+      const sold = flashSaleQuantity - stock;
+      calculatedSoldPercentage = Math.max(0, Math.round((sold / flashSaleQuantity) * 100));
+    }
+
+    // Safety check for prices
+    if (!flashPrice || !originalPrice) {
+      return null;
+    }
+
+    return (
+      <TouchableOpacity 
+        key={`deal-${variantId}-${index}`} 
+        style={styles.flashDealCard}
+        onPress={() => {
+          // Use productId directly if available
+          if (deal.productId) {
+            navigation.navigate('ProductDetail', { productId: deal.productId });
+          } else {
+            // Fallback: search for product by name
+            productService.searchProducts(productName, 0, 1).then(searchRes => {
+              if (searchRes.success && searchRes.data?.content && searchRes.data.content.length > 0) {
+                const product = searchRes.data.content[0];
+                navigation.navigate('ProductDetail', { productId: product.id });
+              }
+            }).catch(error => {
+              console.error('Error finding product:', error);
+            });
+          }
+        }}
+      >
+        {isRealFlashSale && discount && (
+          <View style={styles.flashSaleBadge}>
+            <Ionicons name="flash" size={12} color="#fff" />
+            <Text style={styles.flashSaleBadgeText}>-{discount}%</Text>
           </View>
-          <Text style={styles.soldText}>{deal.soldPercentage}% sold</Text>
+        )}
+        <View style={styles.flashDealImageContainer}>
+          {isRealFlashSale && productImage ? (
+            <Image 
+              source={{ uri: getCloudinaryUrl(productImage) }} 
+              style={styles.flashDealImage}
+            />
+          ) : (
+            <View style={styles.flashDealImagePlaceholder}>
+              <Ionicons name="flash" size={48} color="#f59e0b" />
+            </View>
+          )}
         </View>
-        <View style={styles.timerContainer}>
-          <MaterialCommunityIcons name="timer-outline" size={14} color="#ff4757" />
-          <Text style={styles.timerText}>{deal.timeLeft}</Text>
+        <View style={styles.flashDealInfo}>
+          <Text style={styles.flashDealName} numberOfLines={2}>
+            {productName}
+          </Text>
+          <View style={styles.flashDealPriceContainer}>
+            <Text style={styles.flashDealPrice}>
+              {flashPrice.toLocaleString('vi-VN')}đ
+            </Text>
+            <Text style={styles.flashDealOriginalPrice}>
+              {originalPrice.toLocaleString('vi-VN')}đ
+            </Text>
+          </View>
+          {flashSaleQuantity && (
+            <View style={styles.stockContainer}>
+              <Ionicons name="cube-outline" size={12} color="#666" />
+              <Text style={styles.stockText}>
+                Only {flashSaleQuantity} left
+              </Text>
+            </View>
+          )}
+          <View style={styles.timerContainer}>
+            <MaterialCommunityIcons name="timer-outline" size={14} color="#ff4757" />
+            <Text style={styles.timerText}>{timeLeft}</Text>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -389,9 +483,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 <View style={styles.bannerContent}>
                   <Text style={styles.bannerTitle}>{banner.title}</Text>
                   <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                  <TouchableOpacity style={styles.bannerButton}>
-                    <Text style={styles.bannerButtonText}>Shop Now</Text>
-                  </TouchableOpacity>
+                  
                 </View>
               </ImageBackground>
             ))}
@@ -442,7 +534,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Ionicons name="flash" size={22} color="#f59e0b" />
               <Text style={styles.sectionTitle}>Flash Deals</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('FlashSales')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -708,11 +800,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#f0f0f0',
+    position: 'relative',
+  },
+  flashSaleBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    zIndex: 10,
+  },
+  flashSaleBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   flashDealImageContainer: {
     width: '100%',
     height: 120,
     backgroundColor: '#f8f9fa',
+  },
+  flashDealImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   flashDealImagePlaceholder: {
     flex: 1,
@@ -746,6 +862,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     textDecorationLine: 'line-through',
+  },
+  stockContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff5f5',
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  stockText: {
+    fontSize: 11,
+    color: '#ff4757',
+    fontWeight: '600',
   },
   progressBarContainer: {
     marginBottom: 8,

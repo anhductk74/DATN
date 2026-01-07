@@ -199,21 +199,9 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
       ],
     },
     {
-      key: "customer-care",
-      icon: <CustomerServiceOutlined />,
-      label: "Customer Care",
-      children: [
-        {
-          key: "/shop-management/messages",
-          icon: <MessageOutlined />,
-          label: "Messages",
-        },
-        {
-          key: "/shop-management/support",
-          icon: <CustomerServiceOutlined />,
-          label: "Support Tickets",
-        },
-      ],
+      key: "/shop-management/messages",
+      icon: <MessageOutlined />,
+      label: "Messages",
     },
     {
       key: "analytics",

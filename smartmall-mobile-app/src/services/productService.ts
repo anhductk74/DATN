@@ -82,6 +82,37 @@ interface ProductListResponse {
   empty: boolean;
 }
 
+interface FlashSaleProduct {
+  id: string; // This is variantId
+  productId?: string; // Product ID for navigation
+  sku: string;
+  productName: string;
+  productBrand: string;
+  productImage: string;
+  price: number; // originalPrice
+  flashSalePrice: number;
+  discountPercent: number;
+  stock: number;
+  flashSaleQuantity?: number;
+  flashSaleStart: string; // flashSaleStartTime
+  flashSaleEnd: string; // flashSaleEndTime
+  isFlashSaleActive: boolean;
+  effectivePrice: number;
+  weight?: number;
+  dimensions?: string;
+  attributes?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface FlashSaleListResponse {
+  content: FlashSaleProduct[];
+  totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number;
+}
+
 interface ApiResponse<T = any> {
   success: boolean;
   message: string;
@@ -291,6 +322,17 @@ class ProductService {
     }
   }
 
+  async getActiveFlashSales(page = 0, size = 20): Promise<ApiResponse<FlashSaleListResponse>> {
+    try {
+      const params = new URLSearchParams({ page: page.toString(), size: size.toString() });
+      const headers = await this.getAuthHeaders();
+      const response = await axios.get(`${API_BASE_URL}/api/products/flash-sales/active?${params.toString()}`, { headers });
+      return this.handleResponse<FlashSaleListResponse>(response);
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
   async getRelatedProducts(productId: string, limit = 10): Promise<ApiResponse<Product[]>> {
     try {
       const headers = await this.getAuthHeaders();
@@ -333,4 +375,4 @@ class ProductService {
 }
 
 export const productService = new ProductService();
-export type { Product, ProductDetail, Review, Variant, ProductListResponse };
+export type { Product, ProductDetail, Review, Variant, ProductListResponse, FlashSaleProduct, FlashSaleListResponse };

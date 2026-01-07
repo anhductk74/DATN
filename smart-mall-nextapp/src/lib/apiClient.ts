@@ -20,6 +20,13 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${session.accessToken}`;
       }
     }
+    
+    // Log request details for debugging
+    console.log(`🌐 ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    if (config.data) {
+      console.log('📤 Request data:', config.data);
+    }
+    
     return config;
   },
   (error) => {
@@ -29,8 +36,14 @@ apiClient.interceptors.request.use(
 
 // Add response interceptor for token refresh
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`);
+    return response;
+  },
   async (error) => {
+    console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
+    console.error('❌ Error response:', error.response?.data);
+    
     const originalRequest = error.config;
     
     if (error.response?.status === 401 && !originalRequest._retry) {

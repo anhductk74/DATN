@@ -704,4 +704,73 @@ public class ProductService {
             throw new RuntimeException("Product must have at least one variant");
         }
     }
+    
+    // Set flash sale for product variant
+    @Transactional
+    public ProductVariantDto setFlashSale(UUID variantId, SetFlashSaleDto flashSaleDto) {
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new RuntimeException("Product variant not found with id: " + variantId));
+        
+        // Validate flash sale price is less than original price
+        if (flashSaleDto.getFlashSalePrice() >= variant.getPrice()) {
+            throw new RuntimeException("Flash sale price must be less than original price");
+        }
+        
+        variant.setIsFlashSale(true);
+        variant.setFlashSalePrice(flashSaleDto.getFlashSalePrice());
+        variant.setFlashSaleStart(flashSaleDto.getStartTime());
+        variant.setFlashSaleEnd(flashSaleDto.getEndTime());
+        variant.setFlashSaleQuantity(flashSaleDto.getFlashSaleQuantity());
+        
+        productVariantRepository.save(variant);
+        return variant.toDto();
+    }
+    
+    // Remove flash sale from product variant
+    @Transactional
+    public ProductVariantDto removeFlashSale(UUID variantId) {
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new RuntimeException("Product variant not found with id: " + variantId));
+        
+        variant.setIsFlashSale(false);
+        variant.setFlashSalePrice(null);
+        variant.setFlashSaleStart(null);
+        variant.setFlashSaleEnd(null);
+        variant.setFlashSaleQuantity(null);
+        
+        productVariantRepository.save(variant);
+        return variant.toDto();
+    }
+    
+    // Get all active flash sale products
+    public Page<ProductVariantDto> getActiveFlashSaleProducts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        
+        Page<ProductVariant> variants = productVariantRepository.findFlashSaleVariants(now, pageable);
+        return variants.map(ProductVariant::toDto);
+    }
+    
+    // Get flash sale products by shop
+    public Page<ProductVariantDto> getFlashSaleProductsByShop(UUID shopId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        
+        Page<ProductVariant> variants = productVariantRepository.findFlashSaleVariantsByShop(shopId, now, pageable);
+        return variants.map(ProductVariant::toDto);
+    }
+    
+    /**
+     * Get all flash sale products by shop (including upcoming and expired)
+     * For management purposes
+     */
+    public Page<ProductVariantDto> getAllFlashSaleProductsByShop(UUID shopId, int page, int size) {
+        // Verify shop exists
+        Shop shop = shopRepository.findById(shopId)
+                .orElseThrow(() -> new RuntimeException("Shop not found with ID: " + shopId));
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ProductVariant> variants = productVariantRepository.findAllFlashSaleVariantsByShop(shopId, pageable);
+        return variants.map(ProductVariant::toDto);
+    }
 }

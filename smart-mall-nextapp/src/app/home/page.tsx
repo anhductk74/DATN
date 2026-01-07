@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import productService, { Product } from "@/services/ProductService";
 import categoryService, { Category } from "@/services/CategoryService";
 import { App } from "antd";
-import { getCloudinaryUrl } from "@/config/config";
+import { getCloudinaryUrl, DEFAULT_PRODUCT_IMAGE } from "@/config/config";
 import {
   ThunderboltOutlined,
   StarFilled,
@@ -25,9 +25,10 @@ export default function Home() {
   const { message } = App.useApp();
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
+  const [flashSaleProducts, setFlashSaleProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [flashSaleLoading, setFlashSaleLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState({ hours: 2, minutes: 30, seconds: 45 });
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -144,8 +145,7 @@ export default function Home() {
           categoryService.getAllCategories()
         ]);
         const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
-        setFlashSaleProducts(shuffled.slice(0, 6));
-        setProducts(shuffled.slice(6, 18));
+        setProducts(shuffled.slice(0, 12));
         
         // Flatten categories để hiển thị tất cả (bao gồm subcategories)
         const flattenCategories = (cats: Category[]): Category[] => {
@@ -182,6 +182,29 @@ export default function Home() {
         cancelAnimationFrame(animationRef.current);
       }
     };
+  }, []);
+
+  // Fetch flash sale products
+  useEffect(() => {
+    const fetchFlashSaleProducts = async () => {
+      try {
+        setFlashSaleLoading(true);
+        const response = await productService.getActiveFlashSaleProducts(0, 6);
+        console.log('⚡ Flash Sale API Response:', response);
+        console.log('⚡ Flash Sale Products:', response.content);
+        if (response.content && response.content.length > 0) {
+          console.log('⚡ Sample Flash Sale Product:', response.content[0]);
+          console.log('⚡ Product Image:', response.content[0].productImage);
+        }
+        setFlashSaleProducts(response.content || []);
+      } catch (error) {
+        console.error('❌ Error loading flash sale products:', error);
+        // Silently fail, flash sale section will just be empty
+      } finally {
+        setFlashSaleLoading(false);
+      }
+    };
+    fetchFlashSaleProducts();
   }, []);
 
   useEffect(() => {
@@ -377,99 +400,124 @@ export default function Home() {
       </section>
 
       {/* ================= FLASH SALE ================= */}
-      <section className="py-16 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                <ThunderboltOutlined className="text-white text-2xl" />
+      {flashSaleProducts.length > 0 && (
+        <section className="py-16 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <ThunderboltOutlined className="text-white text-2xl" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-800">Flash Sale Today</h2>
+                  <p className="text-gray-600">Limited time offers!</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-3xl font-bold text-gray-800">Flash Sale Today</h2>
-                <p className="text-gray-600">Deals ending soon!</p>
+              
+              {/* Countdown Timer */}
+              <div className="hidden md:flex gap-2">
+                {[
+                  { label: 'Hours', value: timeLeft.hours },
+                  { label: 'Minutes', value: timeLeft.minutes },
+                  { label: 'Seconds', value: timeLeft.seconds }
+                ].map((item) => (
+                  <div key={item.label} className="text-center">
+                    <div className="bg-white border-2 border-red-500 rounded-xl px-4 py-3 min-w-[70px] shadow-lg">
+                      <div className="text-2xl font-bold text-red-600">{String(item.value).padStart(2, '0')}</div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1 font-medium">{item.label}</div>
+                  </div>
+                ))}
               </div>
             </div>
-            
-            {/* Countdown Timer */}
-            <div className="hidden md:flex gap-2">
-              {[
-                { label: 'Hours', value: timeLeft.hours },
-                { label: 'Minutes', value: timeLeft.minutes },
-                { label: 'Seconds', value: timeLeft.seconds }
-              ].map((item, i) => (
-                <div key={i} className="text-center">
-                  <div className="bg-white border-2 border-red-500 rounded-xl px-4 py-3 min-w-[70px] shadow-lg">
-                    <div className="text-2xl font-bold text-red-600">{String(item.value).padStart(2, '0')}</div>
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1 font-medium">{item.label}</div>
-                </div>
-              ))}
-            </div>
+
+            {flashSaleLoading ? (
+              <div className="text-center py-12">
+                <span className="text-gray-600">Loading flash sale products...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {flashSaleProducts.map((item) => {
+                  // Use timeRemaining from API response (in seconds)
+                  const timeRemaining = item.timeRemaining || 0;
+                  const hours = Math.floor(timeRemaining / 3600);
+                  const minutes = Math.floor((timeRemaining % 3600) / 60);
+                  
+                  // Use flashSaleQuantity if available, otherwise fall back to stock
+                  const availableQty = item.flashSaleQuantity || item.stock || 0;
+                  const soldPercentage = item.flashSaleQuantity 
+                    ? Math.max(0, Math.min(100, ((item.flashSaleQuantity - availableQty) / item.flashSaleQuantity) * 100))
+                    : 50; // Default visual percentage if no quantity info
+                  
+                  return (
+                    <div
+                      key={item.variantId}
+                      onClick={() => router.push(`/product/${item.productId}`)}
+                      className="group relative bg-white border-2 border-red-100 rounded-2xl p-4 cursor-pointer
+                                 hover:border-red-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
+                    >
+                      {/* Flash Sale Badge */}
+                      <div className="absolute -top-3 -left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white 
+                                      text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10 animate-pulse">
+                        -{item.discountPercent || 0}%
+                      </div>
+
+                      {/* Wishlist Button */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <WishlistButton productId={item.productId} size="small" />
+                      </div>
+
+                      <div className="relative h-36 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl mb-3 overflow-hidden">
+                        <Image
+                          src={item.productImage ? getCloudinaryUrl(item.productImage) : DEFAULT_PRODUCT_IMAGE}
+                          alt={item.productName}
+                          width={140}
+                          height={140}
+                          className="object-contain w-full h-full p-2 group-hover:scale-110 transition-transform duration-500"
+                          unoptimized={!item.productImage}
+                          onError={(e) => {
+                            console.error('❌ Image load error for:', item.productName, item.productImage);
+                            e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
+                          }}
+                        />
+                      </div>
+
+                      <div className="text-sm font-medium line-clamp-2 mb-2 text-gray-700 group-hover:text-blue-600 transition-colors">
+                        {item.productName}
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="text-red-600 font-bold text-lg">
+                          ${item.flashSalePrice?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-gray-400 line-through text-sm">
+                          ${item.originalPrice?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+
+                      
+
+                      {/* Progress Bar - Flash Sale Quantity */}
+                      <div className="mb-2">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">Available</span>
+                          <span className="text-red-600 font-semibold">{availableQty} left</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-1000"
+                            style={{ width: `${Math.max(10, 100 - soldPercentage)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {flashSaleProducts.map((p) => {
-              const v = p.variants?.[0];
-              const soldPercent = Math.floor(Math.random() * 80) + 10;
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => router.push(`/product/${p.id}`)}
-                  className="group relative bg-white border-2 border-red-100 rounded-2xl p-4 cursor-pointer
-                             hover:border-red-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
-                >
-                  {/* Flash Sale Badge */}
-                  <div className="absolute -top-3 -left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white 
-                                  text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10 animate-pulse">
-                    -{Math.floor(Math.random() * 50) + 20}%
-                  </div>
-
-                  {/* Wishlist Button */}
-                  <div className="absolute top-2 right-2 z-10">
-                    <WishlistButton productId={p.id} size="small" />
-                  </div>
-
-                  <div className="relative h-36 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl mb-3 overflow-hidden">
-                    {p.images?.[0] && (
-                      <Image
-                        src={getCloudinaryUrl(p.images[0])}
-                        alt={p.name}
-                        width={140}
-                        height={140}
-                        className="object-contain w-full h-full p-2 group-hover:scale-110 transition-transform duration-500"
-                      />
-                    )}
-                  </div>
-
-                  <div className="text-sm font-medium line-clamp-2 mb-2 text-gray-700 group-hover:text-blue-600 transition-colors">
-                    {p.name}
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="text-red-600 font-bold text-lg">
-                      ${v?.price?.toLocaleString()}
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500">Sold</span>
-                      <span className="text-red-600 font-semibold">{soldPercent}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-1000"
-                        style={{ width: `${soldPercent}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ================= RECOMMENDED ================= */}
       <section className="py-16 bg-white">
@@ -529,7 +577,7 @@ export default function Home() {
                   <div className="flex items-center gap-1 mb-2">
                     <div className="flex text-yellow-400 text-xs">
                       {[...Array(5)].map((_, i) => (
-                        <StarFilled key={i} style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} />
+                        <StarFilled key={`star-${p.id}-${i}`} style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} />
                       ))}
                     </div>
                     {reviews > 0 && (

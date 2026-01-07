@@ -78,8 +78,36 @@ public class OrderService {
             ProductVariant variant = productVariantRepository.findById(itemDto.getVariantId())
                     .orElseThrow(() -> new RuntimeException("Product variant not found"));
 
-            double price = variant.getPrice();
+            // Kiểm tra stock có đủ không
+            if (variant.getStock() == null || variant.getStock() < itemDto.getQuantity()) {
+                throw new RuntimeException("Insufficient stock for product: " + variant.getProduct().getName() 
+                    + " (Available: " + (variant.getStock() != null ? variant.getStock() : 0) + ")");
+            }
+
+            // Kiểm tra flash sale quantity nếu đang flash sale
+            if (variant.isFlashSaleActive()) {
+                if (variant.getFlashSaleQuantity() != null && variant.getFlashSaleQuantity() < itemDto.getQuantity()) {
+                    throw new RuntimeException("Insufficient flash sale quantity for product: " + variant.getProduct().getName()
+                        + " (Available: " + variant.getFlashSaleQuantity() + ")");
+                }
+            }
+
+            // Sử dụng giá flash sale nếu đang active
+            double price = variant.isFlashSaleActive() && variant.getFlashSalePrice() != null 
+                ? variant.getFlashSalePrice() 
+                : variant.getPrice();
             double itemSubtotal = price * itemDto.getQuantity();
+
+            // Giảm stock
+            variant.setStock(variant.getStock() - itemDto.getQuantity());
+            
+            // Giảm flash sale quantity nếu đang flash sale
+            if (variant.isFlashSaleActive() && variant.getFlashSaleQuantity() != null) {
+                variant.setFlashSaleQuantity(variant.getFlashSaleQuantity() - itemDto.getQuantity());
+            }
+            
+            // Lưu variant sau khi giảm stock và flashSaleQuantity
+            productVariantRepository.save(variant);
 
             OrderItem item = new OrderItem();
             item.setOrder(order);

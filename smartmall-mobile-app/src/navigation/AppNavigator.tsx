@@ -17,6 +17,7 @@ import CartScreen from '../screens/CartScreen';
 import WishlistScreen from '../screens/WishlistScreen';
 import AllProductsScreen from '../screens/AllProductsScreen';
 import SearchScreen from '../screens/SearchScreen';
+import FlashSalesScreen from '../screens/FlashSalesScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import OrderSearchScreen from '../screens/OrderSearchScreen';
@@ -34,6 +35,7 @@ export type RootStackParamList = {
   ProductList: { categoryId: string; categoryName: string };
   ProductDetail: { productId: string };
   AllProducts: undefined;
+  FlashSales: undefined;
   Search: { query?: string } | undefined;
   Checkout: { items: CartItem[] };
   Addresses: undefined;
@@ -175,6 +177,13 @@ export default function AppNavigator() {
           component={AllProductsScreen}
           options={{
             title: 'All Products',
+          }}
+        />
+        <Stack.Screen
+          name="FlashSales"
+          component={FlashSalesScreen}
+          options={{
+            title: 'Flash Sales',
           }}
         />
         <Stack.Screen
