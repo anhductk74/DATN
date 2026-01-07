@@ -1,0 +1,47 @@
+.voucher-container {
+  padding: 24px;
+}
+
+.voucher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.voucher-title {
+  margin: 0;
+}
+
+.voucher-title-icon {
+  margin-right: 8px;
+}
+
+.voucher-search-section {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.voucher-search-input {
+  width: 300px;
+}
+
+.voucher-type-filter {
+  width: 150px;
+}
+
+.voucher-code-tag {
+  font-weight: bold;
+}
+
+.voucher-modal {
+  width: 700px;
+}
+
+.voucher-form-space {
+  width: 100%;
+}
+
+.voucher-form-item-200 {
+  width: 200px;
+}

@@ -66,6 +66,15 @@ export interface UpdateManagerDto {
   fullName?: string;
   phoneNumber?: string;
   avatar?: File;
+  // Shipping Company info
+  companyName?: string;
+  companyCode?: string;
+  companyContactEmail?: string;
+  companyContactPhone?: string;
+  companyStreet?: string;
+  companyCommune?: string;
+  companyDistrict?: string;
+  companyCity?: string;
 }
 
 // Paginated Managers Response (new API format)

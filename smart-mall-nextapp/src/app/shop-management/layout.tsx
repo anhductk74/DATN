@@ -20,6 +20,8 @@ import {
   BarChartOutlined,
   LoadingOutlined,
   WalletOutlined,
+  TagOutlined,
+  GiftOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -204,23 +206,9 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
       label: "Messages",
     },
     {
-      key: "analytics",
-      icon: <BarChartOutlined />,
-      label: "Analytics",
-      children: [
-        {
-          key: "/shop-management/analytics/sales",
-          label: "Sales Report",
-        },
-        {
-          key: "/shop-management/analytics/products",
-          label: "Product Analytics",
-        },
-        {
-          key: "/shop-management/analytics/customers",
-          label: "Customer Analytics",
-        },
-      ],
+      key: "/shop-management/vouchers",
+      icon: <GiftOutlined />,
+      label: "Voucher Management",
     },
   ];
 
@@ -352,7 +340,7 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
                  pathname.includes('/profile') ? 'Shop Profile' :
                  pathname.includes('/complaints') ? 'Complaint Management' :
                  pathname.includes('/messages') ? 'Customer Care' :
-                 pathname.includes('/analytics') ? 'Analytics' : 'Shop Management'}
+                 pathname.includes('/vouchers') ? 'Voucher Management' : 'Shop Management'}
               </h1>
             </div>
 

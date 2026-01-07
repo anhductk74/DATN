@@ -14,6 +14,7 @@ import Customers from '../pages/Customers/Customers';
 import Users from '../pages/Users/Users';
 import Managers from '../pages/Managers/Managers';
 import RegisterManager from '../pages/Managers/RegisterManager';
+import Vouchers from '../pages/Vouchers/Vouchers';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminLayout from '../components/AdminLayout/AdminLayout';
 
@@ -92,10 +93,27 @@ export const router = createBrowserRouter([
         path: 'managers/register',
         element: <RegisterManager />,
       },
-      // Marketing routes
+      // Voucher routes
+      {
+        path: 'vouchers',
+        element: <Vouchers />,
+      },
+      {
+        path: 'vouchers/system',
+        element: <Vouchers />,
+      },
+      {
+        path: 'vouchers/shop',
+        element: <Vouchers />,
+      },
+      {
+        path: 'vouchers/shipping',
+        element: <Vouchers />,
+      },
+      // Marketing routes (deprecated - redirects to vouchers)
       {
         path: 'marketing/coupons',
-        element: <div>Coupons Page (Coming Soon)</div>,
+        element: <Vouchers />,
       },
       {
         path: 'marketing/promotions',

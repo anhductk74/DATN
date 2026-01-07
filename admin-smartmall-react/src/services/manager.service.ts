@@ -55,26 +55,43 @@ export const managerService = {
 
   // Update manager
   updateManager: async (id: string, updateData: UpdateManagerDto): Promise<Manager> => {
-    const formData = new FormData();
+    // Prepare request body (not FormData, just JSON)
+    const requestBody: any = {};
 
     if (updateData.fullName) {
-      formData.append('fullName', updateData.fullName);
+      requestBody.fullName = updateData.fullName;
     }
     if (updateData.phoneNumber) {
-      formData.append('phoneNumber', updateData.phoneNumber);
+      requestBody.phoneNumber = updateData.phoneNumber;
     }
-    if (updateData.avatar) {
-      formData.append('avatar', updateData.avatar);
+    if (updateData.companyName) {
+      requestBody.companyName = updateData.companyName;
+    }
+    if (updateData.companyCode) {
+      requestBody.companyCode = updateData.companyCode;
+    }
+    if (updateData.companyContactEmail) {
+      requestBody.companyContactEmail = updateData.companyContactEmail;
+    }
+    if (updateData.companyContactPhone) {
+      requestBody.companyContactPhone = updateData.companyContactPhone;
+    }
+    if (updateData.companyStreet) {
+      requestBody.companyStreet = updateData.companyStreet;
+    }
+    if (updateData.companyCommune) {
+      requestBody.companyCommune = updateData.companyCommune;
+    }
+    if (updateData.companyDistrict) {
+      requestBody.companyDistrict = updateData.companyDistrict;
+    }
+    if (updateData.companyCity) {
+      requestBody.companyCity = updateData.companyCity;
     }
 
     const response = await api.put<ApiResponse<Manager>>(
       `${MANAGER_API_URL}/${id}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      requestBody
     );
     return response.data.data;
   },

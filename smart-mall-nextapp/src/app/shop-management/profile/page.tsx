@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { 
   Card, 
@@ -55,14 +55,27 @@ export default function ShopProfile() {
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
+  
+  // Refs to prevent infinite loops
+  const hasLoadedShop = useRef(false);
+  const hasLoadedProvinces = useRef(false);
+  const currentUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && session.user.id !== currentUserId.current) {
+      currentUserId.current = session.user.id;
+      hasLoadedShop.current = false;
       fetchShopData();
     }
-    // Load provinces on component mount
-    fetchProvinces();
-  }, [session]);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    // Load provinces only once on component mount
+    if (!hasLoadedProvinces.current) {
+      hasLoadedProvinces.current = true;
+      fetchProvinces();
+    }
+  }, []);
 
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
@@ -140,9 +153,11 @@ export default function ShopProfile() {
     }
   };
 
-  // Set form values when shop data is loaded
+  // Set form values when shop data is loaded (only once per shop)
   useEffect(() => {
-    if (shop) {
+    if (shop && !hasLoadedShop.current) {
+      hasLoadedShop.current = true;
+      
       form.setFieldsValue({
         name: shop.name,
         description: shop.description,
@@ -164,7 +179,7 @@ export default function ShopProfile() {
         }
       }
     }
-  }, [shop, form, provinces]);
+  }, [shop?.id, provinces.length]);
 
   // Helper function to load districts and wards when editing existing address
   const loadDistrictsAndWards = async (provinceCode: string, districtName?: string) => {
@@ -258,6 +273,7 @@ export default function ShopProfile() {
       );
 
       message.success('Shop profile updated successfully!');
+      hasLoadedShop.current = false; // Allow reload after update
       setShop(response.data);
       setIsEditing(false);
       setAvatarFile(null);
@@ -341,6 +357,7 @@ export default function ShopProfile() {
                   <Button onClick={() => {
                     setIsEditing(false);
                     setAvatarFile(null);
+                    hasLoadedShop.current = false;
                     fetchShopData();
                   }}>
                     Cancel
