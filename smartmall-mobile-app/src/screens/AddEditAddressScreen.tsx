@@ -318,7 +318,9 @@ export default function AddEditAddressScreen({ navigation, route }: AddEditAddre
             value={formData.recipient}
             onChangeText={(text) => setFormData(prev => ({ ...prev, recipient: text }))}
             placeholder="Enter recipient name"
-            placeholderTextColor="#999"
+            placeholderTextColor="#9ca3af"
+            autoCapitalize="words"
+            autoCorrect={false}
           />
         </View>
 
@@ -329,9 +331,10 @@ export default function AddEditAddressScreen({ navigation, route }: AddEditAddre
             style={styles.textInput}
             value={formData.phoneNumber}
             onChangeText={(text) => setFormData(prev => ({ ...prev, phoneNumber: text }))}
-            placeholder="Enter phone number"
-            placeholderTextColor="#999"
+            placeholder="0xxxxxxxxx"
+            placeholderTextColor="#9ca3af"
             keyboardType="phone-pad"
+            maxLength={11}
           />
         </View>
 
@@ -404,11 +407,14 @@ export default function AddEditAddressScreen({ navigation, route }: AddEditAddre
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Street Address *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, styles.textAreaInput]}
             value={formData.street}
             onChangeText={(text) => setFormData(prev => ({ ...prev, street: text }))}
             placeholder="House number, street name"
             placeholderTextColor="#999"
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
           />
         </View>
 
@@ -508,36 +514,42 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 12,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    color: '#333',
+    fontSize: 15,
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+    color: '#1f2937',
+    minHeight: 48,
+  },
+  textAreaInput: {
+    minHeight: 80,
+    paddingTop: 12,
   },
   selector: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     padding: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 48,
   },
   selectorDisabled: {
     opacity: 0.5,
   },
   selectorTextFilled: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: 15,
+    color: '#1f2937',
     flex: 1,
+    fontWeight: '500',
   },
   selectorTextEmpty: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 15,
+    color: '#9ca3af',
     flex: 1,
   },
   selectorArrow: {

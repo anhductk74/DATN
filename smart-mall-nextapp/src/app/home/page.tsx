@@ -375,7 +375,7 @@ export default function Home() {
                   <div className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center overflow-hidden
                                   bg-white border-2 border-gray-200 group-hover:scale-110 group-hover:rotate-3 
                                   transition-transform duration-300 shadow-lg">
-                    {category.image ? (
+                    {category.image && category.image.trim() !== '' ? (
                       <Image
                         src={getCloudinaryUrl(category.image)}
                         alt={category.name}
@@ -417,11 +417,11 @@ export default function Home() {
               {/* Countdown Timer */}
               <div className="hidden md:flex gap-2">
                 {[
-                  { label: 'Hours', value: timeLeft.hours },
-                  { label: 'Minutes', value: timeLeft.minutes },
-                  { label: 'Seconds', value: timeLeft.seconds }
+                  { label: 'Hours', value: timeLeft.hours, key: 'hours' },
+                  { label: 'Minutes', value: timeLeft.minutes, key: 'minutes' },
+                  { label: 'Seconds', value: timeLeft.seconds, key: 'seconds' }
                 ].map((item) => (
-                  <div key={item.label} className="text-center">
+                  <div key={item.key} className="text-center">
                     <div className="bg-white border-2 border-red-500 rounded-xl px-4 py-3 min-w-[70px] shadow-lg">
                       <div className="text-2xl font-bold text-red-600">{String(item.value).padStart(2, '0')}</div>
                     </div>
@@ -469,7 +469,7 @@ export default function Home() {
 
                       <div className="relative h-36 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl mb-3 overflow-hidden">
                         <Image
-                          src={item.productImage ? getCloudinaryUrl(item.productImage) : DEFAULT_PRODUCT_IMAGE}
+                          src={item.productImage && item.productImage.trim() !== '' ? getCloudinaryUrl(item.productImage) : DEFAULT_PRODUCT_IMAGE}
                           alt={item.productName}
                           width={140}
                           height={140}
@@ -559,7 +559,7 @@ export default function Home() {
                   </div>
 
                   <div className="relative h-44 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl mb-3 overflow-hidden">
-                    {p.images?.[0] && (
+                    {p.images?.[0] && p.images[0].trim() !== '' && (
                       <Image
                         src={getCloudinaryUrl(p.images[0])}
                         alt={p.name}

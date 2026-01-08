@@ -41,23 +41,15 @@ export default function OrderItem({
     >
       {/* Order Header */}
       <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 ">
           <Avatar 
             src={order.shopAvatar && order.shopAvatar.trim() !== '' ? order.shopAvatar : null} 
             size="default" 
             icon={<ShopOutlined />} 
           />
-          <div>
+          <div className="">
             <div className="flex items-center space-x-2">
               <Text strong className="text-base">{order.shopName}</Text>
-              <Button 
-                type="link" 
-                size="small" 
-                icon={<MessageOutlined />}
-                className="text-blue-500 hover:text-blue-600 text-xs"
-              >
-                Chat
-              </Button>
             </div>
             <div className="flex items-center space-x-3 mt-1">
               <Text className="text-gray-500 text-xs">

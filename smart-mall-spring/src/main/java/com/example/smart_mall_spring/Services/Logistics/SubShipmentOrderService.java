@@ -48,6 +48,7 @@
         private final ShipmentLogService shipmentLogService;
         private final OrderTrackingLogService  orderTrackingLogService;
         private final DeliverySocketService  deliverySocketService;
+        private final ShipmentLogRepository  shipmentLogRepository;
 
         private SubShipmentOrderResponseDto toResponseDto(SubShipmentOrder entity) {
             return SubShipmentOrderResponseDto.builder()
@@ -283,6 +284,17 @@
             }
 
             return toResponseDto(saved);
+        }
+        private void createShipmentLog(ShipmentOrder shipmentOrder, ShipmentStatus status, String location, String note) {
+            ShipmentLog log = new ShipmentLog();
+            log.setShipmentOrder(shipmentOrder);
+            log.setStatus(status);
+            log.setLocation(location);
+            log.setNote(note);
+            log.setMessage(note); // nếu muốn message giống note
+            log.setTimestamp(java.time.LocalDateTime.now());
+
+            shipmentLogRepository.save(log);
         }
 
         public SubShipmentOrderResponseDto update(UUID id, SubShipmentOrderUpdateDto dto) {

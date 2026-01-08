@@ -41,6 +41,15 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Ignore 404 errors for review check endpoints (normal when user hasn't reviewed)
+    const isReviewCheckEndpoint = error.config?.url?.includes('/reviews/user/') && 
+                                   error.config?.url?.includes('/product/');
+    
+    if (error.response?.status === 404 && isReviewCheckEndpoint) {
+      // Silent ignore - this is expected behavior
+      return Promise.reject(error);
+    }
+    
     console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
     console.error('❌ Error response:', error.response?.data);
     

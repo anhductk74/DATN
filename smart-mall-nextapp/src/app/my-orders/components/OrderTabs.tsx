@@ -46,7 +46,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.all} showZero size="small">
-                <span className="text-sm">All</span>
+                <span className="text-base font-medium">All</span>
               </Badge>
             } 
             key="all" 
@@ -54,7 +54,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.pending} showZero size="small">
-                <span className="text-sm">Pending</span>
+                <span className="text-base font-medium">Pending</span>
               </Badge>
             } 
             key="pending" 
@@ -62,7 +62,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.confirmed} showZero size="small">
-                <span className="text-sm">Confirmed</span>
+                <span className="text-base font-medium">Confirmed</span>
               </Badge>
             } 
             key="confirmed" 
@@ -70,7 +70,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.shipping} showZero size="small">
-                <span className="text-sm">Shipping</span>
+                <span className="text-base font-medium">Shipping</span>
               </Badge>
             } 
             key="shipping" 
@@ -78,7 +78,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.delivered} showZero size="small">
-                <span className="text-sm">Delivered</span>
+                <span className="text-base font-medium">Delivered</span>
               </Badge>
             } 
             key="delivered" 
@@ -86,7 +86,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.cancelled} showZero size="small">
-                <span className="text-sm">Cancelled</span>
+                <span className="text-base font-medium">Cancelled</span>
               </Badge>
             } 
             key="cancelled" 
@@ -94,7 +94,7 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           <TabPane 
             tab={
               <Badge count={orderCounts.returnRequest} showZero size="small">
-                <span className="text-sm">Return Request</span>
+                <span className="text-base font-medium">Return Request</span>
               </Badge>
             } 
             key="return-request" 
@@ -111,14 +111,28 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
           margin-bottom: 0 !important;
         }
         
+        .compact-tabs .ant-tabs-nav-list {
+          width: 100%;
+          display: flex;
+          justify-content: space-between;
+        }
+        
         .compact-tabs .ant-tabs-tab {
           font-weight: 500;
-          padding: 8px 12px !important;
-          margin: 0 4px !important;
+          padding: 12px 20px !important;
+          margin: 0 !important;
           color: #64748b;
           transition: all 0.2s ease;
-          border-radius: 6px 6px 0 0;
-          min-width: auto;
+          border-radius: 8px 8px 0 0;
+          flex: 1;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-size: 15px;
+        }
+        
+        .compact-tabs .ant-tabs-tab + .ant-tabs-tab {
+          margin-left: 2px !important;
         }
         
         .compact-tabs .ant-tabs-tab:hover {
@@ -138,11 +152,15 @@ export default function OrderTabs({ activeTab, onTabChange, orderCounts, title, 
         
         .compact-tabs .ant-tabs-ink-bar {
           background: #2563eb !important;
-          height: 2px !important;
+          height: 3px !important;
         }
         
         .compact-tabs .ant-tabs-content-holder {
           display: none;
+        }
+        
+        .compact-tabs .ant-badge {
+          font-size: 15px;
         }
       `}</style>
     </div>
