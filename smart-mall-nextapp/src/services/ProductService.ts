@@ -14,19 +14,25 @@ export interface ProductVariant {
   weight?: number;
   dimensions?: string;
   attributes: ProductAttribute[];
-  // Flash Sale fields (as per FLASH_SALE_API_README.md)
-  flashSalePrice?: number;         // Giá flash sale, null nếu không có
-  flashSaleStartTime?: string;     // ISO format: "YYYY-MM-DDTHH:mm:ss"
-  flashSaleEndTime?: string;       // ISO format: "YYYY-MM-DDTHH:mm:ss"
-  flashSaleQuantity?: number;      // Số lượng sản phẩm dành cho flash sale (optional, min: 1)
-  isFlashSaleActive?: boolean;     // Auto-calculated: now >= startTime && now < endTime
-  discountPercent?: number;        // Auto-calculated: ((price - flashSalePrice) / price) * 100
-  timeUntilFlashSale?: number;     // Seconds until flash sale starts (null if already started)
-  // Product info (from shop flash sales endpoint enrichment)
-  productId?: string;              // Product ID this variant belongs to
-  productName?: string;            // Product name for display
-  productBrand?: string;           // Product brand for display
-  productImages?: string[];        // Product images for display
+  productName?: string;
+  productBrand?: string;
+  // Flash Sale fields (as per API_PRODUCT.md)
+  isFlashSale?: boolean;              // Có đang flash sale không
+  flashSalePrice?: number;            // Giá flash sale
+  flashSaleStart?: string;            // Thời gian bắt đầu flash sale (ISO format)
+  flashSaleEnd?: string;              // Thời gian kết thúc flash sale (ISO format)
+  flashSaleQuantity?: number;         // Số lượng flash sale còn lại
+  effectivePrice?: number;            // Giá hiệu dụng hiện tại (sale hoặc gốc) - từ API
+  isFlashSaleActive?: boolean;        // Flash sale có active không (từ API)
+  discountPercent?: number;           // % giảm giá (0 nếu không có discount) - từ API
+  createdAt?: string;
+  updatedAt?: string;
+  // Legacy fields for backward compatibility
+  flashSaleStartTime?: string;        // @deprecated Use flashSaleStart instead
+  flashSaleEndTime?: string;          // @deprecated Use flashSaleEnd instead
+  timeUntilFlashSale?: number;        // @deprecated
+  productId?: string;
+  productImages?: string[];
 }
 
 // Flash Sale Product DTO (as per FLASH_SALE_API_README.md)
@@ -60,10 +66,15 @@ export interface Product {
   variants: ProductVariant[];
   categoryId: string;
   shopId: string;
-  createdAt?: string;
-  updatedAt?: string;
+  // Product-level pricing fields (as per API_PRODUCT.md)
+  minPrice?: number;                  // Giá gốc thấp nhất trong các variant
+  minDiscountPrice?: number;          // Giá sau discount thấp nhất (null nếu không có discount)
+  hasDiscount?: boolean;              // Sản phẩm có đang có discount không
+  maxDiscountPercent?: number;        // % discount lớn nhất (null nếu không có discount)
   averageRating?: number;
   reviewCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
   category?: {
     id: string;
     name: string;

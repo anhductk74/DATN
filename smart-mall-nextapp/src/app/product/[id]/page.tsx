@@ -55,16 +55,6 @@ export default function ProductDetail() {
   const { message } = App.useApp();
   const productId = params.id as string;
 
-  // Auth check
-  useEffect(() => {
-    // if (status === "loading") return; // Wait for auth state to load
-    
-    if (status === "unauthenticated") {
-      router.push("/login");
-      return;
-    }
-  }, [status, router]);
-
   // Fetch product details using TanStack Query
   const {
     data: product,
@@ -85,6 +75,28 @@ export default function ProductDetail() {
   // Set default selected variant when product loads
   useEffect(() => {
     if (product?.variants && product.variants.length > 0 && !selectedVariant) {
+      console.log('='.repeat(80));
+      console.log('📦 PRODUCT LOADED - FULL DATA:');
+      console.log('='.repeat(80));
+      console.log('Product:', JSON.stringify(product, null, 2));
+      console.log('\n📦 All Variants:', product.variants);
+      console.log('\n⚡ First Variant FULL DATA:');
+      console.log(JSON.stringify(product.variants[0], null, 2));
+      console.log('\n⚡ First Variant Flash Sale Fields:');
+      console.log({
+        id: product.variants[0].id,
+        sku: product.variants[0].sku,
+        price: product.variants[0].price,
+        isFlashSale: product.variants[0].isFlashSale,
+        isFlashSaleActive: product.variants[0].isFlashSaleActive,
+        flashSalePrice: product.variants[0].flashSalePrice,
+        flashSaleStart: product.variants[0].flashSaleStart,
+        flashSaleEnd: product.variants[0].flashSaleEnd,
+        flashSaleQuantity: product.variants[0].flashSaleQuantity,
+        effectivePrice: product.variants[0].effectivePrice,
+        discountPercent: product.variants[0].discountPercent
+      });
+      console.log('='.repeat(80));
       setSelectedVariant(product.variants[0].id || "");
     }
   }, [product, selectedVariant]);
@@ -121,9 +133,45 @@ export default function ProductDetail() {
 
   // Get selected variant details
   const currentVariant = product?.variants?.find(v => v.id === selectedVariant) || product?.variants?.[0];
-  const currentPrice = currentVariant?.price || 0;
-  const originalPrice = Math.round(currentPrice * 1.3); // Mock original price
-  const discount = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+  
+  // Debug: Log variant data
+  useEffect(() => {
+    if (currentVariant) {
+      console.log('='.repeat(80));
+      console.log('🔍 CURRENT SELECTED VARIANT:');
+      console.log('='.repeat(80));
+      console.log('Full Variant Data:', JSON.stringify(currentVariant, null, 2));
+      console.log('\n🔍 Flash Sale Check:');
+      console.log({
+        variantId: currentVariant.id,
+        sku: currentVariant.sku,
+        isFlashSaleActive: currentVariant.isFlashSaleActive,
+        hasActiveFlashSale: currentVariant?.isFlashSaleActive || false,
+        effectivePrice: currentVariant.effectivePrice,
+        price: currentVariant.price,
+        flashSalePrice: currentVariant.flashSalePrice,
+        discountPercent: currentVariant.discountPercent,
+        flashSaleStart: currentVariant.flashSaleStart,
+        flashSaleEnd: currentVariant.flashSaleEnd,
+        flashSaleQuantity: currentVariant.flashSaleQuantity
+      });
+      console.log('='.repeat(80));
+    }
+  }, [currentVariant]);
+  
+  // Use API response data for pricing (as per API_PRODUCT.md)
+  const hasActiveFlashSale = currentVariant?.isFlashSaleActive || false;
+  const displayPrice = currentVariant?.effectivePrice || currentVariant?.price || 0;
+  const originalPrice = currentVariant?.price || 0;
+  const discount = currentVariant?.discountPercent || 0;
+  
+  // Log calculated values
+  console.log('💰 CALCULATED VALUES:', {
+    hasActiveFlashSale,
+    displayPrice,
+    originalPrice,
+    discount
+  });
 
   // Extract unique attribute values for selection
   const getUniqueAttributes = (attributeName: string) => {
@@ -211,6 +259,14 @@ export default function ProductDetail() {
   };
 
   const handleAddToCart = async () => {
+    // Check authentication first
+    if (status !== "authenticated") {
+      message.warning("Please login to add products to cart");
+      const callbackUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?callbackUrl=${callbackUrl}`);
+      return;
+    }
+
     if (!product || !currentVariant) {
       message.error("Please select a product variant");
       return;
@@ -239,6 +295,14 @@ export default function ProductDetail() {
   };
 
   const handleBuyNow = async () => {
+    // Check authentication first
+    if (status !== "authenticated") {
+      message.warning("Please login to purchase products");
+      const callbackUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?callbackUrl=${callbackUrl}`);
+      return;
+    }
+
     if (!product || !currentVariant) {
       message.error("Please select a product variant");
       return;
@@ -510,48 +574,165 @@ export default function ProductDetail() {
             </div>
 
             {/* Price */}
-            <div className="space-y-2">
-              <div className="flex items-baseline space-x-3">
-                <span className="text-3xl font-bold text-gray-900">${currentPrice.toLocaleString()}</span>
-                <span className="text-lg text-gray-500 line-through">${originalPrice.toLocaleString()}</span>
-                {discount > 0 && (
-                  <span className="bg-red-100 text-red-600 px-2 py-1 rounded text-sm font-semibold">
-                    -{discount}%
-                  </span>
+            {hasActiveFlashSale ? (
+              <div className="bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 border-2 border-red-200 rounded-2xl p-6 space-y-4">
+                {/* Flash Sale Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <ThunderboltOutlined className="text-white text-xl animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Flash Sale Active!</h3>
+                      {currentVariant?.flashSaleEnd && (
+                        <p className="text-xs text-gray-600">
+                          Ends: {new Date(currentVariant.flashSaleEnd).toLocaleString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {discount > 0 && (
+                    <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white text-lg font-bold px-4 py-2 rounded-full shadow-lg animate-pulse">
+                      -{discount}%
+                    </div>
+                  )}
+                </div>
+
+                {/* Price Section - Vertical Layout */}
+                <div className="space-y-2">
+                  {/* Old Price */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 text-sm">Original Price:</span>
+                    <span className="text-gray-400 line-through text-xl font-semibold">
+                      ${originalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  
+                  {/* New Price */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-red-600 font-bold text-4xl">
+                      ${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-red-600 font-semibold text-sm bg-red-100 px-3 py-1 rounded-full">
+                        Flash Price
+                      </span>
+                      {originalPrice - displayPrice > 0 && (
+                        <span className="text-gray-600 text-xs mt-1">
+                          You save ${(originalPrice - displayPrice).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Bar - Flash Sale Quantity */}
+                {currentVariant?.flashSaleQuantity && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700">Flash Sale Stock:</span>
+                      <span className="text-red-600 font-bold text-sm">
+                        Only {currentVariant.flashSaleQuantity} left!
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-1000"
+                        style={{ 
+                          width: `${Math.max(10, Math.min(100, (currentVariant.flashSaleQuantity / (currentVariant.stock || currentVariant.flashSaleQuantity)) * 100))}%` 
+                        }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 text-center">
+                      Hurry! Limited stock available
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
+            ) : (
+              <div className="bg-white border-2 border-gray-200 rounded-2xl p-6">
+                <div className="flex items-baseline space-x-3">
+                  <span className="text-4xl font-bold text-gray-900">
+                    ${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Variant Selection */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Variant: {currentVariant?.sku}</h3>
               <div className="space-y-3">
-                {product.variants?.map((variant) => (
-                  <button
-                    key={variant.id}
-                    onClick={() => setSelectedVariant(variant.id || "")}
-                    className={`w-full p-4 rounded-lg border text-left transition-all ${
-                      selectedVariant === variant.id
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="font-medium text-gray-900">{variant.sku}</div>
-                        <div className="text-sm text-gray-600">
-                          {variant.attributes?.map(attr => `${attr.attributeName}: ${attr.attributeValue}`).join(', ')}
+                {product.variants?.map((variant) => {
+                  const variantHasFlashSale = variant.isFlashSaleActive || false;
+                  const variantDisplayPrice = variant.effectivePrice || variant.price;
+                  const variantOriginalPrice = variant.price;
+                  const variantDiscount = variant.discountPercent || 0;
+                  
+                  return (
+                    <button
+                      key={variant.id}
+                      onClick={() => setSelectedVariant(variant.id || "")}
+                      className={`w-full p-4 rounded-lg border text-left transition-all ${
+                        selectedVariant === variant.id
+                          ? variantHasFlashSale 
+                            ? 'border-red-500 bg-red-50' 
+                            : 'border-blue-600 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-gray-900">{variant.sku}</span>
+                            {variantHasFlashSale && (
+                              <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                -{variantDiscount}% OFF
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {variant.attributes?.map(attr => `${attr.attributeName}: ${attr.attributeValue}`).join(', ')}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm text-green-600">
+                              Stock: {variant.stock} available
+                            </span>
+                            {variantHasFlashSale && variant.flashSaleQuantity && (
+                              <span className="text-xs text-red-600 font-semibold">
+                                • Flash: {variant.flashSaleQuantity} left
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-sm text-green-600 mt-1">
-                          Stock: {variant.stock} available
+                        <div className="text-right ml-4">
+                          {variantHasFlashSale ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-gray-400 line-through text-sm">
+                                ${variantOriginalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </span>
+                              <span className="text-xl font-bold text-red-600">
+                                ${variantDisplayPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </span>
+                              <span className="text-xs text-green-600 font-semibold">
+                                Save ${(variantOriginalPrice - variantDisplayPrice).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-lg font-bold text-gray-900">
+                              ${variantDisplayPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="text-lg font-bold text-red-500">
-                        ${variant.price.toLocaleString()}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

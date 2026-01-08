@@ -265,6 +265,7 @@ function ProductsContent() {
   const {
     data: regularProducts = [],
     isLoading: isLoadingRegular,
+    isFetching: isFetchingRegular,
     isError,
     refetch
   } = useQuery({
@@ -323,6 +324,12 @@ function ProductsContent() {
   // Determine which products to display
   const products = searchQuery ? searchResults : regularProducts;
   const isLoading = searchQuery ? isSearching : isLoadingRegular;
+  const isFetching = searchQuery ? isSearching : isFetchingRegular;
+  
+  // Show loading skeleton when:
+  // 1. Currently loading/fetching data
+  // 2. Or when products array is empty AND still fetching AND not an error
+  const shouldShowLoading = isFetching || isLoading || (products.length === 0 && !isError && categories.length > 0);
 
   // Debug logging after every render
   useEffect(() => {
@@ -504,7 +511,7 @@ function ProductsContent() {
         </div>
 
         {/* Products Grid */}
-        {isLoading ? (
+        {shouldShowLoading ? (
           // Loading skeleton
           <div className={
             viewMode === "grid" 
@@ -512,14 +519,16 @@ function ProductsContent() {
               : "space-y-4"
           }>
             {Array.from({ length: 12 }).map((_, index) => (
-              <div key={index} className="bg-white rounded-3xl p-4 shadow-sm animate-pulse border border-gray-100">
-                <div className="w-full h-40 bg-gray-200 rounded-2xl mb-4"></div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+              <div key={index} className="bg-white border-2 border-gray-100 rounded-2xl p-4 animate-pulse">
+                <div className={`bg-gray-200 rounded-xl mb-3 ${
+                  viewMode === "list" ? "w-48 h-48" : "w-full h-44"
+                }`}></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="flex items-center gap-1 mb-2">
                   <div className="h-3 bg-gray-200 rounded w-20"></div>
-                  <div className="h-6 bg-gray-200 rounded w-16"></div>
-                  <div className="h-8 bg-gray-200 rounded w-full"></div>
                 </div>
+                <div className="h-6 bg-gray-200 rounded w-24"></div>
               </div>
             ))}
           </div>
@@ -527,43 +536,31 @@ function ProductsContent() {
           // Error state
           <div className="text-center py-16">
             <div className="text-6xl mb-4">😵</div>
-            <div className="text-gray-400 text-xl mb-2">Không thể tải sản phẩm</div>
-            <div className="text-gray-500 text-sm mb-6">Vui lòng thử lại sau</div>
+            <div className="text-gray-400 text-xl mb-2">Unable to load products</div>
+            <div className="text-gray-500 text-sm mb-6">Please try again later</div>
             <button 
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium hover:shadow-md transition-all"
               onClick={() => refetch()}
             >
-              Thử lại
+              Try Again
             </button>
           </div>
         ) : products.length === 0 ? (
-          // Empty state
+          // Empty state (only show after successful load with no results)
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🛍️</div>
-            <div className="text-gray-400 text-xl mb-2">Không có sản phẩm</div>
+            <div className="text-gray-400 text-xl mb-2">No products found</div>
             <div className="text-gray-500 text-sm mb-6">
               {searchQuery 
-                ? `Không tìm thấy sản phẩm nào cho "${searchQuery}"`
-                : 'Chưa có sản phẩm nào trong danh mục này'
+                ? `No products found for "${searchQuery}"`
+                : 'No products available in this category'
               }
-            </div>
-            <div className="text-xs text-gray-400 mb-4">
-              Debug: searchResults={searchResults.length}, regularProducts={regularProducts.length}
             </div>
             <button 
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
-              onClick={() => {
-                console.log('🔍 Debug info:', {
-                  searchQuery,
-                  searchMode,
-                  searchResults,
-                  regularProducts,
-                  products
-                });
-                router.push('/home');
-              }}
+              onClick={() => router.push('/home')}
             >
-              Quay về trang chủ
+              Back to Home
             </button>
           </div>
         ) : (
@@ -575,14 +572,20 @@ function ProductsContent() {
             {products.map((product: Product) => {
               console.log('🎨 Rendering product:', product.id, product.name);
               const variant = product.variants?.[0];
-              const price = variant?.price || 0;
-              const originalPrice = Math.round(price * 1.3);
-              const discount = Math.floor(((originalPrice - price) / originalPrice) * 100);
+              
+              // Check for flash sale
+              const hasFlashSale = variant?.isFlashSaleActive || false;
+              const price = variant?.effectivePrice || variant?.price || 0;
+              const originalPrice = variant?.price || 0;
+              const discount = variant?.discountPercent || 0;
+              const flashSaleQty = variant?.flashSaleQuantity || 0;
               
               return (
               <div
                 key={product.id}
-                className={`group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 border border-gray-100 cursor-pointer overflow-hidden ${
+                className={`group bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer overflow-hidden ${
+                  hasFlashSale ? 'border-2 border-red-100' : 'border border-gray-100'
+                } ${
                   viewMode === "list" ? "flex items-center" : ""
                 }`}
                 onClick={() => router.push(`/product/${product.id}`)}
@@ -591,7 +594,9 @@ function ProductsContent() {
                 <div className={`relative overflow-hidden ${
                   viewMode === "list" ? "w-48 h-48 flex-shrink-0" : "w-full aspect-square"
                 }`}>
-                  <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                  <div className={`w-full h-full flex items-center justify-center ${
+                    hasFlashSale ? 'bg-gradient-to-br from-red-50 to-orange-50' : 'bg-gradient-to-br from-gray-50 to-gray-100'
+                  }`}>
                     {product.images?.[0] ? (
                       <Image 
                         src={getCloudinaryUrl(product.images[0])} 
@@ -610,9 +615,9 @@ function ProductsContent() {
                   </div>
 
                   {/* Discount Badge */}
-                  {discount > 0 && (
-                    <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">
-                      -{discount}%
+                  {hasFlashSale && discount > 0 && (
+                    <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg animate-pulse">
+                      ⚡ -{discount}%
                     </div>
                   )}
 
@@ -664,18 +669,43 @@ function ProductsContent() {
                   </div>
 
                   {/* Price */}
-                  <div className="flex items-baseline gap-2">
-                    <span className={`font-bold text-blue-600 ${
-                      viewMode === "list" ? "text-2xl" : "text-lg"
-                    }`}>
-                      ${price.toLocaleString()}
-                    </span>
-                    {discount > 0 && (
-                      <span className="text-sm text-gray-400 line-through">
-                        ${originalPrice.toLocaleString()}
+                  {hasFlashSale ? (
+                    <div>
+                      <div className="flex flex-col gap-0.5 mb-1">
+                        <div className={`text-gray-400 line-through ${
+                          viewMode === "list" ? "text-base" : "text-xs"
+                        }`}>
+                          ${originalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                        <div className={`text-red-600 font-bold ${
+                          viewMode === "list" ? "text-2xl" : "text-lg"
+                        }`}>
+                          ${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs mb-2">
+                        <span className="text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded">
+                          Flash Sale
+                        </span>
+                        <span className="text-green-600 font-semibold">
+                          Save ${(originalPrice - price).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </span>
+                      </div>
+                      {flashSaleQty > 0 && (
+                        <div className="text-xs text-red-600 font-semibold text-center bg-red-50 py-1 rounded mb-2">
+                          ⚡ Only {flashSaleQty} left!
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <span className={`font-bold text-blue-600 ${
+                        viewMode === "list" ? "text-2xl" : "text-lg"
+                      }`}>
+                        ${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Shop Info */}
                   {product.shop?.name && (

@@ -1,23 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WishlistButton from "@/components/WishlistButton";
+import useAutoLogout from "@/hooks/useAutoLogout";
 import { useAuth } from "@/contexts/AuthContext";
 import productService, { Product } from "@/services/ProductService";
+import categoryService, { Category } from "@/services/CategoryService";
 import { App } from "antd";
-import { getCloudinaryUrl } from "@/config/config";
+import { getCloudinaryUrl, DEFAULT_PRODUCT_IMAGE } from "@/config/config";
 import {
-  MobileOutlined,
-  LaptopOutlined,
-  SkinOutlined,
-  HomeOutlined,
-  TrophyOutlined,
-  StarFilled,
   ThunderboltOutlined,
+  StarFilled,
+  LeftOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 
 export default function Home() {
@@ -26,25 +25,186 @@ export default function Home() {
   const { message } = App.useApp();
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [flashSaleProducts, setFlashSaleProducts] = useState<Product[]>([]);
+  const [flashSaleProducts, setFlashSaleProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [flashSaleLoading, setFlashSaleLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState({ hours: 2, minutes: 30, seconds: 45 });
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [velocity, setVelocity] = useState(0);
+  const [lastX, setLastX] = useState(0);
+  const [lastTime, setLastTime] = useState(0);
+  const animationRef = useRef<number>();
+
+  useAutoLogout({
+    timeout: 30 * 60 * 1000,
+    onLogout: () => router.push("/login"),
+  });
+
+  const checkScrollButtons = () => {
+    if (categoryScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = categoryScrollRef.current;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      const scrollAmount = 400;
+      const newPosition = direction === 'left' 
+        ? categoryScrollRef.current.scrollLeft - scrollAmount
+        : categoryScrollRef.current.scrollLeft + scrollAmount;
+      
+      categoryScrollRef.current.scrollTo({
+        left: newPosition,
+        behavior: 'smooth'
+      });
+      
+      setTimeout(() => checkScrollButtons(), 300);
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (categoryScrollRef.current) {
+      setIsDragging(true);
+      setStartX(e.pageX - categoryScrollRef.current.offsetLeft);
+      setScrollLeft(categoryScrollRef.current.scrollLeft);
+      setLastX(e.pageX);
+      setLastTime(Date.now());
+      setVelocity(0);
+      categoryScrollRef.current.style.scrollBehavior = 'auto';
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !categoryScrollRef.current) return;
+    e.preventDefault();
+    
+    const x = e.pageX - categoryScrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    categoryScrollRef.current.scrollLeft = scrollLeft - walk;
+    
+    // Calculate velocity cho momentum scrolling
+    const now = Date.now();
+    const timeDelta = now - lastTime;
+    if (timeDelta > 0) {
+      const newVelocity = (e.pageX - lastX) / timeDelta;
+      setVelocity(newVelocity);
+    }
+    setLastX(e.pageX);
+    setLastTime(now);
+  };
+
+  const applyMomentum = () => {
+    if (!categoryScrollRef.current || Math.abs(velocity) < 0.1) return;
+    
+    categoryScrollRef.current.scrollLeft -= velocity * 10;
+    setVelocity(velocity * 0.95); // Friction
+    
+    animationRef.current = requestAnimationFrame(applyMomentum);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.style.scrollBehavior = 'smooth';
+    }
+    // Apply momentum scrolling
+    if (Math.abs(velocity) > 0.5) {
+      applyMomentum();
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      if (categoryScrollRef.current) {
+        categoryScrollRef.current.style.scrollBehavior = 'smooth';
+      }
+      if (Math.abs(velocity) > 0.5) {
+        applyMomentum();
+      }
+    }
+  };
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const all = await productService.getAllProducts();
-        const shuffled = [...all].sort(() => Math.random() - 0.5);
-        setFlashSaleProducts(shuffled.slice(0, 6));
-        setProducts(shuffled.slice(6, 18));
-      } catch {
-        message.error("Không thể tải sản phẩm");
+        const [allProducts, allCategories] = await Promise.all([
+          productService.getAllProducts(),
+          categoryService.getAllCategories()
+        ]);
+        const shuffled = [...allProducts].sort(() => Math.random() - 0.5);
+        setProducts(shuffled.slice(0, 12));
+        
+        // Flatten categories để hiển thị tất cả (bao gồm subcategories)
+        const flattenCategories = (cats: Category[]): Category[] => {
+          const result: Category[] = [];
+          cats.forEach(cat => {
+            result.push(cat);
+            if (cat.subCategories && cat.subCategories.length > 0) {
+              result.push(...flattenCategories(cat.subCategories));
+            }
+          });
+          return result;
+        };
+        
+        const flattened = flattenCategories(allCategories);
+        setCategories(flattened);
+        console.log('📦 Total categories loaded:', flattened.length);
+        console.log('📦 Categories:', flattened);
+        
+        // Check if scroll arrows needed
+        setTimeout(() => checkScrollButtons(), 100);
+      } catch (error) {
+        console.error('❌ Error loading data:', error);
+        message.error("Không thể tải dữ liệu");
       } finally {
         setLoading(false);
       }
     };
-    fetchProducts();
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
+
+  // Fetch flash sale products
+  useEffect(() => {
+    const fetchFlashSaleProducts = async () => {
+      try {
+        setFlashSaleLoading(true);
+        const response = await productService.getActiveFlashSaleProducts(0, 6);
+        console.log('⚡ Flash Sale API Response:', response);
+        console.log('⚡ Flash Sale Products:', response.content);
+        if (response.content && response.content.length > 0) {
+          console.log('⚡ Sample Flash Sale Product:', response.content[0]);
+          console.log('⚡ Product Image:', response.content[0].productImage);
+        }
+        setFlashSaleProducts(response.content || []);
+      } catch (error) {
+        console.error('❌ Error loading flash sale products:', error);
+        // Silently fail, flash sale section will just be empty
+      } finally {
+        setFlashSaleLoading(false);
+      }
+    };
+    fetchFlashSaleProducts();
   }, []);
 
   useEffect(() => {
@@ -58,12 +218,6 @@ export default function Home() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/home");
-    }
-  }, [status, router]);
 
   if (status === "loading") {
     return (
@@ -160,34 +314,79 @@ export default function Home() {
       {/* ================= QUICK CATEGORY ================= */}
       <section className="py-16 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-800 mb-8">Shop by Category</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {[
-              { name: "Flash Sale", icon: ThunderboltOutlined, color: "from-red-500 to-orange-500", badge: "Hot" },
-              { name: "Phones", icon: MobileOutlined, color: "from-blue-500 to-cyan-500" },
-              { name: "Laptops", icon: LaptopOutlined, color: "from-purple-500 to-pink-500" },
-              { name: "Fashion", icon: SkinOutlined, color: "from-pink-500 to-rose-500" },
-              { name: "Home", icon: HomeOutlined, color: "from-green-500 to-emerald-500" },
-              { name: "Voucher", icon: TrophyOutlined, color: "from-yellow-500 to-orange-500", badge: "New" },
-            ].map((item, i) => {
-              const Icon = item.icon;
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">Shop by Category</h2>
+              <p className="text-sm text-gray-500 mt-1">{categories.length} categories available</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => scrollCategories('left')}
+                disabled={!showLeftArrow}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all
+                  ${showLeftArrow 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              >
+                <LeftOutlined />
+              </button>
+              <button
+                onClick={() => scrollCategories('right')}
+                disabled={!showRightArrow}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all
+                  ${showRightArrow 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg' 
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              >
+                <RightOutlined />
+              </button>
+            </div>
+          </div>
+          
+          <div 
+            ref={categoryScrollRef}
+            onScroll={checkScrollButtons}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            className="flex gap-6 overflow-x-auto scrollbar-hide pb-4 pt-2 cursor-grab active:cursor-grabbing select-none"
+            style={{ 
+              scrollbarWidth: 'none', 
+              msOverflowStyle: 'none',
+              scrollSnapType: isDragging ? 'none' : 'x proximity',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+            {categories.map((category) => {
               return (
                 <div
-                  key={i}
+                  key={category.id}
+                  onClick={() => router.push(`/products?category=${category.id}`)}
                   className="group relative bg-white border-2 border-gray-100 rounded-2xl p-6 text-center cursor-pointer
-                             hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300"
+                             hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300
+                             flex-shrink-0 w-40"
+                  style={{ scrollSnapAlign: 'start' }}
                 >
-                  {item.badge && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
-                      {item.badge}
-                    </span>
-                  )}
-                  <div className={`w-16 h-16 mx-auto mb-3 bg-gradient-to-br ${item.color} rounded-2xl flex items-center justify-center
-                                   group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-lg`}>
-                    <Icon className="text-white text-2xl" />
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center overflow-hidden
+                                  bg-white border-2 border-gray-200 group-hover:scale-110 group-hover:rotate-3 
+                                  transition-transform duration-300 shadow-lg">
+                    {category.image ? (
+                      <Image
+                        src={getCloudinaryUrl(category.image)}
+                        alt={category.name}
+                        width={64}
+                        height={64}
+                        className="object-cover w-full h-full rounded-xl"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center rounded-xl">
+                        <span className="text-gray-400 text-xs">No Image</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors">
-                    {item.name}
+                  <div className="text-sm font-semibold text-gray-700 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    {category.name}
                   </div>
                 </div>
               );
@@ -197,99 +396,135 @@ export default function Home() {
       </section>
 
       {/* ================= FLASH SALE ================= */}
-      <section className="py-16 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                <ThunderboltOutlined className="text-white text-2xl" />
+      {flashSaleProducts.length > 0 && (
+        <section className="py-16 bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <ThunderboltOutlined className="text-white text-2xl" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-800">Flash Sale Today</h2>
+                  <p className="text-gray-600">Limited time offers!</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-3xl font-bold text-gray-800">Flash Sale Today</h2>
-                <p className="text-gray-600">Deals ending soon!</p>
+              
+              {/* Countdown Timer */}
+              <div className="hidden md:flex gap-2">
+                {[
+                  { label: 'Hours', value: timeLeft.hours },
+                  { label: 'Minutes', value: timeLeft.minutes },
+                  { label: 'Seconds', value: timeLeft.seconds }
+                ].map((item) => (
+                  <div key={item.label} className="text-center">
+                    <div className="bg-white border-2 border-red-500 rounded-xl px-4 py-3 min-w-[70px] shadow-lg">
+                      <div className="text-2xl font-bold text-red-600">{String(item.value).padStart(2, '0')}</div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1 font-medium">{item.label}</div>
+                  </div>
+                ))}
               </div>
             </div>
-            
-            {/* Countdown Timer */}
-            <div className="hidden md:flex gap-2">
-              {[
-                { label: 'Hours', value: timeLeft.hours },
-                { label: 'Minutes', value: timeLeft.minutes },
-                { label: 'Seconds', value: timeLeft.seconds }
-              ].map((item, i) => (
-                <div key={i} className="text-center">
-                  <div className="bg-white border-2 border-red-500 rounded-xl px-4 py-3 min-w-[70px] shadow-lg">
-                    <div className="text-2xl font-bold text-red-600">{String(item.value).padStart(2, '0')}</div>
-                  </div>
-                  <div className="text-xs text-gray-600 mt-1 font-medium">{item.label}</div>
-                </div>
-              ))}
-            </div>
+
+            {flashSaleLoading ? (
+              <div className="text-center py-12">
+                <span className="text-gray-600">Loading flash sale products...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {flashSaleProducts.map((item) => {
+                  // Use timeRemaining from API response (in seconds)
+                  const timeRemaining = item.timeRemaining || 0;
+                  const hours = Math.floor(timeRemaining / 3600);
+                  const minutes = Math.floor((timeRemaining % 3600) / 60);
+                  
+                  // Use flashSaleQuantity if available, otherwise fall back to stock
+                  const availableQty = item.flashSaleQuantity || item.stock || 0;
+                  const soldPercentage = item.flashSaleQuantity 
+                    ? Math.max(0, Math.min(100, ((item.flashSaleQuantity - availableQty) / item.flashSaleQuantity) * 100))
+                    : 50; // Default visual percentage if no quantity info
+                  
+                  return (
+                    <div
+                      key={item.variantId}
+                      onClick={() => router.push(`/product/${item.productId}`)}
+                      className="group relative bg-white border-2 border-red-100 rounded-2xl p-4 cursor-pointer
+                                 hover:border-red-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
+                    >
+                      {/* Flash Sale Badge */}
+                      <div className="absolute -top-3 -left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white 
+                                      text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10 animate-pulse">
+                        -{item.discountPercent || 0}%
+                      </div>
+
+                      {/* Wishlist Button */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <WishlistButton productId={item.productId} size="small" />
+                      </div>
+
+                      <div className="relative h-36 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl mb-3 overflow-hidden">
+                        <Image
+                          src={item.productImage ? getCloudinaryUrl(item.productImage) : DEFAULT_PRODUCT_IMAGE}
+                          alt={item.productName}
+                          width={140}
+                          height={140}
+                          className="object-contain w-full h-full p-2 group-hover:scale-110 transition-transform duration-500"
+                          unoptimized={!item.productImage}
+                          onError={(e) => {
+                            console.error('❌ Image load error for:', item.productName, item.productImage);
+                            e.currentTarget.src = DEFAULT_PRODUCT_IMAGE;
+                          }}
+                        />
+                      </div>
+
+                      <div className="text-sm font-medium line-clamp-2 mb-3 text-gray-700 group-hover:text-blue-600 transition-colors">
+                        {item.productName}
+                      </div>
+
+                      {/* Price Section */}
+                      <div className="mb-3">
+                        <div className="flex flex-col gap-0.5 mb-1">
+                          <div className="text-gray-400 line-through text-xs">
+                            ${item.price?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-red-600 font-bold text-xl">
+                            ${item.flashSalePrice?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded">
+                            Flash Price
+                          </span>
+                          {item.price && item.flashSalePrice && (
+                            <span className="text-gray-500">
+                              Save ${(item.price - item.flashSalePrice).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Progress Bar - Flash Sale Quantity */}
+                      <div className="mb-2">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-500">Available</span>
+                          <span className="text-red-600 font-semibold">{availableQty} left</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-1000"
+                            style={{ width: `${Math.max(10, 100 - soldPercentage)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {flashSaleProducts.map((p) => {
-              const v = p.variants?.[0];
-              const soldPercent = Math.floor(Math.random() * 80) + 10;
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => router.push(`/product/${p.id}`)}
-                  className="group relative bg-white border-2 border-red-100 rounded-2xl p-4 cursor-pointer
-                             hover:border-red-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
-                >
-                  {/* Flash Sale Badge */}
-                  <div className="absolute -top-3 -left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white 
-                                  text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10 animate-pulse">
-                    -{Math.floor(Math.random() * 50) + 20}%
-                  </div>
-
-                  {/* Wishlist Button */}
-                  <div className="absolute top-2 right-2 z-10">
-                    <WishlistButton productId={p.id} size="small" />
-                  </div>
-
-                  <div className="relative h-36 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl mb-3 overflow-hidden">
-                    {p.images?.[0] && (
-                      <Image
-                        src={getCloudinaryUrl(p.images[0])}
-                        alt={p.name}
-                        width={140}
-                        height={140}
-                        className="object-contain w-full h-full p-2 group-hover:scale-110 transition-transform duration-500"
-                      />
-                    )}
-                  </div>
-
-                  <div className="text-sm font-medium line-clamp-2 mb-2 text-gray-700 group-hover:text-blue-600 transition-colors">
-                    {p.name}
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="text-red-600 font-bold text-lg">
-                      ${v?.price?.toLocaleString()}
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-gray-500">Sold</span>
-                      <span className="text-red-600 font-semibold">{soldPercent}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-1000"
-                        style={{ width: `${soldPercent}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ================= RECOMMENDED ================= */}
       <section className="py-16 bg-white">
@@ -349,7 +584,7 @@ export default function Home() {
                   <div className="flex items-center gap-1 mb-2">
                     <div className="flex text-yellow-400 text-xs">
                       {[...Array(5)].map((_, i) => (
-                        <StarFilled key={i} style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} />
+                        <StarFilled key={`star-${p.id}-${i}`} style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} />
                       ))}
                     </div>
                     {reviews > 0 && (

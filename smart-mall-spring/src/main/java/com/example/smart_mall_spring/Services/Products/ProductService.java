@@ -507,6 +507,38 @@ public class ProductService {
                     .collect(Collectors.toList());
         }
 
+        // Calculate discount info from variants
+        Double minPrice = null;
+        Double minDiscountPrice = null;
+        Boolean hasDiscount = false;
+        Integer maxDiscountPercent = 0;
+        
+        if (product.getVariants() != null && !product.getVariants().isEmpty()) {
+            for (ProductVariant variant : product.getVariants()) {
+                Double price = variant.getPrice();
+                Double effectivePrice = variant.getEffectivePrice();
+                
+                // Tìm giá thấp nhất
+                if (price != null && (minPrice == null || price < minPrice)) {
+                    minPrice = price;
+                }
+                
+                // Tìm giá discount thấp nhất
+                if (effectivePrice != null && (minDiscountPrice == null || effectivePrice < minDiscountPrice)) {
+                    minDiscountPrice = effectivePrice;
+                }
+                
+                // Check có discount không
+                if (variant.isFlashSaleActive() && variant.getFlashSalePrice() != null) {
+                    hasDiscount = true;
+                    Integer discountPercent = variant.getDiscountPercent();
+                    if (discountPercent != null && discountPercent > maxDiscountPercent) {
+                        maxDiscountPercent = discountPercent;
+                    }
+                }
+            }
+        }
+
         return ProductResponseDto.builder()
                 .id(product.getId())
                 .category(product.getCategory() != null ? convertCategoryToDto(product.getCategory()) : null)
@@ -522,6 +554,11 @@ public class ProductService {
                 .updatedAt(product.getUpdatedAt())
                 .averageRating(averageRating)
                 .reviewCount(reviewCount)
+                // Discount fields
+                .minPrice(minPrice)
+                .minDiscountPrice(hasDiscount ? minDiscountPrice : null)
+                .hasDiscount(hasDiscount)
+                .maxDiscountPercent(hasDiscount ? maxDiscountPercent : null)
                 .build();
     }
 
@@ -614,6 +651,15 @@ public class ProductService {
                 .productBrand(productBrand)
                 .createdAt(createdAt)
                 .updatedAt(updatedAt)
+                // Flash sale / Discount fields
+                .isFlashSale(variant.getIsFlashSale())
+                .flashSalePrice(variant.getFlashSalePrice())
+                .flashSaleStart(variant.getFlashSaleStart())
+                .flashSaleEnd(variant.getFlashSaleEnd())
+                .flashSaleQuantity(variant.getFlashSaleQuantity())
+                .effectivePrice(variant.getEffectivePrice())
+                .isFlashSaleActive(variant.isFlashSaleActive())
+                .discountPercent(variant.getDiscountPercent())
                 .build();
     }
 

@@ -25,4 +25,14 @@ public class ProductVariantResponseDto {
     private List<VariantAttributeResponseDto> attributes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // Flash sale / Discount fields
+    private Boolean isFlashSale;
+    private Double flashSalePrice;
+    private LocalDateTime flashSaleStart;
+    private LocalDateTime flashSaleEnd;
+    private Integer flashSaleQuantity;
+    private Double effectivePrice;      // Giá hiệu dụng (có thể là giá sale hoặc giá gốc)
+    private Boolean isFlashSaleActive;  // Flash sale có đang active không
+    private Integer discountPercent;    // % discount
 }

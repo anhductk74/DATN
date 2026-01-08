@@ -482,20 +482,31 @@ export default function Home() {
                         />
                       </div>
 
-                      <div className="text-sm font-medium line-clamp-2 mb-2 text-gray-700 group-hover:text-blue-600 transition-colors">
+                      <div className="text-sm font-medium line-clamp-2 mb-3 text-gray-700 group-hover:text-blue-600 transition-colors">
                         {item.productName}
                       </div>
 
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="text-red-600 font-bold text-lg">
-                          ${item.flashSalePrice?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      {/* Price Section */}
+                      <div className="mb-3">
+                        <div className="flex flex-col gap-0.5 mb-1">
+                          <div className="text-gray-400 line-through text-xs">
+                            ${item.price?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-red-600 font-bold text-xl">
+                            ${item.flashSalePrice?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </div>
                         </div>
-                        <div className="text-gray-400 line-through text-sm">
-                          ${item.originalPrice?.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded">
+                            Flash Price
+                          </span>
+                          {item.price && item.flashSalePrice && (
+                            <span className="text-gray-500">
+                              Save ${(item.price - item.flashSalePrice).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
                         </div>
                       </div>
-
-                      
 
                       {/* Progress Bar - Flash Sale Quantity */}
                       <div className="mb-2">
@@ -540,25 +551,62 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+          {loading ? (
+            // Loading skeleton
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+              {Array.from({ length: 12 }).map((_, index) => (
+                <div key={index} className="bg-white border-2 border-gray-100 rounded-2xl p-4 animate-pulse">
+                  <div className="relative h-44 bg-gray-200 rounded-xl mb-3"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="flex items-center gap-1 mb-2">
+                    <div className="h-3 bg-gray-200 rounded w-20"></div>
+                  </div>
+                  <div className="h-6 bg-gray-200 rounded w-24"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
             {products.map((p) => {
               const v = p.variants?.[0];
               const rating = p.averageRating || 4.5;
               const reviews = p.reviewCount || 0;
               
+              // Check if variant has active flash sale
+              const hasFlashSale = v?.isFlashSaleActive || false;
+              const displayPrice = v?.effectivePrice || v?.price || 0;
+              const originalPrice = v?.price || 0;
+              const discount = v?.discountPercent || 0;
+              const flashSaleQty = v?.flashSaleQuantity || 0;
+              
               return (
                 <div
                   key={p.id}
                   onClick={() => router.push(`/product/${p.id}`)}
-                  className="group relative bg-white border-2 border-gray-100 rounded-2xl p-4 cursor-pointer
-                             hover:border-blue-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
+                  className={`group relative bg-white rounded-2xl p-4 cursor-pointer
+                             hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 ${
+                               hasFlashSale 
+                                 ? 'border-2 border-red-100 hover:border-red-300' 
+                                 : 'border-2 border-gray-100 hover:border-blue-300'
+                             }`}
                 >
+                  {/* Flash Sale Badge */}
+                  {hasFlashSale && discount > 0 && (
+                    <div className="absolute -top-3 -left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white 
+                                    text-xs font-bold px-3 py-1.5 rounded-full shadow-lg z-10 animate-pulse">
+                      -{discount}%
+                    </div>
+                  )}
+
                   {/* Wishlist Button */}
                   <div className="absolute top-2 right-2 z-10">
                     <WishlistButton productId={p.id} size="small" />
                   </div>
 
-                  <div className="relative h-44 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl mb-3 overflow-hidden">
+                  <div className={`relative h-44 rounded-xl mb-3 overflow-hidden ${
+                    hasFlashSale ? 'bg-gradient-to-br from-red-50 to-orange-50' : 'bg-gradient-to-br from-gray-50 to-blue-50'
+                  }`}>
                     {p.images?.[0] && (
                       <Image
                         src={getCloudinaryUrl(p.images[0])}
@@ -577,7 +625,10 @@ export default function Home() {
                   <div className="flex items-center gap-1 mb-2">
                     <div className="flex text-yellow-400 text-xs">
                       {[...Array(5)].map((_, i) => (
-                        <StarFilled key={`star-${p.id}-${i}`} style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} />
+                        <StarFilled 
+                          key={`star-product-${p.id}-${i}`} 
+                          style={{ color: i < Math.floor(rating) ? '#fadb14' : '#d9d9d9' }} 
+                        />
                       ))}
                     </div>
                     {reviews > 0 && (
@@ -585,13 +636,34 @@ export default function Home() {
                     )}
                   </div>
 
-                  <div className="font-bold text-blue-700 text-lg">
-                    ${v?.price?.toLocaleString()}
-                  </div>
+                  {/* Price Section */}
+                  {hasFlashSale ? (
+                    <div>
+                      <div className="flex flex-col gap-0.5 mb-1">
+                        <div className="text-gray-400 line-through text-xs">
+                          ${originalPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                        <div className="text-red-600 font-bold text-lg">
+                          ${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                      </div>
+                      
+                      {/* {flashSaleQty > 0 && (
+                        <div className="text-xs text-red-600 font-semibold text-center bg-red-50 py-1 rounded">
+                          Only {flashSaleQty} left!
+                        </div>
+                      )} */}
+                    </div>
+                  ) : (
+                    <div className="font-bold text-blue-700 text-lg">
+                      ${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+          )}
         </div>
       </section>
 

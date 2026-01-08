@@ -145,7 +145,8 @@ public class CartService {
     
     private CartItemResponseDto convertToCartItemResponseDto(CartItem cartItem) {
         ProductVariantDto variantDto = convertToProductVariantDto(cartItem.getVariant());
-        double subtotal = cartItem.getQuantity() * cartItem.getVariant().getPrice();
+        // Tính subtotal bằng effectivePrice (có thể là giá sale hoặc giá gốc)
+        double subtotal = cartItem.getQuantity() * cartItem.getVariant().getEffectivePrice();
         
         String productName = cartItem.getVariant().getProduct().getName();
         String productImage = null;
@@ -182,6 +183,13 @@ public class CartService {
                     .collect(Collectors.toList());
         }
         
+        // Lấy productId và productImage
+        UUID productId = variant.getProduct() != null ? variant.getProduct().getId() : null;
+        String productImage = null;
+        if (variant.getProduct() != null && variant.getProduct().getImages() != null && !variant.getProduct().getImages().isEmpty()) {
+            productImage = variant.getProduct().getImages().get(0);
+        }
+        
         return ProductVariantDto.builder()
                 .id(variant.getId())
                 .sku(variant.getSku())
@@ -190,8 +198,19 @@ public class CartService {
                 .weight(variant.getWeight())
                 .dimensions(variant.getDimensions())
                 .attributes(attributeDtos)
+                .productId(productId)
                 .productName(variant.getProduct().getName())
                 .productBrand(variant.getProduct().getBrand())
+                .productImage(productImage)
+                // Flash sale fields
+                .isFlashSale(variant.getIsFlashSale())
+                .flashSalePrice(variant.getFlashSalePrice())
+                .flashSaleStart(variant.getFlashSaleStart())
+                .flashSaleEnd(variant.getFlashSaleEnd())
+                .flashSaleQuantity(variant.getFlashSaleQuantity())
+                .effectivePrice(variant.getEffectivePrice())
+                .isFlashSaleActive(variant.isFlashSaleActive())
+                .discountPercent(variant.getDiscountPercent())
                 .createdAt(variant.getCreatedAt())
                 .updatedAt(variant.getUpdatedAt())
                 .build();

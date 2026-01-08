@@ -10,12 +10,12 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         // Define which routes require authentication
-        const protectedRoutes = ['/home', '/products', '/product', '/vouchers'];
+        const protectedRoutes = ['/home', '/cart', '/checkout', '/my-orders', '/orders', '/profile', '/wishlist', '/shop-management', '/notifications'];
         const isProtectedRoute = protectedRoutes.some(route => 
           req.nextUrl.pathname.startsWith(route)
         );
 
-        // Allow access to public routes
+        // Allow access to public routes (landing page, product listing, product detail)
         if (!isProtectedRoute) {
           return true;
         }

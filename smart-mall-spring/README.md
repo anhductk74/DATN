@@ -53,6 +53,22 @@ The application will start on `http://localhost:8080`
 
 - Swagger UI: `http://localhost:8080/docs`
 - API Docs: `http://localhost:8080/api-docs`
+- **📄 [Product API Documentation](docs/API_PRODUCT.md)** - Chi tiết đầy đủ về Product API
+- **📄 [Cart API Documentation](docs/API_CART.md)** - Chi tiết đầy đủ về Cart API
+
+### Public Endpoints (No Authentication Required)
+
+Các endpoint sau có thể truy cập mà không cần Bearer token:
+
+- **Products:** `GET /api/products/**`
+- **Categories:** `GET /api/categories/**`
+- **Reviews:** `GET /api/reviews/**`
+
+Người dùng chưa đăng nhập có thể:
+- Xem danh sách sản phẩm, categories, reviews
+- Xem chi tiết sản phẩm với thông tin discount
+- Tìm kiếm sản phẩm
+- Xem thống kê reviews
 
 ## Important Notes
 

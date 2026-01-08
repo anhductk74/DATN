@@ -137,8 +137,11 @@ export default function CheckoutPage() {
       setVouchersLoading(true);
       try {
         const vouchers = await voucherApiService.getAllVouchers();
-        // Calculate subtotal for filtering
-        const currentSubtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        // Calculate subtotal for filtering using effectivePrice for flash sale items
+        const currentSubtotal = items.reduce((sum, item) => {
+          const displayPrice = (item as any).effectivePrice || item.price;
+          return sum + (displayPrice * item.quantity);
+        }, 0);
         // Filter vouchers applicable to the current checkout items
         const applicableVouchers = filterApplicableVouchers(vouchers, currentSubtotal, items);
         setAvailableVouchers(applicableVouchers);
@@ -167,7 +170,10 @@ export default function CheckoutPage() {
   const selectedVoucherData = availableVouchers.filter(voucher => selectedVouchers.includes(voucher.id));
   
   // Calculate totals - only calculate when items are loaded to prevent hydration mismatch
-  const subtotal = mounted && items.length > 0 ? items.reduce((sum, item) => sum + (item.price * item.quantity), 0) : 0;
+  const subtotal = mounted && items.length > 0 ? items.reduce((sum, item) => {
+    const displayPrice = (item as any).effectivePrice || item.price;
+    return sum + (displayPrice * item.quantity);
+  }, 0) : 0;
   let shippingFee = selectedShippingOption?.price || 0;
   
   // Calculate voucher discounts
@@ -574,10 +580,16 @@ export default function CheckoutPage() {
                     
                     {/* Shop Products */}
                     <div className="space-y-4">
-                      {shopItems.map((item, index) => (
+                      {shopItems.map((item, index) => {
+                        const hasFlashSale = (item as any).isFlashSaleActive || false;
+                        const displayPrice = (item as any).effectivePrice || item.price;
+                        const originalPrice = item.price;
+                        const discount = (item as any).discountPercent || 0;
+                        
+                        return (
                         <div key={item.id}>
                           <div className="flex items-start space-x-4">
-                            <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                            <div className="relative w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                               <img 
                                 src={getCloudinaryUrl(item.image)} 
                                 alt={item.title}
@@ -586,19 +598,31 @@ export default function CheckoutPage() {
                                   e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="10" fill="%23666"%3ENo Image%3C/text%3E%3C/svg%3E';
                                 }}
                               />
+                              {hasFlashSale && (
+                                <div className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full shadow-lg animate-pulse">
+                                  -{discount}%
+                                </div>
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="text-sm font-medium text-gray-800 line-clamp-2">
                                 {item.title}
                               </h4>
                               <p className="text-xs text-gray-500 mt-1">{item.variant}</p>
+                              {hasFlashSale && (
+                                <div className="text-xs text-orange-600 font-semibold mt-1">
+                                  🔥 Flash Sale
+                                </div>
+                              )}
                               <div className="flex items-center justify-between mt-2">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm text-gray-400 line-through">
-                                    {(item as any).originalPrice ? formatCurrency((item as any).originalPrice) : ''} VND
-                                  </span>
+                                <div className="flex flex-col space-y-1">
+                                  {hasFlashSale && (
+                                    <span className="text-xs text-gray-400 line-through">
+                                      {formatCurrency(originalPrice)} VND
+                                    </span>
+                                  )}
                                   <span className="text-sm font-medium text-orange-600">
-                                    {formatCurrency(item.price)} VND
+                                    {formatCurrency(displayPrice)} VND
                                   </span>
                                 </div>
                                 <span className="text-sm text-gray-600">x{item.quantity}</span>
@@ -606,13 +630,19 @@ export default function CheckoutPage() {
                             </div>
                             <div className="text-right">
                               <div className="text-sm font-medium text-gray-800">
-                                {formatCurrency(item.price * item.quantity)} VND
+                                {formatCurrency(displayPrice * item.quantity)} VND
                               </div>
+                              {hasFlashSale && (
+                                <div className="text-xs text-green-600 mt-1">
+                                  Save {formatCurrency((originalPrice - displayPrice) * item.quantity)} VND
+                                </div>
+                              )}
                             </div>
                           </div>
                           {index < shopItems.length - 1 && <Divider />}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
