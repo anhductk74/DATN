@@ -148,7 +148,7 @@ export default function WishlistScreen({ navigation }: WishlistScreenProps) {
       </Text>
       <TouchableOpacity
         style={styles.shopButton}
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => navigation.navigate('MainTabs')}
       >
         <Text style={styles.shopButtonText}>Start Shopping</Text>
       </TouchableOpacity>

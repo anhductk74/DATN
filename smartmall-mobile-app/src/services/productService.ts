@@ -37,11 +37,22 @@ interface Product {
       attributeName: string;
       attributeValue: string;
     }>;
+    isFlashSale?: boolean | null;
+    flashSalePrice?: number | null;
+    flashSaleStart?: string | null;
+    flashSaleEnd?: string | null;
+    flashSaleQuantity?: number | null;
+    effectivePrice?: number;
+    isFlashSaleActive?: boolean;
+    discountPercent?: number;
   }[];
   averageRating?: number;
   reviewCount: number;
   createdAt: string;
   updatedAt: string;
+  minDiscountPrice?: number | null;
+  hasDiscount?: boolean;
+  maxDiscountPercent?: number | null;
 }
 
 interface ProductDetail extends Product {
