@@ -89,9 +89,9 @@ public class ShipmentOrderService {
         Order order = orderRepository.findById(dto.getOrderId())
                 .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy Order với id: " + dto.getOrderId()));
 
-        Shipper shipper = dto.getShipperId() != null
-                ? shipperRepository.findById(dto.getShipperId()).orElse(null)
-                : null;
+//        Shipper shipper = dto.getShipperId() != null
+//                ? shipperRepository.findById(dto.getShipperId()).orElse(null)
+//                : null;
 
         Warehouse warehouse = dto.getWarehouseId() != null
                 ? warehouseRepository.findById(dto.getWarehouseId()).orElse(null)
@@ -99,7 +99,7 @@ public class ShipmentOrderService {
 
         ShipmentOrder shipmentOrder = new ShipmentOrder();
         shipmentOrder.setOrder(order);
-        shipmentOrder.setShipper(shipper);
+//        shipmentOrder.setShipper(shipper);
         shipmentOrder.setWarehouse(warehouse);
         shipmentOrder.setPickupAddress(dto.getPickupAddress());
         shipmentOrder.setDeliveryAddress(dto.getDeliveryAddress());
@@ -114,62 +114,62 @@ public class ShipmentOrderService {
         //cập nhạt báo cáo
 //        shipmentReportService.updateReportByShipment(shipmentOrder);
 
-        // ================== TẠO CHẶNG VẬN CHUYỂN ĐẦU TIÊN ==================
-        if (warehouse != null && shipper != null) {
-
-            // --- LẤY ĐỊA CHỈ SHOP ---
-            // Từ ShipmentOrder → Order → Shop → Address
-            var shop = order.getShop();
-            var shopAddress = shop != null ? shop.getAddress() : null;
-
-            // --- TẠO THỜI GIAN ---
-            LocalDateTime now = LocalDateTime.now();
-            LocalDateTime tomorrow = now.plusDays(1);
-
-            SubShipmentOrder sub = new SubShipmentOrder();
-            sub.setShipmentOrder(shipmentOrder);
-            sub.setFromWarehouse(null); // Từ shop, KHÔNG dùng warehouse
-            sub.setToWarehouse(warehouse);
-            sub.setShipper(shipper);
-            sub.setStatus(ShipmentStatus.PENDING);
-            sub.setSequence(1);
-            sub.setStartTime(now);
-            sub.setEndTime(tomorrow);
-
-            // Lưu sub shipment
-            subShipmentOrderRepository.save(sub);
-            // ================== SOCKET: THÔNG BÁO CHO SHIPPER ==================
-            DeliveryMessage message = new DeliveryMessage(
-                    "ASSIGNED",
-                    sub.getId(),                       // subShipmentId (ĐÃ CÓ ID)
-                    shipmentOrder.getId(),             // shipmentOrderId
-                    shipper.getId(),                   // shipperId
-                    sub.getStatus().name(),
-                    "You have been assigned a new delivery task"
-            );
-
-            deliverySocketService.notifyShipper(
-                    shipper.getId(),
-                    message
-            );
-
-            // GHI LOG
-            // Build địa chỉ shop dưới dạng text
-            String shopFullAddress = shopAddress != null
-                    ? shopAddress.getStreet() + ", "
-                    + shopAddress.getCommune() + ", "
-                    + shopAddress.getDistrict() + ", "
-                    + shopAddress.getCity()
-                    : "Không rõ";
-
-// GHI LOG
-            createShipmentLog(
-                    shipmentOrder,
-                    ShipmentStatus.PENDING,
-                    "Tạo chặng 1: Shop (" + shopFullAddress + ") → " + warehouse.getName(),
-                    "Khởi tạo chặng đầu tiên"
-            );
-        }
+//        // ================== TẠO CHẶNG VẬN CHUYỂN ĐẦU TIÊN ==================
+//        if (warehouse != null && shipper != null) {
+//
+//            // --- LẤY ĐỊA CHỈ SHOP ---
+//            // Từ ShipmentOrder → Order → Shop → Address
+//            var shop = order.getShop();
+//            var shopAddress = shop != null ? shop.getAddress() : null;
+//
+//            // --- TẠO THỜI GIAN ---
+//            LocalDateTime now = LocalDateTime.now();
+//            LocalDateTime tomorrow = now.plusDays(1);
+//
+//            SubShipmentOrder sub = new SubShipmentOrder();
+//            sub.setShipmentOrder(shipmentOrder);
+//            sub.setFromWarehouse(null); // Từ shop, KHÔNG dùng warehouse
+//            sub.setToWarehouse(warehouse);
+//            sub.setShipper(shipper);
+//            sub.setStatus(ShipmentStatus.PENDING);
+//            sub.setSequence(1);
+//            sub.setStartTime(now);
+//            sub.setEndTime(tomorrow);
+//
+//            // Lưu sub shipment
+//            subShipmentOrderRepository.save(sub);
+//            // ================== SOCKET: THÔNG BÁO CHO SHIPPER ==================
+//            DeliveryMessage message = new DeliveryMessage(
+//                    "ASSIGNED",
+//                    sub.getId(),                       // subShipmentId (ĐÃ CÓ ID)
+//                    shipmentOrder.getId(),             // shipmentOrderId
+//                    shipper.getId(),                   // shipperId
+//                    sub.getStatus().name(),
+//                    "You have been assigned a new delivery task"
+//            );
+//
+//            deliverySocketService.notifyShipper(
+//                    shipper.getId(),
+//                    message
+//            );
+//
+//            // GHI LOG
+//            // Build địa chỉ shop dưới dạng text
+//            String shopFullAddress = shopAddress != null
+//                    ? shopAddress.getStreet() + ", "
+//                    + shopAddress.getCommune() + ", "
+//                    + shopAddress.getDistrict() + ", "
+//                    + shopAddress.getCity()
+//                    : "Không rõ";
+//
+//// GHI LOG
+//            createShipmentLog(
+//                    shipmentOrder,
+//                    ShipmentStatus.PENDING,
+//                    "Tạo chặng 1: Shop (" + shopFullAddress + ") → " + warehouse.getName(),
+//                    "Khởi tạo chặng đầu tiên"
+//            );
+//        }
 
         return shipmentOrder;
     }

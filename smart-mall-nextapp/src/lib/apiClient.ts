@@ -50,6 +50,15 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     
+    // Ignore 500 errors for shipment check endpoints (backend might not have data yet)
+    const isShipmentCheckEndpoint = error.config?.url?.includes('/logistics/shipment-orders/order/');
+    
+    if (error.response?.status === 500 && isShipmentCheckEndpoint) {
+      // Silent ignore - shipment might not exist yet, which is normal
+      console.log(`⚠️ Shipment not found for order (backend returned 500)`);
+      return Promise.reject(error);
+    }
+    
     console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status}`);
     console.error('❌ Error response:', error.response?.data);
     

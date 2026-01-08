@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { userService } from '@/services';
 
@@ -28,14 +28,29 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const { session, status } = useAuth();
   const [userProfile, setUserProfile] = useState<EnhancedUserProfile | null>(null);
   const [loading, setLoading] = useState(false);
+  const hasLoadedRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const loadUserProfile = useCallback(async () => {
     if (status !== 'authenticated' || !session?.user) {
       setUserProfile(null);
+      hasLoadedRef.current = false;
+      currentUserIdRef.current = null;
       return;
     }
 
+    // Prevent duplicate calls for same user
+    const currentUserId = session.user.id || session.user.email || null;
+    
+    // Skip if already loaded for this user
+    if (hasLoadedRef.current && currentUserIdRef.current === currentUserId) {
+      return;
+    }
+
+    hasLoadedRef.current = true;
+    currentUserIdRef.current = currentUserId;
     setLoading(true);
+    
     try {
       const response = await userService.getUserProfile();
       
@@ -83,13 +98,14 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
     } finally {
       setLoading(false);
     }
-  }, [session, status]);
+  }, [session, status]); // Remove lastLoadedUserId from dependencies
 
   useEffect(() => {
     loadUserProfile();
-  }, [loadUserProfile]);
+  }, [status]); // Only depend on status, not loadUserProfile
 
   const refreshProfile = useCallback(async () => {
+    hasLoadedRef.current = false; // Reset to force reload
     await loadUserProfile();
   }, [loadUserProfile]);
 

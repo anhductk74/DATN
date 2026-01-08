@@ -341,9 +341,9 @@ export default function PendingOrdersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 220,
       render: (_, record) => (
-        <Space size="small">
+        <Space size="small" wrap>
           <Button 
             type="text" 
             icon={<EyeOutlined />} 
@@ -443,9 +443,7 @@ export default function PendingOrdersPage() {
           </div>
           
           <div className="flex gap-2">
-            <Button icon={<ExportOutlined />}>
-              Export Pending
-            </Button>
+          
           </div>
         </div>
       </Card>

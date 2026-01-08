@@ -188,7 +188,7 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
       const apiCart = await cartService.addItem({ variantId, quantity });
       const transformedItems = await transformApiCartToLocal(apiCart);
       setItems(transformedItems);
-      message.success('Đã thêm vào giỏ hàng');
+      
     } catch (error: any) {
       console.error('Failed to add item to cart:', error);
       message.error(error?.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
@@ -204,7 +204,6 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
       setLoading(true);
       await cartService.removeItem(cartItemId);
       setItems(prev => prev.filter(item => item.cartItemId !== cartItemId));
-      message.success('Đã xóa khỏi giỏ hàng');
     } catch (error: any) {
       console.error('Failed to remove item from cart:', error);
       message.error(error?.response?.data?.message || 'Không thể xóa sản phẩm');

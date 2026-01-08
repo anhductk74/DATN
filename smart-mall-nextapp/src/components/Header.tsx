@@ -113,17 +113,15 @@ export default function Header() {
   const resolveAvatar = (user: any) => {
     // For Google users, use the 'image' field
     if (user?.image) {
-
       return user.image; // Google avatars are already full URLs
     }
     
     // For registered users, use the 'avatar' field
     if (user?.avatar) {
-    
       return getCloudinaryUrl(user.avatar);
     }
     
-    console.log('No avatar found for user');
+    // No avatar is a normal case - return undefined without logging
     return undefined;
   };
   

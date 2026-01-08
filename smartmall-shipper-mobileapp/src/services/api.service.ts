@@ -1,6 +1,6 @@
 import { LoginRequest, LoginResponse } from '../types/auth.types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.1.30:8080';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.1.95:8080';
 
 class ApiService {
   private baseUrl: string;

@@ -37,6 +37,46 @@ export interface AddToWishlistDto {
 }
 
 class WishlistService {
+  // Cache for wishlist check results - expires after 30 seconds
+  private checkCache: Map<string, { inWishlist: boolean; timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 30000; // 30 seconds
+  
+  // Pending check requests to avoid duplicate calls
+  private pendingChecks: Map<string, Promise<boolean>> = new Map();
+
+  /**
+   * Clear cache (call when wishlist is modified)
+   */
+  private clearCache() {
+    this.checkCache.clear();
+  }
+
+  /**
+   * Get cached check result if valid
+   */
+  private getCachedCheck(productId: string): boolean | null {
+    const cached = this.checkCache.get(productId);
+    if (!cached) return null;
+    
+    const now = Date.now();
+    if (now - cached.timestamp > this.CACHE_DURATION) {
+      this.checkCache.delete(productId);
+      return null;
+    }
+    
+    return cached.inWishlist;
+  }
+
+  /**
+   * Set cache for check result
+   */
+  private setCachedCheck(productId: string, inWishlist: boolean) {
+    this.checkCache.set(productId, {
+      inWishlist,
+      timestamp: Date.now()
+    });
+  }
+
   /**
    * Thêm sản phẩm vào wishlist
    */
@@ -45,6 +85,7 @@ class WishlistService {
       productId,
       note
     });
+    this.clearCache(); // Clear cache when wishlist changes
     return response.data.data;
   }
 
@@ -71,6 +112,7 @@ class WishlistService {
    */
   async removeFromWishlist(productId: string): Promise<string> {
     const response = await apiClient.delete(`/wishlist/${productId}`);
+    this.clearCache(); // Clear cache when wishlist changes
     return response.data.data;
   }
 
@@ -79,15 +121,39 @@ class WishlistService {
    */
   async clearWishlist(): Promise<string> {
     const response = await apiClient.delete('/wishlist');
+    this.clearCache(); // Clear cache when wishlist changes
     return response.data.data;
   }
 
   /**
-   * Kiểm tra sản phẩm có trong wishlist không
+   * Kiểm tra sản phẩm có trong wishlist không (with caching and deduplication)
    */
   async checkInWishlist(productId: string): Promise<boolean> {
-    const response = await apiClient.get(`/wishlist/check/${productId}`);
-    return response.data.data.inWishlist;
+    // Check cache first
+    const cached = this.getCachedCheck(productId);
+    if (cached !== null) {
+      return cached;
+    }
+
+    // Check if there's already a pending request for this product
+    const pending = this.pendingChecks.get(productId);
+    if (pending) {
+      return pending;
+    }
+
+    // Create new request
+    const request = apiClient.get(`/wishlist/check/${productId}`)
+      .then(response => {
+        const inWishlist = response.data.data.inWishlist;
+        this.setCachedCheck(productId, inWishlist);
+        return inWishlist;
+      })
+      .finally(() => {
+        this.pendingChecks.delete(productId);
+      });
+
+    this.pendingChecks.set(productId, request);
+    return request;
   }
 
   /**

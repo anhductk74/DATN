@@ -8,13 +8,31 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
  * -------------------------------------------*/
 export interface Review {
     id: string;
-    productId: string;
-    userId: string;
-    userName: string;
     rating: number;
     comment: string;
-    createdAt: string;
-    updatedAt: string;
+    isEdited: boolean;
+    reviewedAt: string;
+    userId: string;
+    userName: string;
+    userAvatar: string | null;
+    productId: string;
+    productName: string;
+    mediaList?: Array<{
+        id: string;
+        mediaUrl: string;
+        mediaType: 'IMAGE' | 'VIDEO';
+    }>;
+    shopReply?: {
+        id: string;
+        shopId: string;
+        replyId: string;
+        shopName: string;
+        replyContent: string;
+        repliedAt: string;
+    };
+    // Keep old fields for backward compatibility
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface ReviewStatistics {
@@ -192,7 +210,7 @@ class ReviewService {
     }
 
     /* --------------------------------------------
-     * 4️⃣ Get reviews by product
+     * 4️⃣ Get reviews by product (PUBLIC - no auth needed)
      * -------------------------------------------*/
     async getReviewsByProduct(
         productId: string,
@@ -200,13 +218,33 @@ class ReviewService {
         size = 10
     ): Promise<ApiResponse<PaginatedReviews>> {
         try {
+            const headers = await this.getAuthHeaders();
+            
             const response = await axios.get(
                 `${API_BASE_URL}/api/reviews/product/${productId}`,
-                { params: { page, size } }
+                { 
+                    params: { page, size },
+                    headers 
+                }
             );
-            return this.handleResponse<PaginatedReviews>(response);
-        } catch (error) {
-            return this.handleError(error);
+            
+            return {
+                success: true,
+                message: 'Success',
+                data: response.data
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                message: error.response?.data?.message || error.message || 'Reviews not available',
+                data: {
+                    content: [],
+                    totalElements: 0,
+                    totalPages: 0,
+                    number: 0,
+                    size: 0
+                }
+            };
         }
     }
 

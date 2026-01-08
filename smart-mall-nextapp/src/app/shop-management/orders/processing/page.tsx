@@ -18,7 +18,11 @@ import {
   Timeline,
   Progress,
   Descriptions,
-  Image
+  Image,
+  Form,
+  Select,
+  InputNumber,
+  Tooltip
 } from "antd";
 import { 
   SearchOutlined, 
@@ -28,13 +32,15 @@ import {
   CheckCircleOutlined,
   PlayCircleOutlined,
   ClockCircleOutlined,
-  PrinterOutlined
+  PrinterOutlined,
+  TruckOutlined
 } from "@ant-design/icons";
 import type { ColumnsType } from 'antd/es/table';
 import { orderApiService, OrderStatus, PaymentMethod, type OrderResponseDto } from "@/services/OrderApiService";
 import { shopService, type Shop } from "@/services/ShopService";
-import { ShipmentOrderService, ShipmentStatus, type ShipmentOrderResponseDto } from "@/services/ShipmentOrderService";
-import { GhtkService } from "@/services/GhtkService";
+import ShipmentOrderService, { ShipmentOrderRequestDto, ShipmentStatus, type ShipmentOrderResponseDto } from "@/services/ShipmentOrderService";
+import ShippingCompanyService, { ShippingCompanyListDto, WarehouseResponseDto } from "@/services/ShippingCompanyService";
+import GhtkService from "@/services/GhtkService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { getCloudinaryUrl } from "@/config/config";
@@ -64,6 +70,16 @@ export default function ProcessingOrdersPage() {
   });
   const [shipmentOrders, setShipmentOrders] = useState<Map<string, ShipmentOrderResponseDto>>(new Map());
   const [printingLabel, setPrintingLabel] = useState<string | null>(null);
+  
+  // Shipment creation states
+  const [createShipmentModalVisible, setCreateShipmentModalVisible] = useState(false);
+  const [selectedOrderForShipment, setSelectedOrderForShipment] = useState<OrderResponseDto | null>(null);
+  const [shipmentForm] = Form.useForm();
+  const [shippingCompanies, setShippingCompanies] = useState<ShippingCompanyListDto[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [warehouses, setWarehouses] = useState<WarehouseResponseDto[]>([]);
+  const [loadingCompanyData, setLoadingCompanyData] = useState(false);
+  const [creatingShipment, setCreatingShipment] = useState(false);
 
   // Load shop data when user changes
   useEffect(() => {
@@ -212,6 +228,138 @@ export default function ProcessingOrdersPage() {
       [OrderStatus.RETURNED]: { step: 0, text: 'Returned', progress: 0 },
     };
     return stages[status] || { step: 0, text: 'Processing', progress: 0 };
+  };
+
+  // ============ SHIPMENT FUNCTIONS ============
+
+  const fetchShippingCompanies = async () => {
+    try {
+      const companies = await ShippingCompanyService.getActiveCompanies();
+      setShippingCompanies(companies);
+    } catch (error) {
+      message.error('Unable to load shipping companies');
+    }
+  };
+
+  const fetchCompanyDetails = async (companyId: string) => {
+    try {
+      setLoadingCompanyData(true);
+      const companyDetails = await ShippingCompanyService.getById(companyId);
+      
+      setWarehouses(companyDetails.warehouses || []);
+      
+      shipmentForm.setFieldsValue({
+        warehouseId: undefined
+      });
+    } catch (error) {
+      message.error('Unable to load company details');
+      setWarehouses([]);
+    } finally {
+      setLoadingCompanyData(false);
+    }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setSelectedCompanyId(companyId);
+    fetchCompanyDetails(companyId);
+  };
+
+  const handleCreateShipment = (order: OrderResponseDto) => {
+    setSelectedOrderForShipment(order);
+    setCreateShipmentModalVisible(true);
+    setSelectedCompanyId(null);
+    setWarehouses([]);
+    
+    // Calculate default estimated delivery (3 days from now)
+    const estimatedDate = new Date();
+    estimatedDate.setDate(estimatedDate.getDate() + 3);
+    const formattedDate = estimatedDate.toISOString().slice(0, 10);
+    
+    // Use default weight
+    const defaultWeight = 1000; // 1kg in grams
+    
+    shipmentForm.resetFields();
+    shipmentForm.setFieldsValue({
+      estimatedDelivery: formattedDate,
+      weight: defaultWeight
+    });
+    
+    fetchShippingCompanies();
+  };
+
+  const handleSubmitShipment = async (values: any) => {
+    if (!selectedOrderForShipment || !currentShop) return;
+
+    try {
+      setCreatingShipment(true);
+      
+      // Build pickup address from shop
+      const pickupAddress = currentShop.address 
+        ? `${currentShop.address.street}, ${currentShop.address.commune}, ${currentShop.address.district}, ${currentShop.address.city}`
+        : '';
+      
+      // Build delivery address from order
+      const shippingAddr = selectedOrderForShipment.shippingAddress;
+      const deliveryAddress = shippingAddr 
+        ? `${shippingAddr.address}, ${shippingAddr.ward}, ${shippingAddr.district}, ${shippingAddr.province}` 
+        : '';
+      
+      // Convert date to ISO format
+      const estimatedDeliveryDate = new Date(values.estimatedDelivery);
+      estimatedDeliveryDate.setHours(18, 0, 0, 0);
+      const estimatedDeliveryISO = estimatedDeliveryDate.toISOString();
+      
+      const shipmentData: ShipmentOrderRequestDto = {
+        orderId: selectedOrderForShipment.id,
+        warehouseId: values.warehouseId,
+        pickupAddress,
+        deliveryAddress,
+        codAmount: selectedOrderForShipment.finalAmount,
+        shippingFee: selectedOrderForShipment.shippingFee,
+        status: ShipmentStatus.PENDING,
+        estimatedDelivery: estimatedDeliveryISO,
+        weight: values.weight
+      };
+
+      // Step 1: Create shipment order
+      const createdShipment = await ShipmentOrderService.createShipment(shipmentData);
+      
+      message.success('Shipment created successfully');
+
+      // Step 2: Auto register with GHTK
+      try {
+        message.loading({ content: 'Registering with GHTK...', key: 'ghtk', duration: 0 });
+        
+        const ghtkResponse = await GhtkService.registerOrderFromShipment(createdShipment.id);
+        
+        message.success({ 
+          content: `GHTK registered successfully! Tracking code: ${ghtkResponse.label}`, 
+          key: 'ghtk',
+          duration: 5 
+        });
+        
+      } catch (ghtkError: any) {
+        message.warning({ 
+          content: `Shipment created but GHTK registration failed: ${ghtkError.message || 'Unknown error'}. You can register manually later.`, 
+          key: 'ghtk',
+          duration: 8 
+        });
+      }
+      
+      setCreateShipmentModalVisible(false);
+      
+      // Refresh shipment info
+      await checkShipmentOrders([selectedOrderForShipment]);
+      
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.message || 
+                          'Unable to create shipment';
+      message.error(`Failed to create shipment: ${errorMessage}`);
+    } finally {
+      setCreatingShipment(false);
+    }
   };
 
   const handlePrintLabel = async (orderId: string) => {
@@ -419,12 +567,11 @@ export default function ProcessingOrdersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 280,
+      width: 220,
       render: (_, record) => {
         const shipment = shipmentOrders.get(record.id);
-        const hasRegisteredShipment = shipment && 
-          (shipment.status === ShipmentStatus.REGISTERED || shipment.status === ShipmentStatus.PENDING) && 
-          shipment.trackingCode;
+        const hasShipment = !!shipment;
+        const hasTrackingCode = shipment?.trackingCode;
         
         return (
           <Space size="small" wrap>
@@ -438,7 +585,32 @@ export default function ProcessingOrdersPage() {
                 setOrderDetailVisible(true);
               }}
             />
-            {record.status === OrderStatus.PACKED && hasRegisteredShipment ? (
+            {/* Show Create Shipment for CONFIRMED orders without shipment */}
+            {record.status === OrderStatus.CONFIRMED && !hasShipment && (
+              <Tooltip title="Create shipment and register with GHTK">
+                <Button 
+                  type="primary"
+                  icon={<TruckOutlined />}
+                  size="small"
+                  onClick={() => handleCreateShipment(record)}
+                >
+                  Create Shipment
+                </Button>
+              </Tooltip>
+            )}
+            {/* Show Start Packing for CONFIRMED orders with shipment */}
+            {record.status === OrderStatus.CONFIRMED && hasShipment && (
+              <Button 
+                type="primary"
+                size="small"
+                loading={processing === record.id}
+                onClick={() => handleMoveToNextStage(record.id, record.status)}
+              >
+                Start Packing
+              </Button>
+            )}
+            {/* Show Print Label for PACKED orders with tracking code */}
+            {record.status === OrderStatus.PACKED && hasTrackingCode && (
               <Button 
                 type="default"
                 size="small"
@@ -447,16 +619,6 @@ export default function ProcessingOrdersPage() {
                 onClick={() => handlePrintLabel(record.id)}
               >
                 In nhãn
-              </Button>
-            ) : null}
-            {record.status === OrderStatus.CONFIRMED && (
-              <Button 
-                type="primary"
-                size="small"
-                loading={processing === record.id}
-                onClick={() => handleMoveToNextStage(record.id, record.status)}
-              >
-                Start Packing
               </Button>
             )}
           </Space>
@@ -532,9 +694,7 @@ export default function ProcessingOrdersPage() {
           </div>
           
           <div className="flex gap-2">
-            <Button icon={<ExportOutlined />}>
-              Export Processing
-            </Button>
+           
           </div>
         </div>
       </Card>
@@ -542,14 +702,7 @@ export default function ProcessingOrdersPage() {
       {/* Orders Table */}
       <Card 
         title={`Processing Orders (${filteredOrders.length})`}
-        extra={
-          <Button 
-            type="primary" 
-            onClick={() => message.info('Bulk processing actions coming soon')}
-          >
-            Bulk Actions
-          </Button>
-        }
+     
       >
         <Table
           columns={columns}
@@ -591,15 +744,29 @@ export default function ProcessingOrdersPage() {
         width={900}
         footer={(() => {
           const shipment = selectedOrder ? shipmentOrders.get(selectedOrder.id) : null;
-          const hasRegisteredShipment = shipment && 
-            (shipment.status === ShipmentStatus.REGISTERED || shipment.status === ShipmentStatus.PENDING) && 
-            shipment.trackingCode;
+          const hasShipment = !!shipment;
+          const hasTrackingCode = shipment?.trackingCode;
           
           return [
             <Button key="close" onClick={() => setOrderDetailVisible(false)}>
               Close
             </Button>,
-            selectedOrder?.status === OrderStatus.PACKED && hasRegisteredShipment && (
+            // Show Create Shipment button for CONFIRMED orders without shipment
+            selectedOrder?.status === OrderStatus.CONFIRMED && !hasShipment && (
+              <Button 
+                key="create-shipment"
+                type="primary"
+                icon={<TruckOutlined />}
+                onClick={() => {
+                  setOrderDetailVisible(false);
+                  handleCreateShipment(selectedOrder);
+                }}
+              >
+                Create Shipment
+              </Button>
+            ),
+            // Show Print Label button for PACKED orders with tracking code
+            selectedOrder?.status === OrderStatus.PACKED && hasTrackingCode && (
               <Button 
                 key="print"
                 icon={<PrinterOutlined />}
@@ -613,7 +780,8 @@ export default function ProcessingOrdersPage() {
                 In nhãn
               </Button>
             ),
-            selectedOrder?.status === OrderStatus.CONFIRMED && (
+            // Show Start Packing button for CONFIRMED orders with shipment
+            selectedOrder?.status === OrderStatus.CONFIRMED && hasShipment && (
               <Button 
                 key="next" 
                 type="primary"
@@ -893,6 +1061,153 @@ export default function ProcessingOrdersPage() {
                 ]}
               />
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Create Shipment Modal */}
+      <Modal
+        title="Create Shipment Order"
+        open={createShipmentModalVisible}
+        onCancel={() => setCreateShipmentModalVisible(false)}
+        onOk={() => shipmentForm.submit()}
+        confirmLoading={creatingShipment}
+        width={700}
+      >
+        {selectedOrderForShipment && (
+          <div className="space-y-4">
+            {/* Order Summary */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="font-medium mb-2">Order Information</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-gray-600">Order ID:</span>
+                  <span className="ml-2 font-mono font-medium">#{selectedOrderForShipment.id.slice(-8)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Customer:</span>
+                  <span className="ml-2 font-medium">{selectedOrderForShipment.userName}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Total Amount:</span>
+                  <span className="ml-2 font-medium text-green-600">{formatCurrency(selectedOrderForShipment.finalAmount)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Shipping Fee:</span>
+                  <span className="ml-2 font-medium">{formatCurrency(selectedOrderForShipment.shippingFee)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Shipment Form */}
+            <Form
+              form={shipmentForm}
+              layout="vertical"
+              onFinish={handleSubmitShipment}
+            >
+              {/* Shipping Company */}
+              <Form.Item
+                label="Shipping Company"
+                name="shippingCompanyId"
+                rules={[{ required: true, message: 'Please select shipping company' }]}
+              >
+                <Select
+                  placeholder="Select shipping company"
+                  onChange={handleCompanyChange}
+                  loading={shippingCompanies.length === 0}
+                >
+                  {shippingCompanies.map(company => (
+                    <Select.Option key={company.id} value={company.id}>
+                      <div className="flex items-center justify-between">
+                        <span>{company.name}</span>
+                        <Tag color="blue" className="text-xs">{company.code}</Tag>
+                      </div>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              {/* Warehouse */}
+              <Form.Item
+                label="Destination Warehouse"
+                name="warehouseId"
+                rules={[{ required: true, message: 'Please select warehouse' }]}
+              >
+                <Select
+                  placeholder="Select warehouse"
+                  disabled={!selectedCompanyId || loadingCompanyData}
+                  loading={loadingCompanyData}
+                  optionLabelProp="label"
+                >
+                  {warehouses.map(warehouse => (
+                    <Select.Option 
+                      key={warehouse.id} 
+                      value={warehouse.id}
+                      label={warehouse.name}
+                    >
+                      <div className="py-1">
+                        <div className="font-medium truncate">{warehouse.name}</div>
+                        <div className="text-xs text-gray-500 truncate">{warehouse.address}</div>
+                      </div>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              {/* Estimated Delivery */}
+              <Form.Item
+                label="Estimated Delivery Date"
+                name="estimatedDelivery"
+                rules={[{ required: true, message: 'Please select estimated delivery date' }]}
+              >
+                <Input type="date" />
+              </Form.Item>
+
+              {/* Package Weight */}
+              <Form.Item
+                label="Package Weight (grams)"
+                name="weight"
+                rules={[
+                  { required: true, message: 'Please enter package weight' },
+                  { type: 'number', min: 1, message: 'Weight must be at least 1 gram' }
+                ]}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="Default weight: 1000g"
+                  min={1}
+                  step={100}
+                  disabled
+                />
+              </Form.Item>
+
+              {/* Addresses Info */}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-1">Pickup Address (Shop):</div>
+                  <div className="text-sm text-gray-600">
+                    {currentShop?.address 
+                      ? `${currentShop.address.street}, ${currentShop.address.commune}, ${currentShop.address.district}, ${currentShop.address.city}`
+                      : 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-1">Delivery Address (Customer):</div>
+                  <div className="text-sm text-gray-600">
+                    {selectedOrderForShipment.shippingAddress ? (
+                      <>
+                        <div className="font-medium">{selectedOrderForShipment.shippingAddress.fullName}</div>
+                        <div>{selectedOrderForShipment.shippingAddress.phone}</div>
+                        <div>
+                          {selectedOrderForShipment.shippingAddress.address}, {selectedOrderForShipment.shippingAddress.ward},{' '}
+                          {selectedOrderForShipment.shippingAddress.district}, {selectedOrderForShipment.shippingAddress.province}
+                        </div>
+                      </>
+                    ) : 'N/A'}
+                  </div>
+                </div>
+              </div>
+            </Form>
           </div>
         )}
       </Modal>

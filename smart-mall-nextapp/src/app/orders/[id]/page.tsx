@@ -383,8 +383,7 @@ export default function OrderDetailPage() {
             setShipmentOrder(shipmentResponse);
           }
         } catch (error) {
-          console.error('Failed to fetch shipment order:', error);
-          // Don't fail if shipment fetch fails
+          // Silently ignore - shipment might not exist yet
         }
 
         // Fetch tracking logs if order is in shipping status

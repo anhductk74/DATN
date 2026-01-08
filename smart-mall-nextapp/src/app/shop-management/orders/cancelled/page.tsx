@@ -547,15 +547,7 @@ export default function CancelledOrdersPage() {
           </div>
           
           <div className="flex gap-2">
-            <Button icon={<FundOutlined />}>
-              Process Refunds
-            </Button>
-            <Button icon={<BarChartOutlined />}>
-              Analysis Report
-            </Button>
-            <Button icon={<ExportOutlined />}>
-              Export Data
-            </Button>
+           
           </div>
         </div>
       </Card>
@@ -563,15 +555,7 @@ export default function CancelledOrdersPage() {
       {/* Orders Table */}
       <Card 
         title={`Cancelled Orders (${filteredOrders.length})`}
-        extra={
-          <Button 
-            type="primary" 
-            danger
-            onClick={() => message.info('Bulk refund processing coming soon')}
-          >
-            Bulk Refund
-          </Button>
-        }
+       
       >
         <Table
           columns={columns}
