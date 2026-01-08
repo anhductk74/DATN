@@ -29,12 +29,56 @@ export default function AllProductsScreen({ navigation }: AllProductsScreenProps
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = useState(true);
+  const [productTimers, setProductTimers] = useState<{ [key: string]: string }>({});
   const pageSize = 8;
 
   useEffect(() => {
     loadCategories();
     loadProducts(0, null);
   }, []);
+
+  // Update flash sale timers
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    const updateTimers = () => {
+      const newTimers: { [key: string]: string } = {};
+      const now = new Date();
+      
+      products.forEach((product) => {
+        if (product.hasDiscount && product.variants) {
+          const flashSaleVariant = product.variants.find(v => v.isFlashSaleActive && v.flashSaleEnd);
+          if (flashSaleVariant && flashSaleVariant.flashSaleEnd) {
+            const endTime = new Date(flashSaleVariant.flashSaleEnd);
+            const timeLeftMs = endTime.getTime() - now.getTime();
+            const timeLeftSeconds = Math.floor(timeLeftMs / 1000);
+            
+            if (timeLeftSeconds > 0) {
+              const days = Math.floor(timeLeftSeconds / 86400);
+              const hours = Math.floor((timeLeftSeconds % 86400) / 3600);
+              const minutes = Math.floor((timeLeftSeconds % 3600) / 60);
+              const seconds = timeLeftSeconds % 60;
+              
+              if (days > 0) {
+                newTimers[product.id] = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              } else {
+                newTimers[product.id] = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              }
+            } else {
+              newTimers[product.id] = 'Ended';
+            }
+          }
+        }
+      });
+      
+      setProductTimers(newTimers);
+    };
+
+    updateTimers();
+    const interval = setInterval(updateTimers, 1000);
+
+    return () => clearInterval(interval);
+  }, [products]);
 
   const loadCategories = async () => {
     try {
@@ -113,9 +157,11 @@ export default function AllProductsScreen({ navigation }: AllProductsScreenProps
       ? getCloudinaryUrl(item.images[0]) 
       : null;
 
-    const minPrice = item.variants && item.variants.length > 0
-      ? Math.min(...item.variants.map(v => v.price))
-      : 0;
+    const hasFlashSale = item.hasDiscount;
+    const displayPrice = hasFlashSale && item.minDiscountPrice ? item.minDiscountPrice : item.minPrice;
+    const originalPrice = item.minPrice || 0;
+    const discountPercent = item.maxDiscountPercent;
+    const timeLeft = productTimers[item.id] || '';
 
     return (
       <TouchableOpacity
@@ -130,6 +176,11 @@ export default function AllProductsScreen({ navigation }: AllProductsScreenProps
               <Ionicons name="image-outline" size={40} color="#ccc" />
             </View>
           )}
+          {hasFlashSale && discountPercent && (
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>-{discountPercent}%</Text>
+            </View>
+          )}
         </View>
         <View style={styles.productInfo}>
           <Text style={styles.productName} numberOfLines={2}>
@@ -138,10 +189,27 @@ export default function AllProductsScreen({ navigation }: AllProductsScreenProps
           <Text style={styles.brandText} numberOfLines={1}>
             {item.brand}
           </Text>
+          {hasFlashSale && timeLeft && (
+            <View style={styles.flashSaleTimer}>
+              <Ionicons name="flash" size={10} color="#ff4757" />
+              <Text style={styles.flashSaleTimerText}>⏱️ {timeLeft}</Text>
+            </View>
+          )}
           <View style={styles.priceRow}>
-            <Text style={styles.price}>
-              {minPrice.toLocaleString('vi-VN')}đ
-            </Text>
+            {hasFlashSale && displayPrice ? (
+              <>
+                <Text style={styles.price}>
+                  {displayPrice.toLocaleString('vi-VN')}đ
+                </Text>
+                <Text style={styles.originalPrice}>
+                  {originalPrice.toLocaleString('vi-VN')}đ
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.price}>
+                {originalPrice.toLocaleString('vi-VN')}đ
+              </Text>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -397,6 +465,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     textDecorationLine: 'line-through',
+  },
+  flashSaleTimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff5f5',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    gap: 3,
+    marginBottom: 6,
+  },
+  flashSaleTimerText: {
+    fontSize: 10,
+    color: '#ff4757',
+    fontWeight: '600',
   },
   footerLoader: {
     paddingVertical: 20,

@@ -25,10 +25,51 @@ export default function CartScreen({ navigation }: CartScreenProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [flashSaleTimers, setFlashSaleTimers] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     loadCart();
   }, []);
+
+  // Update flash sale timers
+  useEffect(() => {
+    if (!cart || cart.items.length === 0) return;
+
+    const updateTimers = () => {
+      const newTimers: { [key: string]: string } = {};
+      const now = new Date();
+      
+      cart.items.forEach((item) => {
+        if (item.variant.isFlashSaleActive && item.variant.flashSaleEnd) {
+          const endTime = new Date(item.variant.flashSaleEnd);
+          const timeLeftMs = endTime.getTime() - now.getTime();
+          const timeLeftSeconds = Math.floor(timeLeftMs / 1000);
+          
+          if (timeLeftSeconds > 0) {
+            const days = Math.floor(timeLeftSeconds / 86400);
+            const hours = Math.floor((timeLeftSeconds % 86400) / 3600);
+            const minutes = Math.floor((timeLeftSeconds % 3600) / 60);
+            const seconds = timeLeftSeconds % 60;
+            
+            if (days > 0) {
+              newTimers[item.id] = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            } else {
+              newTimers[item.id] = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+          } else {
+            newTimers[item.id] = 'Ended';
+          }
+        }
+      });
+      
+      setFlashSaleTimers(newTimers);
+    };
+
+    updateTimers();
+    const interval = setInterval(updateTimers, 1000);
+
+    return () => clearInterval(interval);
+  }, [cart]);
 
   const loadCart = async () => {
     try {
@@ -234,6 +275,12 @@ export default function CartScreen({ navigation }: CartScreenProps) {
     const attributesText = item.variant.attributes
       .map(attr => `${attr.name}: ${attr.value}`)
       .join(', ');
+    
+    const hasFlashSale = item.variant.isFlashSaleActive;
+    const flashSalePrice = item.variant.flashSalePrice;
+    const originalPrice = item.variant.price;
+    const discountPercent = item.variant.discountPercent;
+    const timeLeft = flashSaleTimers[item.id] || '';
 
     return (
       <View key={item.id} style={styles.cartItem}>
@@ -277,10 +324,31 @@ export default function CartScreen({ navigation }: CartScreenProps) {
             </Text>
           )}
           
+          {hasFlashSale && (
+            <View style={styles.flashSaleBadge}>
+              <Ionicons name="flash" size={10} color="#fff" />
+              <Text style={styles.flashSaleBadgeText}>FLASH SALE -{discountPercent}%</Text>
+              {timeLeft && (
+                <Text style={styles.flashSaleTimer}>⏱️ {timeLeft}</Text>
+              )}
+            </View>
+          )}
+          
           <View style={styles.itemFooter}>
-            <Text style={styles.itemPrice}>
-              {item.variant.price.toLocaleString('vi-VN')}đ
-            </Text>
+            {hasFlashSale && flashSalePrice ? (
+              <View style={styles.priceContainer}>
+                <Text style={styles.itemFlashPrice}>
+                  {flashSalePrice.toLocaleString('vi-VN')}đ
+                </Text>
+                <Text style={styles.itemOriginalPrice}>
+                  {originalPrice.toLocaleString('vi-VN')}đ
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.itemPrice}>
+                {item.variant.price.toLocaleString('vi-VN')}đ
+              </Text>
+            )}
             
             <View style={styles.quantityContainer}>
               <TouchableOpacity
@@ -366,7 +434,7 @@ export default function CartScreen({ navigation }: CartScreenProps) {
           <Text style={styles.emptySubtitle}>Add items to get started</Text>
           <TouchableOpacity
             style={styles.shopButton}
-            onPress={() => navigation.navigate('Home')}
+            onPress={() => navigation.navigate('MainTabs')}
           >
             <Text style={styles.shopButtonText}>Start Shopping</Text>
           </TouchableOpacity>
@@ -595,7 +663,29 @@ const styles = StyleSheet.create({
   itemAttributes: {
     fontSize: 11,
     color: '#999',
+    marginBottom: 4,
+  },
+  flashSaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    gap: 4,
     marginBottom: 8,
+  },
+  flashSaleBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  flashSaleTimer: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   itemFooter: {
     flexDirection: 'row',
@@ -606,6 +696,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#2563eb',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  itemFlashPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ff4757',
+  },
+  itemOriginalPrice: {
+    fontSize: 13,
+    color: '#999',
+    textDecorationLine: 'line-through',
   },
   quantityContainer: {
     flexDirection: 'row',

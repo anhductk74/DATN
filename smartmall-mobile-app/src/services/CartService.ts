@@ -19,6 +19,11 @@ export interface ProductVariant {
   attributes: VariantAttribute[];
   createdAt: string;
   updatedAt: string;
+  isFlashSaleActive?: boolean;
+  flashSalePrice?: number;
+  flashSaleEnd?: string;
+  discountPercent?: number;
+  effectivePrice?: number;
 }
 
 export interface CartItem {

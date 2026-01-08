@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -36,10 +36,12 @@ type LoginFormData = {
   rememberMe: boolean;
 };
 
-export default function Login() {
+function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/home';
   const { message } = useAntdApp();
 
   const {
@@ -66,7 +68,7 @@ export default function Login() {
       }
 
       message.success("Login successful!");
-      router.push("/home");
+      router.push(callbackUrl);
     } catch (error) {
       console.error("Login error:", error);
       message.error("Login failed. Please try again!");
@@ -80,19 +82,23 @@ export default function Login() {
     try {
       const result = await signIn("google", {
         redirect: false,
+        callbackUrl: callbackUrl,
       });
 
       if (result?.error) {
         message.error("Google login failed. Please try again!");
+        setLoading(false);
         return;
       }
 
-      message.success("Login successful!");
-      router.push("/home");
+      // Only show success and redirect if login was successful
+      if (result?.ok) {
+        message.success("Login successful!");
+        router.push(callbackUrl);
+      }
     } catch (error) {
       console.error("Google login error:", error);
       message.error("Google login failed. Please try again!");
-    } finally {
       setLoading(false);
     }
   };
@@ -318,5 +324,20 @@ export default function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

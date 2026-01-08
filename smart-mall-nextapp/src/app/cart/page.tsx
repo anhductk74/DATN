@@ -42,7 +42,10 @@ export default function CartPage() {
   };
 
   const selectedItemsData = items.filter(item => selectedItems.includes(item.cartItemId));
-  const selectedTotal = selectedItemsData.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const selectedTotal = selectedItemsData.reduce((sum, item) => {
+    const displayPrice = item.effectivePrice || item.price;
+    return sum + (displayPrice * item.quantity);
+  }, 0);
 
   // Update selectAll when all items are selected individually
   useEffect(() => {

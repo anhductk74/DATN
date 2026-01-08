@@ -439,6 +439,14 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
             </View>
 
             <View style={styles.itemInfo}>
+              {item.variant.isFlashSaleActive && (
+                <View style={styles.flashSaleBadge}>
+                  <Ionicons name="flash" size={10} color="#fff" />
+                  <Text style={styles.flashSaleBadgeText}>
+                    FLASH SALE {item.variant.discountPercent ? `-${item.variant.discountPercent}%` : ''}
+                  </Text>
+                </View>
+              )}
               <Text style={styles.itemName} numberOfLines={2}>
                 {item.productName}
               </Text>
@@ -448,9 +456,20 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
                 </Text>
               )}
               <View style={styles.itemFooter}>
-                <Text style={styles.itemPrice}>
-                  {item.variant.price.toLocaleString('vi-VN')}đ
-                </Text>
+                {item.variant.isFlashSaleActive && item.variant.flashSalePrice ? (
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.itemFlashPrice}>
+                      {item.variant.flashSalePrice.toLocaleString('vi-VN')}đ
+                    </Text>
+                    <Text style={styles.itemOriginalPrice}>
+                      {item.variant.price.toLocaleString('vi-VN')}đ
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.itemPrice}>
+                    {item.variant.price.toLocaleString('vi-VN')}đ
+                  </Text>
+                )}
                 <Text style={styles.itemQuantity}>x{item.quantity}</Text>
               </View>
             </View>
@@ -813,16 +832,16 @@ export default function CheckoutScreen({ navigation, route }: CheckoutScreenProp
                 <Text style={styles.footerLabel}>Subtotal:</Text>
                 <Text style={[styles.footerAmountRed, { fontSize: 14 }]}>{subtotal.toLocaleString('vi-VN')}đ</Text>
               </View>
-{/* 
+
               <View style={styles.footerSummarySingle}>
                 <Text style={styles.footerLabel}>Shipping:</Text>
-                <Text style={styles.footerAmountRed}>{shipping.toLocaleString('vi-VN')}đ</Text>
-              </View> */}
+                <Text style={[styles.footerAmountRed, { fontSize: 14 }]}>{shipping.toLocaleString('vi-VN')}đ</Text>
+              </View>
 
               {breakdown.totalDiscount > 0 && (
                 <View style={styles.footerSummarySingle}>
-                  <Text style={styles.footerLabel}>Discounted:</Text>
-                  <Text style={[styles.footerAmountRed, { textDecorationLine: 'line-through', fontSize: 14 }]}>-{breakdown.totalDiscount.toLocaleString('vi-VN')}đ</Text>
+                  <Text style={styles.footerLabel}>Voucher Discount:</Text>
+                  <Text style={[styles.footerAmountRed, { fontSize: 14, color: '#10b981' }]}>-{breakdown.totalDiscount.toLocaleString('vi-VN')}đ</Text>
                 </View>
               )}
 
@@ -1016,6 +1035,37 @@ const styles = StyleSheet.create({
   itemQuantity: {
     fontSize: 14,
     color: '#666',
+  },
+  flashSaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    gap: 3,
+    marginBottom: 4,
+  },
+  flashSaleBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  itemFlashPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ff4757',
+  },
+  itemOriginalPrice: {
+    fontSize: 12,
+    color: '#999',
+    textDecorationLine: 'line-through',
   },
   itemSubtotal: {
     fontSize: 14,

@@ -91,7 +91,7 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem('accessToken', response.data.accessToken);
         await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
-        navigation.replace('Home');
+        navigation.replace('MainTabs');
       } else {
         Alert.alert('Error', response.message || 'Registration failed');
       }

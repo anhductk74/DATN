@@ -172,7 +172,8 @@ export default function Header() {
   const handleNavigate = (path: string, requiresAuth = true) => {
     if (requiresAuth && !mergedUser) {
       message.info("Please login to continue");
-      router.push("/login");
+      const callbackUrl = encodeURIComponent(path);
+      router.push(`/login?callbackUrl=${callbackUrl}`);
       return;
     }
     router.push(path);

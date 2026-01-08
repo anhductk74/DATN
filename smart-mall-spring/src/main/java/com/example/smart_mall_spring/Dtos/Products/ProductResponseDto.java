@@ -31,4 +31,10 @@ public class ProductResponseDto {
     private LocalDateTime updatedAt;
     private Double averageRating;
     private Integer reviewCount;
+    
+    // Discount fields - giá thấp nhất của các variant
+    private Double minPrice;           // Giá gốc thấp nhất
+    private Double minDiscountPrice;   // Giá sau discount thấp nhất (nếu có)
+    private Boolean hasDiscount;       // Có discount không
+    private Integer maxDiscountPercent; // % discount lớn nhất
 }

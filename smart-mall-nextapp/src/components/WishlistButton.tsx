@@ -81,7 +81,8 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
     // Check authentication
     if (status !== "authenticated") {
       message.warning("Please login to add to wishlist");
-      router.push("/login");
+      const callbackUrl = encodeURIComponent(window.location.pathname);
+      router.push(`/login?callbackUrl=${callbackUrl}`);
       return;
     }
 

@@ -237,6 +237,41 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
 
   const selectedVariant = product?.variants?.find(v => v.id === selectedVariantId);
 
+  // Update flash sale timer every second
+  useEffect(() => {
+    if (!selectedVariant || !selectedVariant.isFlashSaleActive || !selectedVariant.flashSaleEnd) {
+      setFlashSaleTimer('');
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = new Date();
+      const endTime = new Date(selectedVariant.flashSaleEnd!);
+      const timeLeftMs = endTime.getTime() - now.getTime();
+      const timeLeftSeconds = Math.floor(timeLeftMs / 1000);
+      
+      if (timeLeftSeconds > 0) {
+        const days = Math.floor(timeLeftSeconds / 86400);
+        const hours = Math.floor((timeLeftSeconds % 86400) / 3600);
+        const minutes = Math.floor((timeLeftSeconds % 3600) / 60);
+        const seconds = timeLeftSeconds % 60;
+        
+        if (days > 0) {
+          setFlashSaleTimer(`${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+        } else {
+          setFlashSaleTimer(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+        }
+      } else {
+        setFlashSaleTimer('Ended');
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedVariant]);
+
   if (isLoading || !product) {
     return (
       <SafeAreaView style={styles.container}>
@@ -320,18 +355,41 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
           </View>
 
           <View style={styles.priceSection}>
-            <View style={styles.priceRow}>
-              <Text style={styles.price}>
-                {selectedVariant?.price.toLocaleString('vi-VN') || (product.variants && product.variants.length > 0 
-                  ? product.variants[0].price.toLocaleString('vi-VN') 
-                  : '0')}đ
-              </Text>
-              {selectedVariant && selectedVariant.price < (product.variants?.[0]?.price || 0) * 1.2 && (
-                <View style={styles.discountBadgeSmall}>
-                  <Text style={styles.discountBadgeText}>-17%</Text>
+            {selectedVariant?.isFlashSaleActive && selectedVariant?.flashSalePrice ? (
+              <>
+                <View style={styles.flashSaleHeader}>
+                  <View style={styles.flashSaleBadge}>
+                    <Ionicons name="flash" size={16} color="#fff" />
+                    <Text style={styles.flashSaleBadgeText}>FLASH SALE</Text>
+                    {selectedVariant.discountPercent && (
+                      <Text style={styles.flashSaleBadgeText}>-{selectedVariant.discountPercent}%</Text>
+                    )}
+                  </View>
+                  {flashSaleTimer && (
+                    <View style={styles.timerBadge}>
+                      <Ionicons name="time-outline" size={14} color="#ff4757" />
+                      <Text style={styles.timerText}>{flashSaleTimer}</Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
+                <View style={styles.priceRow}>
+                  <Text style={styles.flashPrice}>
+                    {selectedVariant.flashSalePrice.toLocaleString('vi-VN')}đ
+                  </Text>
+                  <Text style={styles.originalPrice}>
+                    {selectedVariant.price.toLocaleString('vi-VN')}đ
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.priceRow}>
+                <Text style={styles.price}>
+                  {selectedVariant?.price.toLocaleString('vi-VN') || (product.variants && product.variants.length > 0 
+                    ? product.variants[0].price.toLocaleString('vi-VN') 
+                    : '0')}đ
+                </Text>
+              </View>
+            )}
             <View style={styles.salesInfo}>
               <Text style={styles.salesText}>Sold: {product.reviewCount * 5}</Text>
               <Text style={styles.separator}>|</Text>
@@ -638,12 +696,27 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
                   defaultSource={require('../../assets/icon.png')}
                 />
                 <View style={styles.modalProductDetails}>
-                  <Text style={styles.modalPrice}>
-                    {selectedVariant?.price.toLocaleString('vi-VN') || 
-                      (product.variants && product.variants.length > 0 
-                        ? product.variants[0].price.toLocaleString('vi-VN') 
-                        : '0')}đ
-                  </Text>
+                  {selectedVariant?.isFlashSaleActive && selectedVariant?.flashSalePrice ? (
+                    <>
+                      <View style={styles.modalFlashSaleBadge}>
+                        <Ionicons name="flash" size={12} color="#fff" />
+                        <Text style={styles.modalFlashSaleText}>-{selectedVariant.discountPercent}%</Text>
+                      </View>
+                      <Text style={styles.modalPrice}>
+                        {selectedVariant.flashSalePrice.toLocaleString('vi-VN')}đ
+                      </Text>
+                      <Text style={styles.modalOriginalPrice}>
+                        {selectedVariant.price.toLocaleString('vi-VN')}đ
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.modalPrice}>
+                      {selectedVariant?.price.toLocaleString('vi-VN') || 
+                        (product.variants && product.variants.length > 0 
+                          ? product.variants[0].price.toLocaleString('vi-VN') 
+                          : '0')}đ
+                    </Text>
+                  )}
                   <Text style={styles.modalStock}>
                     Stock: {selectedVariant?.stock || 0}
                   </Text>
@@ -681,13 +754,23 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
                           onPress={() => !isOutOfStock && setSelectedVariantId(variant.id)}
                           disabled={isOutOfStock}
                         >
-                          <Text style={[
-                            styles.variantChipText,
-                            isSelected && styles.variantChipTextSelected,
-                            isOutOfStock && styles.variantChipTextDisabled,
-                          ]}>
-                            {attributesText || variant.sku}
-                          </Text>
+                          <View style={styles.variantChipContent}>
+                            <Text style={[
+                              styles.variantChipText,
+                              isSelected && styles.variantChipTextSelected,
+                              isOutOfStock && styles.variantChipTextDisabled,
+                            ]}>
+                              {attributesText || variant.sku}
+                            </Text>
+                            {variant.isFlashSaleActive && variant.flashSalePrice && (
+                              <View style={styles.variantFlashBadge}>
+                                <Ionicons name="flash" size={10} color="#ff4757" />
+                                <Text style={styles.variantFlashPrice}>
+                                  {variant.flashSalePrice.toLocaleString('vi-VN')}đ
+                                </Text>
+                              </View>
+                            )}
+                          </View>
                           {isOutOfStock && (
                             <Text style={styles.outOfStockLabel}>Sold out</Text>
                           )}
@@ -897,6 +980,47 @@ const styles = StyleSheet.create({
   },
   priceSection: {
     paddingTop: 8,
+  },
+  flashSaleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  flashSaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  flashSaleBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  timerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff5f5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#ff4757',
+  },
+  timerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ff4757',
+  },
+  flashPrice: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#ff4757',
   },
   priceRow: {
     flexDirection: 'row',
@@ -1251,6 +1375,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#fff',
   },
+  variantChipContent: {
+    gap: 4,
+  },
+  variantFlashBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
+  },
+  variantFlashPrice: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ff4757',
+  },
   variantChipSelected: {
     borderColor: '#2563eb',
     borderWidth: 2,
@@ -1445,6 +1583,28 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ff4757',
     marginBottom: 4,
+  },
+  modalOriginalPrice: {
+    fontSize: 14,
+    color: '#999',
+    textDecorationLine: 'line-through',
+    marginBottom: 4,
+  },
+  modalFlashSaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    gap: 2,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  modalFlashSaleText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   modalStock: {
     fontSize: 13,

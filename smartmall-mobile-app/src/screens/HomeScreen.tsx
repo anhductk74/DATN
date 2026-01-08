@@ -99,6 +99,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [flashDealsReal, setFlashDealsReal] = useState<FlashSaleProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [flashSaleTimers, setFlashSaleTimers] = useState<{ [key: string]: string }>({});
+  const [featuredProductTimers, setFeaturedProductTimers] = useState<{ [key: string]: string }>({});
   const [cartCount, setCartCount] = useState(0);
   const [featuredPage, setFeaturedPage] = useState(0);
   const [hasMoreFeatured, setHasMoreFeatured] = useState(true);
@@ -119,14 +120,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   }, [navigation]);
 
   useEffect(() => {
-    if (flashDealsReal.length === 0) return;
+    if (flashDealsReal.length === 0 && featuredProductsReal.length === 0) return;
 
     const updateTimers = () => {
-      const newTimers: { [key: string]: string } = {};
+      const newFlashTimers: { [key: string]: string } = {};
+      const newFeaturedTimers: { [key: string]: string } = {};
       const now = new Date();
       
+      // Update flash deals timers
       flashDealsReal.forEach((deal) => {
-        // Calculate time remaining from flashSaleEnd
         const endTime = new Date(deal.flashSaleEnd);
         const timeLeftMs = endTime.getTime() - now.getTime();
         const timeLeftSeconds = Math.floor(timeLeftMs / 1000);
@@ -138,22 +140,53 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           const seconds = timeLeftSeconds % 60;
           
           if (days > 0) {
-            newTimers[deal.id] = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            newFlashTimers[deal.id] = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
           } else {
-            newTimers[deal.id] = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            newFlashTimers[deal.id] = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
           }
         } else {
-          newTimers[deal.id] = 'Ended';
+          newFlashTimers[deal.id] = 'Ended';
         }
       });
-      setFlashSaleTimers(newTimers);
+      
+      // Update featured products timers (for products with flash sales)
+      featuredProductsReal.forEach((product) => {
+        if (product.hasDiscount && product.variants && product.variants.length > 0) {
+          // Find variant with active flash sale
+          const flashSaleVariant = product.variants.find((v: any) => v.isFlashSaleActive && v.flashSaleEnd);
+          
+          if (flashSaleVariant && flashSaleVariant.flashSaleEnd) {
+            const endTime = new Date(flashSaleVariant.flashSaleEnd);
+            const timeLeftMs = endTime.getTime() - now.getTime();
+            const timeLeftSeconds = Math.floor(timeLeftMs / 1000);
+            
+            if (timeLeftSeconds > 0) {
+              const days = Math.floor(timeLeftSeconds / 86400);
+              const hours = Math.floor((timeLeftSeconds % 86400) / 3600);
+              const minutes = Math.floor((timeLeftSeconds % 3600) / 60);
+              const seconds = timeLeftSeconds % 60;
+              
+              if (days > 0) {
+                newFeaturedTimers[product.id] = `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              } else {
+                newFeaturedTimers[product.id] = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+              }
+            } else {
+              newFeaturedTimers[product.id] = 'Ended';
+            }
+          }
+        }
+      });
+      
+      setFlashSaleTimers(newFlashTimers);
+      setFeaturedProductTimers(newFeaturedTimers);
     };
 
     updateTimers();
     const interval = setInterval(updateTimers, 1000);
 
     return () => clearInterval(interval);
-  }, [flashDealsReal]);
+  }, [flashDealsReal, featuredProductsReal]);
 
   const loadHomeData = async () => {
     try {
@@ -280,6 +313,23 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     const price = isRealProduct && product.variants?.length > 0 ? product.variants[0].price : product.price;
     const rating = product.averageRating || product.rating || 0;
     
+    // Check if product has active flash sale from API fields
+    const hasFlashSale = product.hasDiscount || false;
+    const flashSalePrice = product.minDiscountPrice;
+    const discountPercent = product.maxDiscountPercent || product.discount;
+    
+    // Get flash sale end time from first variant with active flash sale
+    let flashSaleEnd = null;
+    if (hasFlashSale && product.variants && product.variants.length > 0) {
+      const flashSaleVariant = product.variants.find((v: any) => v.isFlashSaleActive);
+      if (flashSaleVariant && flashSaleVariant.flashSaleEnd) {
+        flashSaleEnd = flashSaleVariant.flashSaleEnd;
+      }
+    }
+    
+    // Get time remaining from state
+    const timeLeft = featuredProductTimers[product.id] || '';
+    
     return (
       <TouchableOpacity 
         key={`product-${product.id}-${index}`} 
@@ -297,10 +347,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Ionicons name="cube-outline" size={48} color="#999" />
             </View>
           )}
-          {product.discount && product.discount > 0 && (
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>-{product.discount}%</Text>
+          {hasFlashSale && discountPercent && discountPercent > 0 ? (
+            <View style={styles.flashSaleBadge}>
+              <Ionicons name="flash" size={12} color="#fff" />
+              <Text style={styles.flashSaleBadgeText}>-{discountPercent}%</Text>
             </View>
+          ) : (
+            product.discount && product.discount > 0 && (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>-{product.discount}%</Text>
+              </View>
+            )
           )}
         </View>
         <View style={styles.productInfo}>
@@ -311,11 +368,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
             <AntDesign name="star" size={12} color="#f59e0b" />
             <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
           </View>
-          <View style={styles.priceContainer}>
-            <Text style={styles.price}>
-              {price ? `${price.toLocaleString('vi-VN')}đ` : 'N/A'}
-            </Text>
-          </View>
+          {hasFlashSale && flashSalePrice ? (
+            <>
+              <View style={styles.priceContainer}>
+                <Text style={styles.flashDealPrice}>
+                  {flashSalePrice.toLocaleString('vi-VN')}đ
+                </Text>
+                <Text style={styles.flashDealOriginalPrice}>
+                  {price ? `${price.toLocaleString('vi-VN')}đ` : ''}
+                </Text>
+              </View>
+              {timeLeft && (
+                <View style={styles.timerContainer}>
+                  <MaterialCommunityIcons name="timer-outline" size={12} color="#ff4757" />
+                  <Text style={styles.timerText}>{timeLeft}</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.priceContainer}>
+              <Text style={styles.price}>
+                {price ? `${price.toLocaleString('vi-VN')}đ` : 'N/A'}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );

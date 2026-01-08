@@ -20,6 +20,14 @@ export interface CartItem {
   sale?: string;
   variantId: string;
   cartItemId: string;
+  // Flash sale fields
+  isFlashSaleActive?: boolean;
+  effectivePrice?: number;
+  flashSalePrice?: number;
+  discountPercent?: number;
+  flashSaleQuantity?: number;
+  flashSaleStart?: string;
+  flashSaleEnd?: string;
 }
 
 interface CartContextValue {
@@ -113,6 +121,14 @@ async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
         shopId: shopId,
         brand: item.variant.productBrand,
         variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
+        // Flash sale fields from variant
+        isFlashSaleActive: item.variant.isFlashSaleActive,
+        effectivePrice: item.variant.effectivePrice,
+        flashSalePrice: item.variant.flashSalePrice,
+        discountPercent: item.variant.discountPercent,
+        flashSaleQuantity: item.variant.flashSaleQuantity,
+        flashSaleStart: item.variant.flashSaleStart,
+        flashSaleEnd: item.variant.flashSaleEnd,
       };
     } catch (error) {
       console.error('Error transforming cart item:', error);
@@ -133,6 +149,14 @@ async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
         shopId: fallbackShopId,
         brand: item.variant.productBrand,
         variant: item.variant.attributes.map(attr => `${attr.name}: ${attr.value}`).join(', '),
+        // Flash sale fields from variant
+        isFlashSaleActive: item.variant.isFlashSaleActive,
+        effectivePrice: item.variant.effectivePrice,
+        flashSalePrice: item.variant.flashSalePrice,
+        discountPercent: item.variant.discountPercent,
+        flashSaleQuantity: item.variant.flashSaleQuantity,
+        flashSaleStart: item.variant.flashSaleStart,
+        flashSaleEnd: item.variant.flashSaleEnd,
       };
     }
   });
@@ -188,7 +212,9 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
       const apiCart = await cartService.addItem({ variantId, quantity });
       const transformedItems = await transformApiCartToLocal(apiCart);
       setItems(transformedItems);
+
       
+
     } catch (error: any) {
       console.error('Failed to add item to cart:', error);
       message.error(error?.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
@@ -259,7 +285,10 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
   };
 
   const totalCount = useMemo(() => items.reduce((s, it) => s + it.quantity, 0), [items]);
-  const totalPrice = useMemo(() => items.reduce((s, it) => s + it.quantity * it.price, 0), [items]);
+  const totalPrice = useMemo(() => items.reduce((s, it) => {
+    const displayPrice = it.effectivePrice || it.price;
+    return s + it.quantity * displayPrice;
+  }, 0), [items]);
 
   const value: CartContextValue = {
     items,
