@@ -29,6 +29,7 @@ import { useUserProfile } from "@/contexts/UserProfileContext";
 import type { MenuProps } from "antd";
 import Link from "next/link";
 import { shopService, Shop } from "@/services";
+import NotificationBell from "@/components/NotificationBell";
 
 const { Sider, Header, Content } = Layout;
 
@@ -346,13 +347,7 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
 
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <Badge count={5}>
-                <Button
-                  type="text"
-                  icon={<BellOutlined />}
-                  className="flex items-center justify-center w-10 h-10"
-                />
-              </Badge>
+              <NotificationBell />
 
               {/* User Menu */}
               <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>

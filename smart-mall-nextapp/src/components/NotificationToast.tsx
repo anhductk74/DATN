@@ -122,6 +122,9 @@ export const NotificationToast: React.FC = () => {
   return (
     <Toaster
       position="top-right"
+      containerStyle={{
+        top: '80px', // Header height (64px) + 16px spacing
+      }}
       toastOptions={{
         className: '',
         style: {

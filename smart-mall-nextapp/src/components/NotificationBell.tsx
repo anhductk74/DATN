@@ -126,11 +126,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
       <div className="p-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h3 className="text-lg font-semibold">Thông báo</h3>
-          {isConnected ? (
+          {/* {isConnected ? (
             <span className="text-xs text-green-500">● Online</span>
           ) : (
             <span className="text-xs text-gray-400">● Offline</span>
-          )}
+          )} */}
         </div>
         <div className="flex items-center gap-2">
           <Button

@@ -148,11 +148,7 @@ export default function NotificationsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Title level={2} className="!mb-0">Thông báo</Title>
-              {isConnected ? (
-                <Tag color="green">● Online</Tag>
-              ) : (
-                <Tag color="default">● Offline</Tag>
-              )}
+              
             </div>
             <div className="flex gap-2">
               <Button

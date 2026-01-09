@@ -288,7 +288,8 @@ class NotificationService {
   /**
    * Get all notifications (paginated)
    */
-  async getNotifications(page = 0, size = 20): Promise<PaginatedNotifications> {
+  async getNotifications(page = 0, size = 20, token?: string): Promise<PaginatedNotifications> {
+    if (token) this.token = token;
     return this.fetchAPI(`/notifications?page=${page}&size=${size}`);
   }
 
@@ -302,7 +303,8 @@ class NotificationService {
   /**
    * Get unread count
    */
-  async getUnreadCount(): Promise<number> {
+  async getUnreadCount(token?: string): Promise<number> {
+    if (token) this.token = token;
     const response = await this.fetchAPI('/notifications/unread/count');
     // Response structure: { count: 12 } or wrapped in data
     return response.count || 0;

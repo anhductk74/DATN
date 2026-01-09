@@ -362,10 +362,10 @@ export default function Home() {
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            {categories.map((category) => {
+            {categories.map((category, index) => {
               return (
                 <div
-                  key={category.id}
+                  key={`category-${category.id}-${index}`}
                   onClick={() => router.push(`/products?category=${category.id}`)}
                   className="group relative bg-white border-2 border-gray-100 rounded-2xl p-6 text-center cursor-pointer
                              hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300
@@ -420,8 +420,8 @@ export default function Home() {
                   { label: 'Hours', value: timeLeft.hours, key: 'hours' },
                   { label: 'Minutes', value: timeLeft.minutes, key: 'minutes' },
                   { label: 'Seconds', value: timeLeft.seconds, key: 'seconds' }
-                ].map((item) => (
-                  <div key={item.key} className="text-center">
+              ].map((item, idx) => (
+                <div key={`timer-${item.key}-${idx}`} className="text-center">
                     <div className="bg-white border-2 border-red-500 rounded-xl px-4 py-3 min-w-[70px] shadow-lg">
                       <div className="text-2xl font-bold text-red-600">{String(item.value).padStart(2, '0')}</div>
                     </div>
@@ -437,7 +437,7 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                {flashSaleProducts.map((item) => {
+                {flashSaleProducts.map((item, index) => {
                   // Use timeRemaining from API response (in seconds)
                   const timeRemaining = item.timeRemaining || 0;
                   const hours = Math.floor(timeRemaining / 3600);
@@ -451,7 +451,7 @@ export default function Home() {
                   
                   return (
                     <div
-                      key={item.variantId}
+                      key={`flash-sale-${item.variantId || item.productId}-${index}`}
                       onClick={() => router.push(`/product/${item.productId}`)}
                       className="group relative bg-white border-2 border-red-100 rounded-2xl p-4 cursor-pointer
                                  hover:border-red-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
@@ -555,7 +555,7 @@ export default function Home() {
             // Loading skeleton
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
               {Array.from({ length: 12 }).map((_, index) => (
-                <div key={index} className="bg-white border-2 border-gray-100 rounded-2xl p-4 animate-pulse">
+                <div key={`skeleton-${index}`} className="bg-white border-2 border-gray-100 rounded-2xl p-4 animate-pulse">
                   <div className="relative h-44 bg-gray-200 rounded-xl mb-3"></div>
                   <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
                   <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
@@ -568,7 +568,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-            {products.map((p) => {
+            {products.map((p, idx) => {
               const v = p.variants?.[0];
               const rating = p.averageRating || 4.5;
               const reviews = p.reviewCount || 0;
@@ -582,7 +582,7 @@ export default function Home() {
               
               return (
                 <div
-                  key={p.id}
+                  key={`product-${p.id}-${idx}`}
                   onClick={() => router.push(`/product/${p.id}`)}
                   className={`group relative bg-white rounded-2xl p-4 cursor-pointer
                              hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 ${

@@ -22,7 +22,7 @@ export interface UseNotificationsReturn {
  * Custom hook to manage notifications
  */
 export const useNotifications = (): UseNotificationsReturn => {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
@@ -31,6 +31,7 @@ export const useNotifications = (): UseNotificationsReturn => {
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const isInitialized = useRef(false);
 
   /**
    * Handle new notification from WebSocket
@@ -54,13 +55,13 @@ export const useNotifications = (): UseNotificationsReturn => {
    */
   const loadNotifications = useCallback(
     async (page = 0, size = 20) => {
-      if (!session?.user?.id) return;
+      if (!session?.user?.id || !session?.accessToken) return;
 
       setIsLoading(true);
       setError(null);
 
       try {
-        const result = await notificationService.getNotifications(page, size);
+        const result = await notificationService.getNotifications(page, size, session.accessToken);
         
         // Validate response structure
         if (!result || !Array.isArray(result.content)) {
@@ -84,7 +85,7 @@ export const useNotifications = (): UseNotificationsReturn => {
         setIsLoading(false);
       }
     },
-    [session?.user?.id]
+    [session?.user?.id, session?.accessToken]
   );
 
   /**
@@ -99,15 +100,15 @@ export const useNotifications = (): UseNotificationsReturn => {
    * Refresh unread count
    */
   const refreshUnreadCount = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !session?.accessToken) return;
 
     try {
-      const count = await notificationService.getUnreadCount();
+      const count = await notificationService.getUnreadCount(session.accessToken);
       setUnreadCount(count);
     } catch (err) {
       console.error('Error fetching unread count:', err);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, session?.accessToken]);
 
   /**
    * Mark notification as read
@@ -194,15 +195,35 @@ export const useNotifications = (): UseNotificationsReturn => {
    * Connect to WebSocket and load initial data
    */
   useEffect(() => {
+    // Wait for session to be ready
+    if (status === 'loading') {
+      console.log('⏳ Waiting for session to load...');
+      return;
+    }
+
+    if (status === 'unauthenticated') {
+      console.log('🔒 User not authenticated');
+      return;
+    }
+
     if (!session?.user?.id || !session?.accessToken) {
       console.warn('⚠️ No user ID or access token in session');
       return;
     }
 
+    // Prevent double initialization
+    if (isInitialized.current) {
+      console.log('✓ Already initialized, skipping...');
+      return;
+    }
+
+    isInitialized.current = true;
+
     // Get token directly from NextAuth session
     const token = session.accessToken;
     const userId = session.user.id;
     
+    console.log('🚀 Initializing notification system...');
     console.log('🔑 Using token from session:', token.substring(0, 30) + '...');
     console.log('👤 User ID:', userId);
 
@@ -215,37 +236,61 @@ export const useNotifications = (): UseNotificationsReturn => {
       }
     }
 
-    // Connect to WebSocket
+    // Load initial notifications immediately
+    const initializeNotifications = async () => {
+      try {
+        console.log('📋 Loading initial notifications...');
+        const result = await notificationService.getNotifications(0, 20, token);
+        
+        if (result && Array.isArray(result.content)) {
+          setNotifications(result.content);
+          setCurrentPage(0);
+          setHasMore(0 < (result.totalPages || 0) - 1);
+          console.log('✅ Loaded', result.content.length, 'notifications');
+        }
+
+        console.log('📊 Loading unread count...');
+        const count = await notificationService.getUnreadCount(token);
+        setUnreadCount(count);
+        console.log('✅ Unread count:', count);
+        
+      } catch (err) {
+        console.error('❌ Failed to load initial notifications:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load');
+      }
+    };
+
+    // Start loading immediately
+    initializeNotifications();
+
+    // Then connect to WebSocket for real-time updates
     notificationService
       .connect(userId, token)
       .then(() => {
         setIsConnected(true);
-        console.log('✅ Notification service connected');
+        console.log('✅ WebSocket connected');
 
         // Subscribe to new notifications
         unsubscribeRef.current = notificationService.subscribe(handleNewNotification);
-
-        // Load initial notifications
-        loadNotifications(0, 20);
-        refreshUnreadCount();
       })
       .catch((err) => {
-        console.error('Failed to connect to notification service:', err);
+        console.error('❌ Failed to connect WebSocket:', err);
         setError(err.message);
         setIsConnected(false);
       });
 
     // Cleanup on unmount
     return () => {
+      console.log('🧹 Cleaning up notification service...');
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
       notificationService.disconnect();
       setIsConnected(false);
+      isInitialized.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id, session?.accessToken]);
+  }, [status, session?.user?.id, session?.accessToken, handleNewNotification]);
 
   return {
     notifications,
