@@ -15,7 +15,7 @@ import java.util.UUID;
 public class ShipmentOrderRequestDto {
 
     private UUID orderId;
-    private UUID shipperId;
+//    private UUID shipperId;
     private UUID warehouseId;
 
     private String pickupAddress;

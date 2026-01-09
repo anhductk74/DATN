@@ -37,14 +37,6 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
 
   // Sync orderData when order prop changes (important for QR scan flow)
   useEffect(() => {
-    console.log('📦 Order prop updated:', {
-      id: order.id,
-      sequence: order.sequence,
-      shopName: order.shopName,
-      shopAddress: order.shopAddress,
-      customerName: order.customerName,
-      customerAddress: order.customerAddress
-    });
     setOrderData(order);
     // Don't auto-verify - require QR scan for sequence 1
     // For other sequences, verification is not required
@@ -75,52 +67,40 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
   };
 
   const handleStatusAction = async (action: 'pickup' | 'transit' | 'deliver') => {
-    console.log('🎬 [handleStatusAction] Starting action:', action);
-    console.log('📦 [handleStatusAction] Order data:', {
-      id: orderData.id,
-      shipmentOrderCode: orderData.shipmentOrderCode,
-      status: orderData.status,
-      sequence: orderData.sequence
-    });
-    
     try {
       setLoading(true);
       let response;
       const actionText = action === 'pickup' ? 'lấy hàng' : action === 'transit' ? 'vận chuyển' : 'giao hàng';
       
-      console.log(`🚀 [handleStatusAction] Calling API for: ${actionText}`);
+      // Use scannedCode (trackingCode) if available, fallback to shipmentOrderCode
+      const trackingCode = scannedCode || orderData.trackingCode || orderData.shipmentOrderCode;
+      
       switch (action) {
         case 'pickup':
-          response = await shipperSubOrderService.confirmPickup(orderData.shipmentOrderCode);
+          response = await shipperSubOrderService.confirmPickup(trackingCode);
           break;
         case 'transit':
-          response = await shipperSubOrderService.confirmTransit(orderData.shipmentOrderCode);
+          response = await shipperSubOrderService.confirmTransit(trackingCode);
           break;
         case 'deliver':
-          response = await shipperSubOrderService.confirmDelivery(orderData.shipmentOrderCode);
+          response = await shipperSubOrderService.confirmDelivery(trackingCode);
           break;
       }
 
-      console.log('📨 [handleStatusAction] API Response:', response);
-      
       if (response.success && response.data) {
-        console.log('✅ [handleStatusAction] Success! New order data:', response.data);
         Alert.alert('Thành công', `Đã xác nhận ${actionText}`);
         setOrderData(response.data);
+        // Update scannedCode if response has trackingCode
+        if (response.data.trackingCode) {
+          setScannedCode(response.data.trackingCode);
+        }
         if (onOrderUpdated) {
           onOrderUpdated();
         }
       } else {
-        console.log('❌ [handleStatusAction] Failed:', response.message);
         Alert.alert('Lỗi', response.message || `Không thể xác nhận ${actionText}`);
       }
     } catch (error: any) {
-      console.error('❌ [handleStatusAction] Exception caught:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
       Alert.alert('Lỗi', error.message || 'Đã xảy ra lỗi khi thực hiện thao tác');
     } finally {
       setLoading(false);
@@ -357,7 +337,7 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'clock-outline';
+      case 'PENDING': return 'time-outline';
       case 'PICKING_UP': return 'cube-outline';
       case 'IN_TRANSIT': return 'car-outline';
       case 'DELIVERED': return 'checkmark-done-circle';
@@ -408,7 +388,7 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
 
   const getTimelineSteps = () => {
     const steps = [
-      { key: 'PENDING', label: 'Chờ lấy', icon: 'clock-outline' },
+      { key: 'PENDING', label: 'Chờ lấy', icon: 'time-outline' },
       { key: 'PICKING_UP', label: 'Đang lấy', icon: 'cube-outline' },
       { key: 'IN_TRANSIT', label: 'Vận chuyển', icon: 'car-outline' },
       { key: 'DELIVERED', label: 'Đã giao', icon: 'checkmark-done-circle' },

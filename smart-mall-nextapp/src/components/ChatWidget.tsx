@@ -510,7 +510,7 @@ const ChatWidget: React.FC = () => {
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <Badge dot={room.lastMessage && !isSelected}>
                           <Avatar
-                            src={userInfo.avatar}
+                            src={userInfo.avatar && userInfo.avatar.trim() !== '' ? userInfo.avatar : undefined}
                             icon={<UserOutlined />}
                             size={48}
                             style={{ flexShrink: 0 }}
@@ -583,7 +583,7 @@ const ChatWidget: React.FC = () => {
                     }}
                   >
                     <Avatar
-                      src={selectedUser.avatar}
+                      src={selectedUser.avatar && selectedUser.avatar.trim() !== '' ? selectedUser.avatar : undefined}
                       icon={<UserOutlined />}
                       size={44}
                       style={{ flexShrink: 0 }}
@@ -663,7 +663,7 @@ const ChatWidget: React.FC = () => {
                           >
                             {!isOwn && (
                               <Avatar
-                                src={selectedUser?.avatar}
+                                src={selectedUser?.avatar && selectedUser.avatar.trim() !== '' ? selectedUser.avatar : undefined}
                                 icon={<UserOutlined />}
                                 size={32}
                                 style={{ flexShrink: 0 }}

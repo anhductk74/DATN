@@ -109,7 +109,7 @@ export default function CartScreen({ navigation }: CartScreenProps) {
   };
 
   const toggleSelectAll = () => {
-    if (!cart || cart.items.length === 0) return;
+    if (!cart || !cart.items || cart.items.length === 0) return;
     
     if (selectedItems.size === cart.items.length) {
       // Deselect all
@@ -256,7 +256,7 @@ export default function CartScreen({ navigation }: CartScreenProps) {
   };
 
   const handleCheckout = () => {
-    if (!cart || cart.items.length === 0) {
+    if (!cart || !cart.items || cart.items.length === 0) {
       Alert.alert('Empty Cart', 'Please add items to cart before checkout');
       return;
     }
@@ -411,7 +411,7 @@ export default function CartScreen({ navigation }: CartScreenProps) {
     );
   }
 
-  const isEmpty = !cart || cart.items.length === 0;
+  const isEmpty = !cart || !cart.items || cart.items.length === 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -449,19 +449,19 @@ export default function CartScreen({ navigation }: CartScreenProps) {
                 onPress={toggleSelectAll}
               >
                 <Ionicons 
-                  name={selectedItems.size === cart.items.length ? "checkbox" : "square-outline"} 
+                  name={selectedItems.size === (cart?.items?.length || 0) ? "checkbox" : "square-outline"} 
                   size={24} 
-                  color={selectedItems.size === cart.items.length ? "#2563eb" : "#999"} 
+                  color={selectedItems.size === (cart?.items?.length || 0) ? "#2563eb" : "#999"} 
                 />
                 <Text style={styles.selectAllText}>Select All</Text>
               </TouchableOpacity>
               <Text style={styles.itemCount}>
-                {selectedItems.size}/{cart.items.length} selected
+                {selectedItems.size}/{cart?.items?.length || 0} selected
               </Text>
             </View>
 
             <View style={styles.itemsContainer}>
-              {cart.items.map(item => renderCartItem(item))}
+              {cart?.items?.map(item => renderCartItem(item))}
             </View>
 
             <View style={{ height: 120 }} />

@@ -527,12 +527,7 @@ export default function DeliveredOrdersPage() {
           </div>
           
           <div className="flex gap-2">
-            <Button icon={<GiftOutlined />}>
-              Send Thank You
-            </Button>
-            <Button icon={<ExportOutlined />}>
-              Export Report
-            </Button>
+           
           </div>
         </div>
       </Card>
@@ -540,15 +535,7 @@ export default function DeliveredOrdersPage() {
       {/* Orders Table */}
       <Card 
         title={`Delivered Orders (${filteredOrders.length})`}
-        extra={
-          <Button 
-            type="primary" 
-            icon={<StarOutlined />}
-            onClick={() => message.info('Review management coming soon')}
-          >
-            Manage Reviews
-          </Button>
-        }
+       
       >
         <Table
           columns={columns}

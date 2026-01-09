@@ -213,10 +213,12 @@ export default function ShipmentOrderDetailPage() {
       endDate.setDate(endDate.getDate() + 1);
       const endTime = endDate.toISOString();
       
+      // Chặng 1: từ Shop (fromWarehouse = null) đến kho
+      // Chặng 3: từ kho đến khách (toWarehouse = null)
       const requestDto: SubShipmentOrderRequestDto = {
         shipmentOrderId: shipmentId,
-        fromWarehouseId: values.fromWarehouseId,
-        toWarehouseId: values.toWarehouseId,
+        fromWarehouseId: values.sequence === 1 ? null : values.fromWarehouseId,
+        toWarehouseId: values.sequence === 3 ? null : values.toWarehouseId,
         shipperId: values.shipperId,
         status: values.status,
         sequence: values.sequence,
@@ -228,16 +230,13 @@ export default function ShipmentOrderDetailPage() {
       const createdSubShipment = await subShipmentOrderService.create(requestDto);
       
       // Tạo log tương ứng cho sub-shipment này
-      const fromWarehouseName = warehouses.find(w => w.id === values.fromWarehouseId)?.name || 
-                                 (shopAddressAsWarehouse && shopAddressAsWarehouse.id === values.fromWarehouseId ? shopAddressAsWarehouse.name : 'Kho gửi');
+      const fromWarehouseName = values.sequence === 1 
+        ? (shopAddressAsWarehouse?.name || 'Shop')
+        : (warehouses.find(w => w.id === values.fromWarehouseId)?.name || 'Kho gửi');
       
-      // Nếu sequence = 3 và toWarehouseId null hoặc là user address, hiển thị địa chỉ người nhận
-      let toWarehouseName = '';
-      if (values.sequence === 3 && (!values.toWarehouseId || (userAddressAsWarehouse && userAddressAsWarehouse.id === values.toWarehouseId))) {
-        toWarehouseName = userAddressAsWarehouse?.name || 'Người nhận';
-      } else {
-        toWarehouseName = warehouses.find(w => w.id === values.toWarehouseId)?.name || 'Kho nhận';
-      }
+      const toWarehouseName = values.sequence === 3
+        ? (userAddressAsWarehouse?.name || 'Khách hàng')
+        : (warehouses.find(w => w.id === values.toWarehouseId)?.name || 'Kho nhận');
       
       await ShipmentLogService.createLog({
         shipmentOrderId: shipmentId,
@@ -852,12 +851,8 @@ export default function ShipmentOrderDetailPage() {
                   status: ShipmentStatus.PENDING
                 };
                 
-                // Nếu là chặng 1 và có shop address, set làm kho gửi
-                if (nextSequence === 1 && shopAddressAsWarehouse) {
-                  defaultValues.fromWarehouseId = shopAddressAsWarehouse.id;
-                }
-                
-                // Sequence 3 không auto-set toWarehouse (có thể để null)
+                // Chặng 1: không cần set fromWarehouseId (sẽ là null - từ shop)
+                // Chặng 3: không cần set toWarehouseId (sẽ là null - đến khách)
                 
                 subShipmentForm.setFieldsValue(defaultValues);
               }}
@@ -899,10 +894,7 @@ export default function ShipmentOrderDetailPage() {
                         status: ShipmentStatus.PENDING
                       };
                       
-                      // Nếu có shop address, set làm kho gửi cho chặng 1
-                      if (shopAddressAsWarehouse) {
-                        defaultValues.fromWarehouseId = shopAddressAsWarehouse.id;
-                      }
+                      // Chặng 1: fromWarehouseId sẽ là null (từ shop)
                       
                       subShipmentForm.setFieldsValue(defaultValues);
                     }}
@@ -1096,33 +1088,53 @@ export default function ShipmentOrderDetailPage() {
             />
           </Form.Item>
 
-          <Form.Item 
-            label="Kho gửi (Điểm bắt đầu)" 
-            name="fromWarehouseId"
-            rules={[{ required: true, message: 'Vui lòng chọn kho gửi' }]}
-            tooltip={subShipmentForm.getFieldValue('sequence') === 1 && shopAddressAsWarehouse ? 'Chặng 1 mặc định là địa chỉ shop' : undefined}
-          >
-            <Select 
-              placeholder="Chọn kho gửi"
-              showSearch
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                String(option?.children).toLowerCase().includes(input.toLowerCase())
-              }
+          {/* Chặng 1: Hiển thị thông tin shop (không cho chọn) */}
+          {subShipmentForm.getFieldValue('sequence') === 1 && shopAddressAsWarehouse && (
+            <div style={{ 
+              marginBottom: '24px',
+              padding: '16px',
+              background: '#f0f9ff',
+              border: '1px solid #bae7ff',
+              borderRadius: '8px'
+            }}>
+              <div style={{ marginBottom: '8px', fontWeight: 600, color: '#1890ff' }}>
+                📦 Điểm xuất phát: Lấy hàng từ Shop
+              </div>
+              <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                <strong>Tên shop:</strong> {shopAddressAsWarehouse.name}
+              </div>
+              <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                <strong>Số điện thoại:</strong> {shopAddressAsWarehouse.phone}
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                <strong>Địa chỉ:</strong> {shopAddressAsWarehouse.address}
+              </div>
+            </div>
+          )}
+
+          {/* Chặng 2, 3: Cho chọn kho gửi */}
+          {subShipmentForm.getFieldValue('sequence') !== 1 && (
+            <Form.Item 
+              label="Kho gửi (Điểm bắt đầu)" 
+              name="fromWarehouseId"
+              rules={[{ required: true, message: 'Vui lòng chọn kho gửi' }]}
             >
-              {/* Hiển thị shop address nếu là chặng 1 */}
-              {subShipmentForm.getFieldValue('sequence') === 1 && shopAddressAsWarehouse && (
-                <Select.Option key={shopAddressAsWarehouse.id} value={shopAddressAsWarehouse.id}>
-                  🏪 {shopAddressAsWarehouse.name} (Shop) - {shopAddressAsWarehouse.address}
-                </Select.Option>
-              )}
-              {warehouses.map(warehouse => (
-                <Select.Option key={warehouse.id} value={warehouse.id}>
-                  {warehouse.name} - {warehouse.address}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
+              <Select 
+                placeholder="Chọn kho gửi"
+                showSearch
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  String(option?.children).toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {warehouses.map(warehouse => (
+                  <Select.Option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name} - {warehouse.address}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
 
           {/* Chỉ hiển thị kho nhận nếu KHÔNG phải chặng 3 */}
           {subShipmentForm.getFieldValue('sequence') !== 3 && (

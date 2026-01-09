@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { HeartFilled, HeartOutlined, LoadingOutlined } from "@ant-design/icons";
 import wishlistService from "@/services/WishlistService";
 import { App } from "antd";
@@ -30,16 +30,31 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
   const { message } = App.useApp();
   const { status } = useAuth();
   const router = useRouter();
+  
+  // Prevent duplicate checks for the same product
+  const hasCheckedRef = useRef(false);
+  const lastProductIdRef = useRef<string | undefined>();
 
   useEffect(() => {
     if (!productId) {
       setChecking(false);
+      hasCheckedRef.current = false;
       return;
     }
-    if (status === "authenticated") {
+    
+    // Reset check flag if productId changed
+    if (lastProductIdRef.current !== productId) {
+      hasCheckedRef.current = false;
+      lastProductIdRef.current = productId;
+    }
+    
+    // Only check if authenticated and haven't checked this product yet
+    if (status === "authenticated" && !hasCheckedRef.current) {
+      hasCheckedRef.current = true;
       checkWishlist();
-    } else {
+    } else if (status !== "authenticated") {
       setChecking(false);
+      hasCheckedRef.current = false;
     }
   }, [productId, status]);
 

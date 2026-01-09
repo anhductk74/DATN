@@ -13,7 +13,6 @@ export enum ShipmentStatus {
 
 export interface ShipmentOrderRequestDto {
   orderId: string;
-  shipperId: string;
   warehouseId: string;
   pickupAddress: string;
   deliveryAddress: string;
@@ -327,7 +326,7 @@ static async getCodStatistics(): Promise<{
       );
       return response.data;
     } catch (error) {
-      console.error('Error checking order shipment:', error);
+      // Silently return false if check fails (order might not have shipment yet)
       return false;
     }
   }
@@ -340,7 +339,9 @@ static async getCodStatistics(): Promise<{
       );
       return response.data;
     } catch (error: any) {
-      if (error.response?.status === 404) {
+      // Handle 404 (not found) or 500 (internal server error) gracefully
+      if (error.response?.status === 404 || error.response?.status === 500) {
+        console.log(`⚠️ No shipment found for order ${orderId} (Status: ${error.response?.status})`);
         return null;
       }
       throw error;

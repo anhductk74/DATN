@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { productService, ProductDetail } from '../services/productService';
 import CartService from '../services/CartService';
 import wishlistService from '../services/wishlistService';
+import { reviewService, Review } from '../services/ReviewService';
 import { getCloudinaryUrl } from '../config/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -40,12 +41,15 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
   const [modalAction, setModalAction] = useState<'cart' | 'buy'>('cart');
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
-  const [flashSaleTimer, setFlashSaleTimer] = useState<string>('');
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [totalReviews, setTotalReviews] = useState(0);
 
   useEffect(() => {
     loadProductDetail();
     loadRelatedProducts();
     checkWishlistStatus();
+    loadProductReviews();
   }, [productId]);
 
   useEffect(() => {
@@ -102,6 +106,26 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
     }
   };
 
+  const loadProductReviews = async () => {
+    try {
+      setIsLoadingReviews(true);
+      const response = await reviewService.getReviewsByProduct(productId, 0, 5);
+      
+      if (response.success && response.data) {
+        setReviews(response.data.content || []);
+        setTotalReviews(response.data.totalElements || 0);
+      } else {
+        setReviews([]);
+        setTotalReviews(0);
+      }
+    } catch (error) {
+      setReviews([]);
+      setTotalReviews(0);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
   const handleAddToCart = async () => {
     if (!selectedVariantId) {
       Alert.alert('Select Variant', 'Please select a product variant first');
@@ -145,9 +169,32 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
       return;
     }
 
-    await handleAddToCart();
-    if (selectedVariantId) {
-      navigation.navigate('MainTabs', { screen: 'Cart' });
+    setIsAddingToCart(true);
+    try {
+      const addResponse = await CartService.addItem({
+        variantId: selectedVariantId,
+        quantity: quantity,
+      });
+
+      if (addResponse.success) {
+        setShowVariantModal(false);
+        
+        // Get updated cart to pass items to checkout
+        const cartResponse = await CartService.getCart();
+        if (cartResponse.success && cartResponse.data && cartResponse.data.items) {
+          // Navigate to checkout with all cart items
+          navigation.navigate('Checkout', { items: cartResponse.data.items });
+        } else {
+          Alert.alert('Error', 'Failed to load cart data');
+        }
+      } else {
+        Alert.alert('Error', addResponse.message || 'Failed to add item to cart');
+      }
+    } catch (error: any) {
+      console.error('Error in buy now:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -496,44 +543,101 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
           )}
         </View>
 
-        {/* Reviews */}
-        {product.reviews && product.reviews.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Reviews ({product.reviewCount})</Text>
+        {/* Reviews Section - Load from API */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Customer Reviews ({totalReviews})</Text>
+            {totalReviews > 0 && (
               <TouchableOpacity>
                 <Text style={styles.seeAll}>See All</Text>
               </TouchableOpacity>
+            )}
+          </View>
+
+          {isLoadingReviews ? (
+            <View style={styles.loadingRelated}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={styles.loadingText}>Loading reviews...</Text>
             </View>
-            {product.reviews.slice(0, 3).map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
-                <View style={styles.reviewHeader}>
-                  <View style={styles.reviewerInfo}>
-                    <View style={styles.reviewerAvatar}>
-                      <Text style={styles.reviewerAvatarText}>
-                        {review.userName.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={styles.reviewerName}>{review.userName}</Text>
-                      <View style={styles.reviewRating}>
-                        {Array.from({ length: review.rating }).map((_, i) => (
-                          <Text key={i} style={styles.reviewStar}>⭐</Text>
-                        ))}
+          ) : reviews.length > 0 ? (
+            <>
+              {reviews.map((review) => (
+                <View key={review.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewerInfo}>
+                      <View style={styles.reviewerAvatar}>
+                        {review.userAvatar ? (
+                          <Image 
+                            source={{ uri: getCloudinaryUrl(review.userAvatar) }}
+                            style={styles.reviewerAvatarImage}
+                          />
+                        ) : (
+                          <Text style={styles.reviewerAvatarText}>
+                            {review.userName.charAt(0).toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
+                      <View>
+                        <Text style={styles.reviewerName}>{review.userName}</Text>
+                        <View style={styles.reviewRating}>
+                          {Array.from({ length: review.rating }).map((_, i) => (
+                            <Text key={i} style={styles.reviewStar}>⭐</Text>
+                          ))}
+                        </View>
                       </View>
                     </View>
+                    <Text style={styles.reviewDate}>
+                      {new Date(review.reviewedAt || review.createdAt || '').toLocaleDateString('vi-VN')}
+                    </Text>
                   </View>
-                  <Text style={styles.reviewDate}>
-                    {new Date(review.createdAt).toLocaleDateString()}
-                  </Text>
+                  
+                  {review.comment && (
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                  )}
+
+                  {/* Review Images */}
+                  {review.mediaList && review.mediaList.length > 0 && (
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.reviewImagesContainer}
+                    >
+                      {review.mediaList
+                        .filter(media => media.mediaType === 'IMAGE')
+                        .map((media, idx) => (
+                          <Image
+                            key={media.id}
+                            source={{ uri: getCloudinaryUrl(media.mediaUrl) }}
+                            style={styles.reviewImage}
+                          />
+                        ))}
+                    </ScrollView>
+                  )}
+
+                  {/* Shop Reply */}
+                  {review.shopReply && (
+                    <View style={styles.shopReplyContainer}>
+                      <View style={styles.shopReplyHeader}>
+                        <Ionicons name="storefront" size={14} color="#2563eb" />
+                        <Text style={styles.shopReplyTitle}>Response from {review.shopReply.shopName}</Text>
+                      </View>
+                      <Text style={styles.shopReplyText}>{review.shopReply.replyContent}</Text>
+                      <Text style={styles.shopReplyDate}>
+                        {new Date(review.shopReply.repliedAt).toLocaleDateString('vi-VN')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                {review.comment && (
-                  <Text style={styles.reviewComment}>{review.comment}</Text>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
+              ))}
+            </>
+          ) : (
+            <View style={styles.noReviewsContainer}>
+              <Ionicons name="chatbubble-outline" size={48} color="#ddd" />
+              <Text style={styles.noReviewsText}>No reviews yet</Text>
+              <Text style={styles.noReviewsSubtext}>Be the first to review this product</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -1121,6 +1225,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    overflow: 'hidden',
+  },
+  reviewerAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   reviewerAvatarText: {
     color: '#fff',
@@ -1148,6 +1257,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewImagesContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  reviewImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  shopReplyContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2563eb',
+  },
+  shopReplyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  shopReplyTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+  shopReplyText: {
+    fontSize: 13,
+    color: '#333',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  shopReplyDate: {
+    fontSize: 11,
+    color: '#999',
   },
   bottomSpacing: {
     height: 100,
@@ -1324,6 +1474,27 @@ const styles = StyleSheet.create({
   loadingRelated: {
     padding: 20,
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#999',
+  },
+  noReviewsContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noReviewsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999',
+    marginTop: 12,
+  },
+  noReviewsSubtext: {
+    fontSize: 13,
+    color: '#ccc',
+    marginTop: 4,
   },
   relatedProductsContainer: {
     paddingRight: 16,

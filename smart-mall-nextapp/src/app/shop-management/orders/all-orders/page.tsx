@@ -508,18 +508,7 @@ export default function AllOrdersPage() {
 </div>
           
           <div className="flex gap-2">
-            <Button 
-              icon={<FilterOutlined />}
-              onClick={() => message.info('Advanced filters coming soon')}
-            >
-              More Filters
-            </Button>
-            <Button 
-              icon={<ExportOutlined />}
-              onClick={() => message.info('Export functionality coming soon')}
-            >
-              Export
-            </Button>
+           
             {/* <Button 
               loading={loading}
               onClick={loadOrders}

@@ -42,6 +42,7 @@ import OrderStatusBadge from "../../my-orders/components/OrderStatusBadge";
 import { orderService, addressApiService, orderTrackingApiService, productService } from "@/services";
 import reviewApiService from "@/services/ReviewApiService";
 import orderReturnRequestApiService, { OrderReturnRequestDto, OrderReturnResponseDto } from "@/services/orderReturnRequestApiService";
+import ShipmentOrderService, { ShipmentOrderResponseDto } from "@/services/ShipmentOrderService";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 
 // Define Order interface for this page
@@ -250,6 +251,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [shippingAddress, setShippingAddress] = useState<any>(null);
   const [trackingLogs, setTrackingLogs] = useState<any[]>([]);
+  const [shipmentOrder, setShipmentOrder] = useState<ShipmentOrderResponseDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
@@ -276,6 +278,7 @@ export default function OrderDetailPage() {
     setOrder(null);
     setShippingAddress(null);
     setTrackingLogs([]);
+    setShipmentOrder(null);
     setHasLoaded(false);
     setNotFound(false);
   }, [orderId]);
@@ -371,6 +374,16 @@ export default function OrderDetailPage() {
             console.error('Failed to fetch shipping address:', error);
             // Don't fail the whole order fetch if address fails
           }
+        }
+
+        // Fetch shipment order to get tracking code
+        try {
+          const shipmentResponse = await ShipmentOrderService.getByOrderId(orderId);
+          if (shipmentResponse) {
+            setShipmentOrder(shipmentResponse);
+          }
+        } catch (error) {
+          // Silently ignore - shipment might not exist yet
         }
 
         // Fetch tracking logs if order is in shipping status
@@ -972,19 +985,31 @@ export default function OrderDetailPage() {
             </Card>
 
             {/* Package Tracking Timeline */}
-            {order.trackingNumber && (
+            {(shipmentOrder?.trackingCode || order.trackingNumber) && (
               <Card title="Package Tracking" className="shadow-sm">
                 <div className="space-y-4">
                   {/* Tracking Number */}
                   <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
                     <TruckOutlined className="text-blue-600" />
-                    <div>
-                      <Text strong>Tracking Number: {order.trackingNumber}</Text>
-                      {order.estimatedDelivery && (
-                        <div className="text-sm text-gray-600">
-                          Expected delivery: {isClient ? new Date(order.estimatedDelivery).toLocaleString('en-US') : 'Loading...'}
-                        </div>
-                      )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Text strong>Tracking Code:</Text>
+                        <Text className="font-mono text-blue-600">
+                          {shipmentOrder?.trackingCode || order.trackingNumber}
+                        </Text>
+                      </div>
+                      <div className="flex items-center gap-4 mt-2">
+                        {shipmentOrder?.status && (
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Status:</span> {shipmentOrder.status}
+                          </div>
+                        )}
+                        {(shipmentOrder?.estimatedDelivery || order.estimatedDelivery) && (
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Expected delivery:</span> {isClient ? new Date(shipmentOrder?.estimatedDelivery || order.estimatedDelivery || '').toLocaleString('en-US') : 'Loading...'}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

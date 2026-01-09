@@ -20,6 +20,7 @@ export interface SubShipmentOrderResponseDto {
   id: string;
   shipmentOrderId: string;
   shipmentOrderCode: string;
+  trackingCode?: string; // Add trackingCode field
 
   fromWarehouseId: string;
   fromWarehouseName: string;
@@ -126,7 +127,7 @@ class ShipperSubOrderService {
   private async handleError(error: any): Promise<ApiResponse> {
     return {
       success: false,
-      message: error.response?.data?.message || 'An error occurred',
+      message: error.response?.data?.message || error.message || 'An error occurred',
       data: null,
     };
   }
