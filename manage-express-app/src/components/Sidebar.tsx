@@ -56,11 +56,6 @@ export default function Sidebar({ collapsed, onCollapse, onMenuSelect, activeMen
       label: 'Quản lý vận đơn',
       children: [
         {
-          key: 'shipments/order-list',
-          icon: <CarOutlined />,
-          label: 'Order List',
-        },
-        {
           key: 'shipments/shipment-order',
           icon: <ShoppingOutlined />,
           label: 'Shipment Order',
