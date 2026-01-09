@@ -1,7 +1,10 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.1.95:8080';
+
+// Configure axios defaults
+axios.defaults.timeout = 30000; // 30 seconds timeout
 const CLOUDINARY_BASE_URL = 'https://res.cloudinary.com';
 
 // ==============================

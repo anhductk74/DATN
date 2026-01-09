@@ -34,6 +34,9 @@
     "scheme": "smartmallshipper",
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "EXPO_PUBLIC_API_BASE_URL": "http://192.168.1.95:8080"
+    }
   }
 }

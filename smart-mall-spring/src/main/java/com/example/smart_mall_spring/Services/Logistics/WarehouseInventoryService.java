@@ -116,6 +116,7 @@ public class WarehouseInventoryService {
                 .lastUpdated(item.getUpdatedAt())
                 .build();
     }
+
 }
 
 

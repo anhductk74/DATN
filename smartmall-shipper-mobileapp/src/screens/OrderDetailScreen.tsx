@@ -52,10 +52,27 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
     try {
       setLoadingProof(true);
      
-      const response = await shipperSubOrderService.getProofImages(orderData.shipmentOrderCode);
+      // Use trackingCode if available, fallback to scannedCode or shipmentOrderCode
+      const fullCode = orderData.trackingCode || scannedCode || orderData.shipmentOrderCode;
+      
+      // Extract SHORT code (last part after last dash) for API call
+      const codeToUse = getShortTrackingCode(fullCode);
+      
+      console.log('===== LOAD PROOF IMAGES =====');
+      console.log('orderData.trackingCode:', orderData.trackingCode);
+      console.log('scannedCode:', scannedCode);
+      console.log('orderData.shipmentOrderCode:', orderData.shipmentOrderCode);
+      console.log('fullCode:', fullCode);
+      console.log('codeToUse (SHORT - sending to API):', codeToUse);
+      console.log('=============================');
+      
+      const response = await shipperSubOrderService.getProofImages(codeToUse);
+      
+      console.log('API Response:', { success: response.success, message: response.message });
       
       if (response.success && response.data) {
         setProofImages(response.data);
+        console.log('Loaded proof images count:', response.data.length);
       } else {
         console.log('No proof images found or error:', response.message);
       }
@@ -204,9 +221,24 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
         type: type,
       });
 
+      // Use trackingCode if available, fallback to scannedCode or shipmentOrderCode
+      const fullCode = orderData.trackingCode || scannedCode || orderData.shipmentOrderCode;
+      
+      // Extract SHORT code (last part after last dash) for API call
+      const codeToUse = getShortTrackingCode(fullCode);
+      
+      console.log('===== UPLOAD PROOF IMAGE =====');
+      console.log('orderData.trackingCode:', orderData.trackingCode);
+      console.log('scannedCode:', scannedCode);
+      console.log('orderData.shipmentOrderCode:', orderData.shipmentOrderCode);
+      console.log('fullCode:', fullCode);
+      console.log('codeToUse (SHORT - sending to API):', codeToUse);
+      console.log('Image URI:', image.uri);
+      console.log('=============================');
+      
       // Call API
       const response = await shipperSubOrderService.uploadProof(
-        orderData.shipmentOrderCode,
+        codeToUse,
         formData
       );
 
@@ -427,7 +459,7 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
           </View>
           <View style={styles.trackingBadge}>
             <Ionicons name="qr-code-outline" size={16} color="#1976D2" />
-            <Text style={styles.trackingCode}>...{getShortTrackingCode(orderData.shipmentOrderCode)}</Text>
+            <Text style={styles.trackingCode}>...{getShortTrackingCode(orderData.trackingCode || orderData.shipmentOrderCode)}</Text>
           </View>
         </View>
 
@@ -441,14 +473,14 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>Điểm xuất phát</Text>
                 <Text style={styles.routeValue}>
-                  {orderData.sequence === 1 && orderData.shopName 
+                  {(orderData.sequence === 1 || orderData.shopName) && orderData.shopName 
                     ? orderData.shopName 
                     : orderData.fromWarehouseName}
                 </Text>
-                {orderData.sequence === 1 && orderData.shopAddress && (
+                {orderData.shopAddress && (
                   <Text style={styles.routeAddress}>{formatAddress(orderData.shopAddress)}</Text>
                 )}
-                {orderData.sequence === 1 && orderData.shopPhone && (
+                {orderData.shopPhone && (
                   <View style={styles.routeContact}>
                     <Ionicons name="call" size={14} color="#666" />
                     <Text style={styles.routePhone}>{orderData.shopPhone}</Text>
@@ -464,14 +496,14 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>Điểm đến</Text>
                 <Text style={styles.routeValue}>
-                  {orderData.sequence === 3 && orderData.customerName 
+                  {(orderData.sequence === 3 || orderData.customerName) && orderData.customerName 
                     ? orderData.customerName 
                     : orderData.toWarehouseName}
                 </Text>
-                {orderData.sequence === 3 && orderData.customerAddress && (
+                {orderData.customerAddress && (
                   <Text style={styles.routeAddress}>{formatAddress(orderData.customerAddress)}</Text>
                 )}
-                {orderData.sequence === 3 && orderData.customerPhone && (
+                {orderData.customerPhone && (
                   <View style={styles.routeContact}>
                     <Ionicons name="call" size={14} color="#666" />
                     <Text style={styles.routePhone}>{orderData.customerPhone}</Text>

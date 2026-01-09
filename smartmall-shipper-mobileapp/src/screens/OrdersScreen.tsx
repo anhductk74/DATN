@@ -57,6 +57,21 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
 
       if (response.success && response.data) {
         setOrders(response.data);
+        
+        // Log để kiểm tra trackingCode trong lịch sử
+        if (mainTab === 'history') {
+          console.log('===== HISTORY ORDERS =====');
+          console.log('Total orders:', response.data.length);
+          response.data.slice(0, 3).forEach((order: SubShipmentOrderResponseDto, index: number) => {
+            console.log(`\nOrder ${index + 1}:`);
+            console.log('  - id:', order.id);
+            console.log('  - shipmentOrderCode:', order.shipmentOrderCode);
+            console.log('  - trackingCode:', order.trackingCode);
+            console.log('  - sequence:', order.sequence);
+            console.log('  - status:', order.status);
+          });
+          console.log('==========================');
+        }
       } else {
         console.error('Failed to load orders:', response.message);
       }
@@ -120,7 +135,7 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'clock-outline';
+      case 'PENDING': return 'time-outline';
       case 'PICKING_UP': return 'cube-outline';
       case 'IN_TRANSIT': return 'car-outline';
       case 'DELIVERED': return 'checkmark-done-circle';
@@ -188,7 +203,7 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
         <View style={styles.cardHeader}>
           <View style={styles.trackingRow}>
             <Ionicons name="qr-code-outline" size={20} color="#1976D2" />
-            <Text style={styles.trackingCode}>...{getShortTrackingCode(item.shipmentOrderCode)}</Text>
+            <Text style={styles.trackingCode}>...{getShortTrackingCode(item.trackingCode || item.shipmentOrderCode)}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
             <Ionicons name={getStatusIcon(item.status) as any} size={16} color={statusColor} />
@@ -203,7 +218,7 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
             <View style={styles.routeDot} />
             <View style={styles.routeContent}>
               <Text style={styles.routeLabel}>Từ</Text>
-              {item.sequence === 1 ? (
+              {item.sequence === 1 || (item.shopName && item.shopAddress) ? (
                 <>
                   <Text style={styles.routeValue} numberOfLines={1}>{item.shopName || 'Shop'}</Text>
                   {item.shopAddress && (
@@ -226,7 +241,7 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
             <View style={[styles.routeDot, styles.routeDotEnd]} />
             <View style={styles.routeContent}>
               <Text style={styles.routeLabel}>Đến</Text>
-              {item.sequence === 3 ? (
+              {item.sequence === 3 || (item.customerName && item.customerAddress) ? (
                 <>
                   <Text style={styles.routeValue} numberOfLines={1}>{item.customerName || 'Khách hàng'}</Text>
                   {item.customerAddress && (

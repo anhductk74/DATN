@@ -34,6 +34,21 @@ export interface OrderResponseDto {
   statusHistories?: OrderStatusHistoryDto[];
   shippingFees?: ShippingFeeResponseDto[];
   payment?: PaymentResponseDto;
+  addressUser?: {
+    id: string;
+    fullName: string;
+    phoneNumber: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode?: string;
+    country?: string;
+    isDefault: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  // Legacy field for backward compatibility
   shippingAddress?: {
     fullName: string;
     phone: string;
