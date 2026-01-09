@@ -38,13 +38,15 @@ public interface ShopRepository extends JpaRepository<Shop, UUID> {
     Long countByCreatedAtAfter(@Param("date") java.time.LocalDateTime date);
     
     // Get top shops by revenue (for dashboard)
-    @Query(value = "SELECT DISTINCT s.* FROM shops s " +
-           "JOIN orders o ON o.shop_id = s.id " +
-           "WHERE o.status = 'DELIVERED' AND o.created_at BETWEEN ?1 AND ?2 " +
-           "GROUP BY s.id " +
+    @Query(value = "SELECT s.* FROM shops s " +
+           "INNER JOIN orders o ON o.shop_id = s.id " +
+           "WHERE o.status = 'DELIVERED' AND o.created_at BETWEEN :startDate AND :endDate " +
+           "GROUP BY s.id, s.name, s.cccd, s.description, s.phone_number, s.avatar, s.view_count, s.address_id, s.owner_id, s.created_at, s.updated_at " +
            "ORDER BY SUM(o.total_amount) DESC " +
-           "LIMIT ?3", nativeQuery = true)
-    List<Shop> findTopShopsByRevenue(java.time.LocalDateTime startDate, java.time.LocalDateTime endDate, int limit);
+           "LIMIT :limit", nativeQuery = true)
+    List<Shop> findTopShopsByRevenue(@Param("startDate") java.time.LocalDateTime startDate, 
+                                      @Param("endDate") java.time.LocalDateTime endDate, 
+                                      @Param("limit") int limit);
     
     // Get recent shops
     @Query("SELECT s FROM Shop s ORDER BY s.createdAt DESC")

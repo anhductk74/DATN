@@ -6,10 +6,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -28,37 +30,50 @@ public class AdminDashboardController {
     @GetMapping("/overview")
     @Operation(
         summary = "Get dashboard overview",
-        description = "Get complete dashboard overview including revenue, shops, users, orders, and actions required"
+        description = "Get complete dashboard overview including revenue, shops, users, orders, and actions required. Supports custom date range."
     )
-    public ResponseEntity<DashboardOverviewDto> getOverview() {
-        return ResponseEntity.ok(adminDashboardService.getOverview());
+    public ResponseEntity<DashboardOverviewDto> getOverview(
+        @Parameter(description = "Start date (format: yyyy-MM-dd). Default: first day of current month")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+        @Parameter(description = "End date (format: yyyy-MM-dd). Default: today")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        return ResponseEntity.ok(adminDashboardService.getOverview(startDate, endDate));
     }
     
     @GetMapping("/revenue-chart")
     @Operation(
         summary = "Get revenue chart data",
-        description = "Get revenue chart data for the specified number of days (default: 7 days)"
+        description = "Get revenue chart data. Use either 'days' parameter OR 'startDate'+'endDate' parameters (not both)."
     )
     public ResponseEntity<RevenueChartDto> getRevenueChart(
-        @Parameter(description = "Number of days to show (default: 7, max: 90)")
-        @RequestParam(required = false, defaultValue = "7") Integer days
+        @Parameter(description = "Number of days to show (default: 7, max: 90). Ignored if startDate is provided.")
+        @RequestParam(required = false, defaultValue = "7") Integer days,
+        @Parameter(description = "Start date (format: yyyy-MM-dd). If provided, 'days' parameter is ignored.")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+        @Parameter(description = "End date (format: yyyy-MM-dd). Default: today")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
         if (days > 90) {
             days = 90; // Limit to 90 days
         }
-        return ResponseEntity.ok(adminDashboardService.getRevenueChart(days));
+        return ResponseEntity.ok(adminDashboardService.getRevenueChart(days, startDate, endDate));
     }
     
     @GetMapping("/top-shops")
     @Operation(
         summary = "Get top performing shops",
-        description = "Get top shops by revenue in the current month"
+        description = "Get top shops by revenue. Supports custom date range."
     )
     public ResponseEntity<List<TopShopDto>> getTopShops(
         @Parameter(description = "Number of shops to return (default: 10)")
-        @RequestParam(required = false, defaultValue = "10") Integer limit
+        @RequestParam(required = false, defaultValue = "10") Integer limit,
+        @Parameter(description = "Start date (format: yyyy-MM-dd). Default: first day of current month")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+        @Parameter(description = "End date (format: yyyy-MM-dd). Default: today")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
-        return ResponseEntity.ok(adminDashboardService.getTopShops(limit));
+        return ResponseEntity.ok(adminDashboardService.getTopShops(limit, startDate, endDate));
     }
     
     @GetMapping("/recent-activities")

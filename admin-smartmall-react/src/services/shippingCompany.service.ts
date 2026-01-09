@@ -6,11 +6,11 @@ import type {
 
 const SHIPPING_COMPANY_API_URL = '/api/logistics/shipping-companies';
 
-interface ApiResponse<T> {
-  status: string;
-  message: string;
-  data: T;
-}
+// interface ApiResponse<T> {
+//   status: string;
+//   message: string;
+//   data: T;
+// }
 
 export const shippingCompanyService = {
   // Create new shipping company

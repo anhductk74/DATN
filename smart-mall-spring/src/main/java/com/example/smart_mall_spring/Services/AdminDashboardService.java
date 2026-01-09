@@ -32,15 +32,29 @@ public class AdminDashboardService {
     
     /**
      * Get dashboard overview statistics
+     * @param startDate Optional start date (default: first day of current month)
+     * @param endDate Optional end date (default: today)
      */
     @Transactional(readOnly = true)
-    public DashboardOverviewDto getOverview() {
+    public DashboardOverviewDto getOverview(LocalDate startDate, LocalDate endDate) {
+        // Default date range if not provided
+        if (endDate == null) {
+            endDate = LocalDate.now();
+        }
+        if (startDate == null) {
+            startDate = endDate.withDayOfMonth(1); // First day of current month
+        }
+        
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay(); // Include end date
+        
         LocalDateTime today = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
         LocalDateTime startOfWeek = today.minusDays(today.getDayOfWeek().getValue() - 1);
         LocalDateTime startOfMonth = today.withDayOfMonth(1);
         LocalDateTime lastMonth = startOfMonth.minusMonths(1);
         
-        // Revenue stats
+        // Revenue stats (using custom date range)
+        Double revenueInRange = orderRepository.sumRevenueByDateRange(startDateTime, endDateTime);
         Double revenueToday = orderRepository.sumRevenueByDateRange(today, LocalDateTime.now());
         Double revenueThisWeek = orderRepository.sumRevenueByDateRange(startOfWeek, LocalDateTime.now());
         Double revenueThisMonth = orderRepository.sumRevenueByDateRange(startOfMonth, LocalDateTime.now());
@@ -48,16 +62,16 @@ public class AdminDashboardService {
         
         Double percentChange = 0.0;
         if (revenueLastMonth != null && revenueLastMonth > 0) {
-            percentChange = ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100;
+            percentChange = ((revenueInRange - revenueLastMonth) / revenueLastMonth) * 100;
         }
         
         // Commission (assuming 5% commission rate)
-        Double totalCommission = revenueThisMonth != null ? revenueThisMonth * 0.05 : 0.0;
+        Double totalCommission = revenueInRange != null ? revenueInRange * 0.05 : 0.0;
         
         DashboardOverviewDto.RevenueStats revenue = DashboardOverviewDto.RevenueStats.builder()
             .today(revenueToday != null ? revenueToday : 0.0)
             .thisWeek(revenueThisWeek != null ? revenueThisWeek : 0.0)
-            .thisMonth(revenueThisMonth != null ? revenueThisMonth : 0.0)
+            .thisMonth(revenueInRange != null ? revenueInRange : 0.0) // Use custom range for "thisMonth"
             .totalCommission(totalCommission)
             .percentChangeFromLastMonth(percentChange)
             .build();
@@ -139,23 +153,35 @@ public class AdminDashboardService {
     
     /**
      * Get revenue chart data
+     * @param days Number of days (ignored if startDate is provided)
+     * @param startDate Optional start date
+     * @param endDate Optional end date (default: today)
      */
     @Transactional(readOnly = true)
-    public RevenueChartDto getRevenueChart(Integer days) {
-        if (days == null || days <= 0) {
-            days = 7; // Default 7 days
+    public RevenueChartDto getRevenueChart(Integer days, LocalDate startDate, LocalDate endDate) {
+        // Determine date range
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        LocalDate start;
+        
+        if (startDate != null) {
+            // Use custom date range
+            start = startDate;
+            days = (int) java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+        } else {
+            // Use days parameter
+            if (days == null || days <= 0) {
+                days = 7; // Default 7 days
+            }
+            start = end.minusDays(days - 1);
         }
         
         List<RevenueChartDto.DataPoint> dataPoints = new ArrayList<>();
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(days - 1);
-        
         Double totalRevenue = 0.0;
         DateTimeFormatter labelFormatter = days <= 7 ? 
             DateTimeFormatter.ofPattern("EEE") : // Mon, Tue, Wed
             DateTimeFormatter.ofPattern("MMM dd"); // Jan 01
         
-        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
             LocalDateTime dayStart = date.atStartOfDay();
             LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
             
@@ -175,10 +201,10 @@ public class AdminDashboardService {
         Double averagePerDay = totalRevenue / days;
         
         // Calculate percent change from previous period
-        LocalDate prevStartDate = startDate.minusDays(days);
+        LocalDate prevStartDate = start.minusDays(days);
         Double prevRevenue = orderRepository.sumRevenueByDateRange(
             prevStartDate.atStartOfDay(), 
-            startDate.atStartOfDay()
+            start.atStartOfDay()
         );
         
         Double percentChange = 0.0;
@@ -196,19 +222,31 @@ public class AdminDashboardService {
     
     /**
      * Get top performing shops
+     * @param limit Number of shops to return
+     * @param startDate Optional start date (default: first day of current month)
+     * @param endDate Optional end date (default: today)
      */
     @Transactional(readOnly = true)
-    public List<TopShopDto> getTopShops(Integer limit) {
+    public List<TopShopDto> getTopShops(Integer limit, LocalDate startDate, LocalDate endDate) {
         if (limit == null || limit <= 0) {
             limit = 10;
         }
         
-        LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+        // Default date range if not provided
+        if (endDate == null) {
+            endDate = LocalDate.now();
+        }
+        if (startDate == null) {
+            startDate = endDate.withDayOfMonth(1); // First day of current month
+        }
         
-        return shopRepository.findTopShopsByRevenue(startOfMonth, LocalDateTime.now(), limit)
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay(); // Include end date
+        
+        return shopRepository.findTopShopsByRevenue(startDateTime, endDateTime, limit)
             .stream()
             .map(shop -> {
-                Double revenue = orderRepository.sumRevenueByShop(shop.getId(), startOfMonth, LocalDateTime.now());
+                Double revenue = orderRepository.sumRevenueByShop(shop.getId(), startDateTime, endDateTime);
                 Long orderCount = orderRepository.countByShopId(shop.getId());
                 Double avgRating = reviewRepository.getAverageRatingByShop(shop.getId());
                 Long reviewCount = reviewRepository.countByShopId(shop.getId());

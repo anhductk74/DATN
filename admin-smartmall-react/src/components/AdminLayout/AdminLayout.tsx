@@ -6,11 +6,8 @@ import {
   ShoppingOutlined,
   ShopOutlined,
   UserOutlined,
-  TeamOutlined,
-  BarChartOutlined,
   SettingOutlined,
   ShoppingCartOutlined,
-  FileTextOutlined,
   GiftOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -38,7 +35,6 @@ export default function AdminLayout() {
     
     if (path.includes('/products')) openKeys.push('products');
     if (path.includes('/orders')) openKeys.push('orders');
-    if (path.includes('/customers')) openKeys.push('customers');
     if (path.includes('/managers')) openKeys.push('managers');
     
     return openKeys;
@@ -104,23 +100,6 @@ export default function AdminLayout() {
       onClick: () => navigate('/dashboard/stores'),
     },
     {
-      key: 'customers',
-      icon: <TeamOutlined />,
-      label: 'Customers',
-      children: [
-        {
-          key: '/dashboard/customers',
-          label: 'All Customers',
-          onClick: () => navigate('/dashboard/customers'),
-        },
-        {
-          key: '/dashboard/customers/reviews',
-          label: 'Reviews',
-          onClick: () => navigate('/dashboard/customers/reviews'),
-        },
-      ],
-    },
-    {
       key: '/dashboard/users',
       icon: <UserOutlined />,
       label: 'Users Management',
@@ -148,24 +127,6 @@ export default function AdminLayout() {
       icon: <GiftOutlined />,
       label: 'Voucher Management',
       onClick: () => navigate('/dashboard/vouchers'),
-    },
-    {
-      key: '/dashboard/analytics',
-      icon: <BarChartOutlined />,
-      label: 'Analytics',
-      onClick: () => navigate('/dashboard/analytics'),
-    },
-    {
-      key: '/dashboard/reports',
-      icon: <FileTextOutlined />,
-      label: 'Reports',
-      onClick: () => navigate('/dashboard/reports'),
-    },
-    {
-      key: '/dashboard/settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-      onClick: () => navigate('/dashboard/settings'),
     },
   ];
 

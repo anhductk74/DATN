@@ -16,6 +16,16 @@ Lấy tổng quan hoàn chỉnh về hệ thống
 
 **Endpoint:** `GET /api/v1/admin/dashboard/overview`
 
+**Query Parameters:**
+- `startDate` (optional): Ngày bắt đầu (format: yyyy-MM-dd). Mặc định: ngày 1 của tháng hiện tại
+- `endDate` (optional): Ngày kết thúc (format: yyyy-MM-dd). Mặc định: hôm nay
+
+**Example Request:**
+```
+GET /api/v1/admin/dashboard/overview
+GET /api/v1/admin/dashboard/overview?startDate=2026-01-01&endDate=2026-01-31
+```
+
 **Response:**
 ```json
 {
@@ -79,11 +89,14 @@ Lấy dữ liệu biểu đồ doanh thu theo ngày
 **Endpoint:** `GET /api/v1/admin/dashboard/revenue-chart`
 
 **Query Parameters:**
-- `days` (optional): Số ngày hiển thị (mặc định: 7, tối đa: 90)
+- `days` (optional): Số ngày hiển thị (mặc định: 7, tối đa: 90). Bị bỏ qua nếu `startDate` được cung cấp
+- `startDate` (optional): Ngày bắt đầu (format: yyyy-MM-dd). Nếu cung cấp, tham số `days` sẽ bị bỏ qua
+- `endDate` (optional): Ngày kết thúc (format: yyyy-MM-dd). Mặc định: hôm nay
 
 **Example Request:**
 ```
 GET /api/v1/admin/dashboard/revenue-chart?days=30
+GET /api/v1/admin/dashboard/revenue-chart?startDate=2026-01-01&endDate=2026-01-15
 ```
 
 **Response:**
@@ -120,16 +133,19 @@ GET /api/v1/admin/dashboard/revenue-chart?days=30
 ---
 
 ### 3. Get Top Shops
-Lấy danh sách shop có doanh thu cao nhất tháng này
+Lấy danh sách shop có doanh thu cao nhất
 
 **Endpoint:** `GET /api/v1/admin/dashboard/top-shops`
 
 **Query Parameters:**
 - `limit` (optional): Số lượng shop (mặc định: 10)
+- `startDate` (optional): Ngày bắt đầu (format: yyyy-MM-dd). Mặc định: ngày 1 của tháng hiện tại
+- `endDate` (optional): Ngày kết thúc (format: yyyy-MM-dd). Mặc định: hôm nay
 
 **Example Request:**
 ```
 GET /api/v1/admin/dashboard/top-shops?limit=5
+GET /api/v1/admin/dashboard/top-shops?limit=10&startDate=2026-01-01&endDate=2026-01-31
 ```
 
 **Response:**
@@ -148,9 +164,10 @@ GET /api/v1/admin/dashboard/top-shops?limit=5
 ```
 
 **Description:**
-- Sắp xếp theo doanh thu tháng hiện tại (DELIVERED orders)
+- Sắp xếp theo doanh thu trong khoảng thời gian đã chọn (DELIVERED orders)
 - `rating`: Đánh giá trung bình
 - `reviewCount`: Tổng số đánh giá
+- Mặc định: Tính theo tháng hiện tại nếu không truyền startDate/endDate
 
 ---
 

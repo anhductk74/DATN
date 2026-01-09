@@ -29,24 +29,6 @@ import './RegisterManager.css';
 const { Title, Text } = Typography;
 
 // Sample data for autocomplete - Vietnam provinces and districts
-const SAMPLE_STREETS = [
-  '100 Đường Lê Thánh Tôn',
-  '235 Nguyễn Văn Cừ',
-  '123 Hai Bà Trưng',
-  '456 Trần Hưng Đạo',
-  '789 Lý Thường Kiệt',
-  '15 Điện Biên Phủ',
-  '88 Võ Văn Tần',
-  '45 Pasteur',
-  '67 Nam Kỳ Khởi Nghĩa',
-  '99 Cách Mạng Tháng 8',
-  '234 Lê Lợi',
-  '156 Nguyễn Huệ',
-  '78 Trường Chinh',
-  '90 Hoàng Hoa Thám',
-  '345 Phan Chu Trinh',
-];
-
 // 63 provinces/cities of Vietnam
 const SAMPLE_CITIES = [
   // Municipalities (Thành phố trực thuộc TW)

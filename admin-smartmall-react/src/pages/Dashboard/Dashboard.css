@@ -1,7 +1,87 @@
 .dashboard-page {
   width: 100%;
+  padding: 24px;
+  background: #f0f2f5;
 }
 
 .dashboard-page h2 {
   margin-bottom: 0;
+  color: #001529;
+}
+
+/* Card animations */
+.dashboard-page .ant-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+.dashboard-page .ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Statistic customization */
+.dashboard-page .ant-statistic-title {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+}
+
+.dashboard-page .ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* List items */
+.dashboard-page .ant-list-item {
+  padding: 12px 0;
+  transition: background-color 0.2s ease;
+}
+
+.dashboard-page .ant-list-item:hover {
+  background-color: #fafafa;
+  border-radius: 4px;
+}
+
+/* Progress bars */
+.dashboard-page .ant-progress {
+  margin-top: 8px;
+}
+
+/* Tags */
+.dashboard-page .ant-tag {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+/* Scrollbar styling */
+.dashboard-page div[style*="overflowY: auto"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-page div[style*="overflowY: auto"]::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.dashboard-page div[style*="overflowY: auto"]::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 3px;
+}
+
+.dashboard-page div[style*="overflowY: auto"]::-webkit-scrollbar-thumb:hover {
+  background: #8c8c8c;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 16px;
+  }
+  
+  .dashboard-page .ant-statistic-content {
+    font-size: 20px;
+  }
 }
