@@ -12,6 +12,8 @@ interface CartFooterProps {
   selectAll: boolean;
   selectedTotal: number;
   onSelectAll: (checked: boolean) => void;
+  onDeleteSelected: () => void;
+  deletingItems: boolean;
 }
 
 export default function CartFooter({
@@ -20,7 +22,9 @@ export default function CartFooter({
   totalCount,
   selectAll,
   selectedTotal,
-  onSelectAll
+  onSelectAll,
+  onDeleteSelected,
+  deletingItems
 }: CartFooterProps) {
   const router = useRouter();
 
@@ -30,7 +34,7 @@ export default function CartFooter({
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-6 w-full md:w-auto">
             <Checkbox 
               checked={selectAll}
               onChange={(e) => onSelectAll(e.target.checked)}
@@ -38,8 +42,31 @@ export default function CartFooter({
             >
               <span className="text-sm font-medium">Select All ({totalCount} items)</span>
             </Checkbox>
+            
+            {/* Mobile delete button */}
+            <div className="md:hidden ml-auto">
+              <Button 
+                type="text" 
+                size="small" 
+                danger
+                onClick={onDeleteSelected}
+                disabled={selectedItems.length === 0 || deletingItems}
+                loading={deletingItems}
+              >
+                Delete ({selectedItems.length})
+              </Button>
+            </div>
+            
+            {/* Desktop buttons */}
             <div className="hidden md:flex items-center space-x-4">
-              <Button type="link" size="small" className="text-gray-600 hover:text-red-500">
+              <Button 
+                type="link" 
+                size="small" 
+                className="text-gray-600 hover:text-red-500"
+                onClick={onDeleteSelected}
+                disabled={selectedItems.length === 0 || deletingItems}
+                loading={deletingItems}
+              >
                 Delete Selected
               </Button>
               <Button type="link" size="small" className="text-gray-600 hover:text-blue-500">

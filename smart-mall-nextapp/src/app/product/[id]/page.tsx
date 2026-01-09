@@ -284,10 +284,12 @@ export default function ProductDetail() {
 
     try {
       setAddingToCart(true);
+      console.log('🛒 Calling addItem:', { variantId: currentVariant.id, quantity });
       await addItem(currentVariant.id, quantity);
+      console.log('✅ addItem completed successfully');
       message.success(`Added ${quantity} x "${product.name}" to cart successfully!`);
     } catch (error) {
-      console.error('Failed to add to cart:', error);
+      console.error('❌ Failed to add to cart:', error);
       message.error("Failed to add product to cart");
     } finally {
       setAddingToCart(false);
@@ -327,7 +329,7 @@ export default function ProductDetail() {
         variantId: currentVariant.id,
         name: product.name,
         image: product.images && product.images.length > 0 ? product.images[0] : '',
-        price: currentVariant.price,
+        price: displayPrice, // Use effectivePrice (sale price if active)
         quantity: quantity,
         variant: currentVariant.attributes?.map(attr => `${attr.attributeName}: ${attr.attributeValue}`).join(', ') || currentVariant.sku,
         shopId: product.shop?.id || 'unknown-shop',

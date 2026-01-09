@@ -48,7 +48,6 @@
         private final ShipmentLogService shipmentLogService;
         private final OrderTrackingLogService  orderTrackingLogService;
         private final DeliverySocketService  deliverySocketService;
-        private final ShipmentLogRepository  shipmentLogRepository;
 
         private SubShipmentOrderResponseDto toResponseDto(SubShipmentOrder entity) {
             return SubShipmentOrderResponseDto.builder()
@@ -143,94 +142,65 @@
 
             SubShipmentOrder sub = getCurrentSubByTrackingCode(code);
 
+            ShipmentStatus oldStatus = sub.getStatus();
+
             if (sub.getStatus() != ShipmentStatus.PENDING) {
                 throw new IllegalStateException("Đơn không ở trạng thái cho phép nhận");
             }
 
-            sub = updateSubStatus(
-                    sub,
-                    ShipmentStatus.PICKING_UP,
-                    "Shipper nhận hàng",
-                    "Shipper đã đến điểm lấy hàng"
-            );
+            sub.setStatus(ShipmentStatus.PICKING_UP);
+            sub.setStartTime(LocalDateTime.now());
+
+            sub = subShipmentOrderRepository.save(sub);
+
+            // 🔔 WebSocket
+            notifySubShipmentStatusChange(sub, oldStatus);
 
             return toResponseDto(sub);
         }
 
-
         public SubShipmentOrderResponseDto confirmDeliveryByCode(String code) {
 
             SubShipmentOrder sub = getCurrentSubByTrackingCode(code);
+
+            ShipmentStatus oldStatus = sub.getStatus();
 
             if (sub.getStatus() != ShipmentStatus.IN_TRANSIT &&
                     sub.getStatus() != ShipmentStatus.PICKING_UP) {
                 throw new IllegalStateException("Đơn không đủ điều kiện hoàn thành chặng");
             }
 
-            sub = updateSubStatus(
-                    sub,
-                    ShipmentStatus.DELIVERED,
-                    "Hoàn thành chặng",
-                    "Hàng đã được giao đến điểm nhận"
-            );
+            sub.setStatus(ShipmentStatus.DELIVERED);
+            sub.setEndTime(LocalDateTime.now());
+
+            sub = subShipmentOrderRepository.save(sub);
+
+            // 🔔 WebSocket
+            notifySubShipmentStatusChange(sub, oldStatus);
 
             return toResponseDto(sub);
         }
-
 
 
         public SubShipmentOrderResponseDto confirmTransitByCode(String code) {
 
             SubShipmentOrder sub = getCurrentSubByTrackingCode(code);
 
+            ShipmentStatus oldStatus = sub.getStatus();
+
             if (sub.getStatus() != ShipmentStatus.PICKING_UP) {
                 throw new IllegalStateException("Đơn chưa được pickup");
             }
 
-            sub = updateSubStatus(
-                    sub,
-                    ShipmentStatus.IN_TRANSIT,
-                    "Đang vận chuyển",
-                    "Hàng đã rời điểm lấy và đang vận chuyển"
-            );
-
-            return toResponseDto(sub);
-        }
-
-        private SubShipmentOrder updateSubStatus(
-                SubShipmentOrder sub,
-                ShipmentStatus newStatus,
-                String actionTitle,
-                String description
-        ) {
-            ShipmentStatus oldStatus = sub.getStatus();
-
-            sub.setStatus(newStatus);
-
-            if (newStatus == ShipmentStatus.PICKING_UP) {
-                sub.setStartTime(LocalDateTime.now());
-            }
-
-            if (newStatus == ShipmentStatus.DELIVERED) {
-                sub.setEndTime(LocalDateTime.now());
-            }
+            sub.setStatus(ShipmentStatus.IN_TRANSIT);
 
             sub = subShipmentOrderRepository.save(sub);
 
-            //  LOG
-            createShipmentLog(
-                    sub.getShipmentOrder(),
-                    newStatus,
-                    actionTitle,
-                    description
-            );
-
-            //  SOCKET
+            // 🔔 WebSocket
             notifySubShipmentStatusChange(sub, oldStatus);
 
-            return sub;
+            return toResponseDto(sub);
         }
-
         private void notifySubShipmentStatusChange(SubShipmentOrder sub,
                                                    ShipmentStatus oldStatus) {
 
@@ -291,65 +261,17 @@
         @Transactional
         public SubShipmentOrderResponseDto create(SubShipmentOrderRequestDto dto) {
 
-            //  Map DTO → Entity
             SubShipmentOrder sub = toEntity(dto);
-
-            //  Validate nghiệp vụ cơ bản
-            if (sub.getShipmentOrder() == null) {
-                throw new IllegalArgumentException("ShipmentOrder is required");
-            }
-
-            //  int → chỉ check giá trị
-            if (sub.getSequence() <= 0) {
-                throw new IllegalArgumentException("Sequence must be greater than 0");
-            }
-
-            // (OPTIONAL) auto set status nếu chưa có
-            if (sub.getStatus() == null) {
-                sub.setStatus(ShipmentStatus.PENDING);
-            }
-
-            // (OPTIONAL) auto set start time
-            if (sub.getStartTime() == null) {
-                sub.setStartTime(LocalDateTime.now());
-            }
-
-            //  Save
             SubShipmentOrder saved = subShipmentOrderRepository.save(sub);
 
-            if (saved.getShipper() != null) {
-
-                ShipmentOrder shipmentOrder = saved.getShipmentOrder();
-
-                shipmentOrder.setShipper(saved.getShipper());   // shipper hiện tại
-
-                shipmentOrderRepository.save(shipmentOrder);
-            }
-
-            //  GHI LOG
-            String from = saved.getFromWarehouse() != null
-                    ? saved.getFromWarehouse().getName()
-                    : "Shop";
-
-            String to = saved.getToWarehouse() != null
-                    ? saved.getToWarehouse().getName()
-                    : "Khách hàng";
-
-            createShipmentLog(
-                    saved.getShipmentOrder(),
-                    saved.getStatus(),
-                    "Tạo chặng " + saved.getSequence() + ": " + from + " → " + to,
-                    "Khởi tạo chặng vận chuyển"
-            );
-
-            //  SOCKET → thông báo shipper (nếu có)
+            // 🔔 REAL-TIME → SHIPPER (khi được assign)
             if (saved.getShipper() != null) {
 
                 DeliveryMessage message = new DeliveryMessage(
                         "ASSIGNED",
-                        saved.getId(),                   // subShipmentId
+                        saved.getId(), // subShipmentId
                         saved.getShipmentOrder().getId(), // shipmentOrderId
-                        saved.getShipper().getId(),       // shipperId
+                        saved.getShipper().getId(),
                         saved.getStatus().name(),
                         "You have been assigned a new delivery task"
                 );
@@ -360,20 +282,7 @@
                 );
             }
 
-            //  Return DTO
             return toResponseDto(saved);
-        }
-
-        private void createShipmentLog(ShipmentOrder shipmentOrder, ShipmentStatus status, String location, String note) {
-            ShipmentLog log = new ShipmentLog();
-            log.setShipmentOrder(shipmentOrder);
-            log.setStatus(status);
-            log.setLocation(location);
-            log.setNote(note);
-            log.setMessage(note); // nếu muốn message giống note
-            log.setTimestamp(java.time.LocalDateTime.now());
-
-            shipmentLogRepository.save(log);
         }
 
         public SubShipmentOrderResponseDto update(UUID id, SubShipmentOrderUpdateDto dto) {

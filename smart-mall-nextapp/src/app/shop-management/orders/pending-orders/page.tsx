@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Card, 
   Table, 
@@ -12,11 +13,8 @@ import {
   Row, 
   Col, 
   Statistic, 
-  Modal, 
   Badge,
-  Alert,
-  Descriptions,
-  Image
+  Alert
 } from "antd";
 import { 
   SearchOutlined, 
@@ -39,14 +37,13 @@ const { Search } = Input;
 const { RangePicker } = DatePicker;
 
 export default function PendingOrdersPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { userProfile } = useUserProfile();
   const { message, modal } = useAntdApp();
   const [searchText, setSearchText] = useState('');
   const [orders, setOrders] = useState<OrderResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<OrderResponseDto | null>(null);
-  const [orderDetailVisible, setOrderDetailVisible] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
   const [currentShopId, setCurrentShopId] = useState<string | null>(null);
   const [currentShop, setCurrentShop] = useState<Shop | null>(null);
@@ -341,18 +338,16 @@ export default function PendingOrdersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 220,
+      width: 280,
+      fixed: 'right' as const,
       render: (_, record) => (
-        <Space size="small" wrap>
+        <Space size="small" wrap={false}>
           <Button 
             type="text" 
             icon={<EyeOutlined />} 
             size="small"
             title="View Details"
-            onClick={() => {
-              setSelectedOrder(record);
-              setOrderDetailVisible(true);
-            }}
+            onClick={() => router.push(`/shop-management/orders/${record.id}`)}
           />
           <Button 
             type="primary"
@@ -511,191 +506,6 @@ export default function PendingOrdersPage() {
           scroll={{ x: 800 }}
         />
       </Card>
-
-      {/* Order Detail Modal */}
-      <Modal
-        title={`Pending Order - #${selectedOrder?.id.slice(-8)}`}
-        open={orderDetailVisible}
-        onCancel={() => setOrderDetailVisible(false)}
-        width={800}
-        footer={[
-          <Button key="cancel" onClick={() => setOrderDetailVisible(false)}>
-            Close
-          </Button>,
-          <Button 
-            key="reject" 
-            danger
-            icon={<CloseCircleOutlined />}
-            onClick={() => {
-              handleCancelOrder(selectedOrder!.id);
-              setOrderDetailVisible(false);
-            }}
-          >
-            Cancel Order
-          </Button>,
-          <Button 
-            key="confirm" 
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            onClick={() => {
-              handleConfirmOrder(selectedOrder!.id);
-              setOrderDetailVisible(false);
-            }}
-          >
-            Confirm Order
-          </Button>
-        ]}
-      >
-        {selectedOrder && (
-          <div className="space-y-4">
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="flex items-center gap-2">
-                <ClockCircleOutlined className="text-yellow-600" />
-                <span className="font-medium">Order Age: {getOrderAge(selectedOrder.createdAt)}</span>
-              </div>
-            </div>
-
-            {/* Order Information */}
-            <Descriptions bordered column={2}>
-              <Descriptions.Item label="Order ID">
-                <span className="font-mono">{selectedOrder.id}</span>
-              </Descriptions.Item>
-              <Descriptions.Item label="Customer">
-                {selectedOrder.userName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Status">
-                <Badge 
-                  color="gold"
-                  text="Pending"
-                />
-              </Descriptions.Item>
-              <Descriptions.Item label="Payment Method">
-                <Tag color={selectedOrder.paymentMethod === PaymentMethod.COD ? 'orange' : 
-                           selectedOrder.paymentMethod === PaymentMethod.CREDIT_CARD ? 'blue' : 'green'}>
-                  {selectedOrder.paymentMethod === PaymentMethod.COD ? 'Cash on Delivery' :
-                   selectedOrder.paymentMethod === PaymentMethod.CREDIT_CARD ? 'Credit Card' : 'E-Wallet'}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Order Date">
-                {new Date(selectedOrder.createdAt).toLocaleString('vi-VN')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Shop">
-                {selectedOrder.shopName}
-              </Descriptions.Item>
-            </Descriptions>
-
-            {/* Applied Vouchers */}
-            {selectedOrder.vouchers && selectedOrder.vouchers.length > 0 && (
-              <div>
-                <h4 className="text-lg font-medium mb-3">Applied Vouchers</h4>
-                <div className="space-y-2">
-                  {selectedOrder.vouchers.map((voucher, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Tag color="orange" className="font-mono">
-                          {voucher.voucherCode}
-                        </Tag>
-                        {voucher.voucherCode && (
-                          <span className="text-sm text-gray-700">{voucher.voucherCode}</span>
-                        )}
-                      </div>
-                      <span className="font-medium text-green-600">
-                        -{formatCurrency(voucher.discountAmount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Shipping Address */}
-            {selectedOrder.shippingAddress && (
-              <div>
-                <h4 className="text-lg font-medium mb-3">Shipping Address</h4>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="font-medium">{selectedOrder.shippingAddress.fullName}</div>
-                  <div className="text-gray-600">{selectedOrder.shippingAddress.phone}</div>
-                  <div className="text-gray-600 mt-1">
-                    {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.ward}, {' '}
-                    {selectedOrder.shippingAddress.district}, {selectedOrder.shippingAddress.province}
-                  </div>
-                  {selectedOrder.shippingAddress.isDefault && (
-                    <Tag color="blue" className="mt-2 text-xs">Default Address</Tag>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* Order Items */}
-            <div>
-              <h4 className="text-lg font-medium mb-3">Items to Confirm</h4>
-              <div className="space-y-3">
-                {selectedOrder.items?.map((item, index) => (
-                  <div key={index} className="flex items-start space-x-4 p-3 border rounded-lg">
-                    <Image
-                      width={60}
-                      height={60}
-                      src={getCloudinaryUrl(item.productImage)}
-                      alt={item.productName}
-                      className="rounded"
-                      fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='60' height='60' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='12' fill='%23666'%3ENo Image%3C/text%3E%3C/svg%3E"
-                    />
-                    <div className="flex-1">
-                      <h5 className="font-medium">{item.productName}</h5>
-                      <p className="text-sm text-gray-500">
-                        SKU: {item.variant?.sku || 'N/A'}
-                      </p>
-                      {item.variant?.salePrice && item.variant.salePrice < item.variant.price && (
-                        <div className="text-sm">
-                          <span className="line-through text-gray-400">
-                            {formatCurrency(item.variant.price)}
-                          </span>
-                          <span className="text-red-600 ml-2">
-                            {formatCurrency(item.variant.salePrice)}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-sm">
-                          {formatCurrency(item.price)} × {item.quantity}
-                        </span>
-                        <span className="font-medium">
-                          {formatCurrency(item.subtotal)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Order Summary */}
-            <div>
-              <h4 className="text-lg font-medium mb-3">Order Summary</h4>
-              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatCurrency(selectedOrder.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping Fee:</span>
-                  <span>{formatCurrency(selectedOrder.shippingFee)}</span>
-                </div>
-                {selectedOrder.discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Discount:</span>
-                    <span>-{formatCurrency(selectedOrder.discountAmount)}</span>
-                  </div>
-                )}
-                <div className="border-t pt-2 flex justify-between font-bold text-lg">
-                  <span>Final Amount:</span>
-                  <span className="text-green-600">{formatCurrency(selectedOrder.finalAmount)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }

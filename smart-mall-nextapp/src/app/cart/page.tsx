@@ -18,10 +18,12 @@ import Header from "@/components/Header";
 export default function CartPage() {
   const { items, totalCount, totalPrice, updateQuantity, removeItem, clearCart, loading } = useCart();
   const router = useRouter();
+  const { modal, message } = App.useApp();
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [voucherModalVisible, setVoucherModalVisible] = useState(false);
   const [shippingInfoVisible, setShippingInfoVisible] = useState(false);
+  const [deletingItems, setDeletingItems] = useState(false);
 
   const handleSelectAll = (checked: boolean) => {
     setSelectAll(checked);
@@ -39,6 +41,42 @@ export default function CartPage() {
       setSelectedItems(prev => prev.filter(id => id !== itemId));
       setSelectAll(false);
     }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedItems.length === 0) {
+      message.warning('Please select items to delete');
+      return;
+    }
+
+    modal.confirm({
+      title: 'Delete Selected Items',
+      content: `Are you sure you want to delete ${selectedItems.length} selected item(s)?`,
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          setDeletingItems(true);
+          
+          // Delete all selected items
+          await Promise.all(
+            selectedItems.map(itemId => removeItem(itemId))
+          );
+          
+          // Clear selection
+          setSelectedItems([]);
+          setSelectAll(false);
+          
+          message.success(`Successfully deleted ${selectedItems.length} item(s)`);
+        } catch (error) {
+          console.error('Failed to delete items:', error);
+          message.error('Failed to delete some items. Please try again.');
+        } finally {
+          setDeletingItems(false);
+        }
+      }
+    });
   };
 
   const selectedItemsData = items.filter(item => selectedItems.includes(item.cartItemId));
@@ -93,6 +131,8 @@ export default function CartPage() {
         selectAll={selectAll}
         selectedTotal={selectedTotal}
         onSelectAll={handleSelectAll}
+        onDeleteSelected={handleDeleteSelected}
+        deletingItems={deletingItems}
       />
 
       <VoucherModal

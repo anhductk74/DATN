@@ -54,6 +54,11 @@ export default function Header() {
   const { userProfile } = useUserProfile();
   const cart = useCart();
 
+  // Debug cart count changes
+  useEffect(() => {
+    console.log('🛒 Header - Cart count updated:', cart.totalCount, 'items:', cart.items.length);
+  }, [cart.totalCount, cart.items]);
+
   // Use enhanced user profile with priority to API data, fallback to session
   // But preserve avatar/image from session if API doesn't have it
   const currentUser = userProfile || user;
@@ -363,7 +368,10 @@ export default function Header() {
                     className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group"
                   >
                     <ShoppingCartOutlined className="text-xl transition-transform group-hover:scale-110" />
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">
+                    <span 
+                      key={`cart-count-${cart.totalCount}`}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold transition-transform group-hover:scale-105"
+                    >
                       {cart.totalCount > 99 ? '99+' : cart.totalCount}
                     </span>
                   </button>
@@ -720,7 +728,10 @@ export default function Header() {
                   <ShoppingCartOutlined className="mr-3 text-gray-400" />
                   Cart
                   {cart.totalCount > 0 && (
-                    <span className="ml-auto bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold">
+                    <span 
+                      key={`mobile-cart-count-${cart.totalCount}`}
+                      className="ml-auto bg-blue-600 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold"
+                    >
                       {cart.totalCount > 99 ? '99+' : cart.totalCount}
                     </span>
                   )}

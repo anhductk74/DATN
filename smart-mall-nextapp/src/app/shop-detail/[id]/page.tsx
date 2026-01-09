@@ -231,7 +231,7 @@ export default function ShopDetail() {
                       size="large"
                       icon={<MessageOutlined />}
                     >
-                      Chat với Shop
+                      Chat Shop
                     </StartChatButton>
 
                     <button
@@ -239,7 +239,7 @@ export default function ShopDetail() {
                       className="bg-white border-2 border-blue-600 text-blue-600 px-6 py-2 rounded-xl font-medium hover:bg-blue-50 transition-all duration-200"
                     >
                       <ShoppingOutlined className="mr-2" />
-                      Xem tất cả sản phẩm
+                      View all products
                     </button>
                   </div>
                 </div>
@@ -255,7 +255,7 @@ export default function ShopDetail() {
               tab={
                 <span className="text-lg">
                   <ShoppingOutlined className="mr-2" />
-                  Sản phẩm ({totalProducts})
+                  Products ({totalProducts})
                 </span>
               }
               key="products"
@@ -346,7 +346,7 @@ export default function ShopDetail() {
               tab={
                 <span className="text-lg">
                   <ShopOutlined className="mr-2" />
-                  Thông tin Shop
+                  Shop Information
                 </span>
               }
               key="info"
@@ -354,7 +354,7 @@ export default function ShopDetail() {
               <div className="space-y-6 py-6">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    Về Shop
+                    About Shop
                   </h3>
                   <p className="text-gray-700 leading-relaxed">
                     {shop.description}
@@ -364,7 +364,7 @@ export default function ShopDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-gray-900">
-                      Thông tin liên hệ
+                      Contact Information
                     </h4>
                     {shop.numberPhone && (
                       <div className="flex items-center space-x-3">
@@ -386,7 +386,7 @@ export default function ShopDetail() {
 
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-gray-900">
-                      Địa chỉ
+                      Address
                     </h4>
                     {shop.address && (
                       <div className="flex items-start space-x-3">

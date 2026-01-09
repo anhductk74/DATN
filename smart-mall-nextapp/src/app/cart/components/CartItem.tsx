@@ -53,11 +53,11 @@ export default function CartItem({
 
   const handleDeleteItem = () => {
     modal.confirm({
-      title: 'Xóa sản phẩm',
+      title: 'Delete Item',
       icon: <ExclamationCircleOutlined />,
-      content: `Bạn có chắc chắn muốn xóa "${item.title}" khỏi giỏ hàng?`,
-      okText: 'Xóa',
-      cancelText: 'Hủy',
+      content: `Are you sure you want to delete "${item.title}" from your cart?`,
+      okText: 'Delete',
+      cancelText: 'Cancel',
       okType: 'danger',
       onOk() {
         removeItem(item.cartItemId);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Badge, Dropdown, Empty, Spin, Button } from 'antd';
+import { Dropdown, Empty, Spin, Button } from 'antd';
 import {
   BellOutlined,
   CheckOutlined,
@@ -48,8 +48,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
       }
     }
 
-    // Navigate to deep link if available
-    if (notification.deepLink) {
+    // Navigate based on notification type
+    if (notification.type.startsWith('ORDER_') && notification.referenceId) {
+      // For order notifications, navigate to order detail
+      router.push(`/shop-management/orders/${notification.referenceId}`);
+      setOpen(false);
+    } else if (notification.deepLink) {
+      // Use deep link if available
       router.push(notification.deepLink);
       setOpen(false);
     }
@@ -125,7 +130,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold">Thông báo</h3>
+          <h3 className="text-lg font-semibold">Notifications</h3>
           {/* {isConnected ? (
             <span className="text-xs text-green-500">● Online</span>
           ) : (
@@ -147,7 +152,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
               icon={<CheckOutlined />}
               onClick={handleMarkAllAsRead}
             >
-              Đánh dấu đã đọc
+              Mark all read
             </Button>
           )}
         </div>
@@ -161,7 +166,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
           </div>
         ) : notifications.length === 0 ? (
           <Empty
-            description="Không có thông báo"
+            description="No notifications"
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             className="py-8"
           />
@@ -234,7 +239,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
               setOpen(false);
             }}
           >
-            Xem tất cả thông báo
+            View all notifications
           </Button>
         </div>
       )}
@@ -250,14 +255,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
       placement="bottomRight"
     >
       <button
-        className={`relative p-2 hover:bg-gray-100 rounded-full transition-colors ${className}`}
+        className={`relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group ${className}`}
         aria-label="Notifications"
       >
-        <Badge count={unreadCount} overflowCount={99} offset={[-5, 5]}>
-          <BellOutlined
-            className={`text-xl ${isConnected ? 'text-blue-500' : 'text-gray-400'}`}
-          />
-        </Badge>
+        <BellOutlined className="text-xl transition-transform group-hover:scale-110" />
+        {unreadCount > 0 && (
+          <span 
+            key={`notification-count-${unreadCount}`}
+            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold transition-transform group-hover:scale-105"
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
     </Dropdown>
   );

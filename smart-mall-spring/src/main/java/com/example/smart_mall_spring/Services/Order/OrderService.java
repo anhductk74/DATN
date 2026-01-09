@@ -616,10 +616,22 @@ public class OrderService {
      */
     private void sendOrderCreatedNotificationToUser(Order order, User user) {
         String message = String.format(
-            "Your order #%s has been created successfully. Total amount: %,.0f VND",
+            "Đơn hàng #%s của bạn đã được tạo thành công. Tổng tiền: %,.0f đ",
             order.getId().toString().substring(0, 8),
             order.getFinalAmount()
         );
+        
+        // Lấy ảnh sản phẩm đầu tiên trong đơn hàng
+        String productImage = null;
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            var firstItem = order.getItems().get(0);
+            if (firstItem.getVariant() != null && 
+                firstItem.getVariant().getProduct() != null && 
+                firstItem.getVariant().getProduct().getImages() != null && 
+                !firstItem.getVariant().getProduct().getImages().isEmpty()) {
+                productImage = firstItem.getVariant().getProduct().getImages().get(0);
+            }
+        }
         
         NotificationRequestDto notification = NotificationRequestDto.builder()
             .userId(user.getId())
@@ -629,6 +641,7 @@ public class OrderService {
             .referenceId(order.getId())
             .referenceType("ORDER")
             .deepLink("/orders/" + order.getId())
+            .imageUrl(productImage)
             .build();
             
         notificationService.createAndSendNotification(notification);
@@ -639,21 +652,33 @@ public class OrderService {
      */
     private void sendNewOrderNotificationToShop(Order order, Shop shop) {
         String message = String.format(
-            "You have a new order #%s from %s. Total: %,.0f VND",
+            "Bạn có đơn hàng mới #%s từ %s. Giá trị: %,.0f đ",
             order.getId().toString().substring(0, 8),
             order.getUser().getProfile().getFullName(),
             order.getFinalAmount()
         );
         
+        // Lấy ảnh sản phẩm đầu tiên trong đơn hàng
+        String productImage = null;
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            var firstItem = order.getItems().get(0);
+            if (firstItem.getVariant() != null && 
+                firstItem.getVariant().getProduct() != null && 
+                firstItem.getVariant().getProduct().getImages() != null && 
+                !firstItem.getVariant().getProduct().getImages().isEmpty()) {
+                productImage = firstItem.getVariant().getProduct().getImages().get(0);
+            }
+        }
+        
         NotificationRequestDto notification = NotificationRequestDto.builder()
             .userId(shop.getOwner().getId())
             .type(NotificationType.ORDER_CREATED)
-            .title("New Order")
+            .title("Đơn hàng mới")
             .message(message)
             .referenceId(order.getId())
             .referenceType("ORDER")
             .deepLink("/shop/orders/" + order.getId())
-            .imageUrl(order.getShop().getAvatar())
+            .imageUrl(productImage)
             .build();
             
         notificationService.createAndSendNotification(notification);
@@ -667,11 +692,23 @@ public class OrderService {
         String message;
         UUID recipientId = order.getUser().getId(); // Mặc định gửi cho người mua
         
+        // Lấy ảnh sản phẩm đầu tiên trong đơn hàng
+        String productImage = null;
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            var firstItem = order.getItems().get(0);
+            if (firstItem.getVariant() != null && 
+                firstItem.getVariant().getProduct() != null && 
+                firstItem.getVariant().getProduct().getImages() != null && 
+                !firstItem.getVariant().getProduct().getImages().isEmpty()) {
+                productImage = firstItem.getVariant().getProduct().getImages().get(0);
+            }
+        }
+        
         switch (newStatus) {
             case CONFIRMED:
                 notificationType = NotificationType.ORDER_CONFIRMED;
                 message = String.format(
-                    "Your order #%s has been confirmed by the shop",
+                    "Đơn hàng #%s đã được shop xác nhận",
                     order.getId().toString().substring(0, 8)
                 );
                 break;
@@ -679,7 +716,7 @@ public class OrderService {
             case SHIPPING:
                 notificationType = NotificationType.ORDER_SHIPPED;
                 message = String.format(
-                    "Your order #%s is being delivered to you",
+                    "Đơn hàng #%s đang được vận chuyển đến bạn",
                     order.getId().toString().substring(0, 8)
                 );
                 break;
@@ -687,7 +724,7 @@ public class OrderService {
             case DELIVERED:
                 notificationType = NotificationType.ORDER_DELIVERED;
                 message = String.format(
-                    "Your order #%s has been delivered successfully. Please confirm receipt!",
+                    "Đơn hàng #%s đã được giao thành công. Vui lòng xác nhận đã nhận hàng!",
                     order.getId().toString().substring(0, 8)
                 );
                 break;
@@ -695,7 +732,7 @@ public class OrderService {
             case CANCELLED:
                 notificationType = NotificationType.ORDER_CANCELLED;
                 message = String.format(
-                    "Your order #%s has been cancelled",
+                    "Đơn hàng #%s đã bị hủy",
                     order.getId().toString().substring(0, 8)
                 );
                 break;
@@ -712,6 +749,7 @@ public class OrderService {
             .referenceId(order.getId())
             .referenceType("ORDER")
             .deepLink("/orders/" + order.getId())
+            .imageUrl(productImage)
             .build();
             
         notificationService.createAndSendNotification(notification);

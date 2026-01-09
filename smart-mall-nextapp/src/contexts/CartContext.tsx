@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useAntdApp } from "@/hooks/useAntdApp";
 import cartService, { type Cart as ApiCart, type CartItem as ApiCartItem } from "@/services/CartService";
@@ -48,11 +48,24 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
  * Transform API cart item to local format with real shop data
  */
 async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
+  console.log('🔄 Starting cart transformation, items count:', apiCart.items?.length || 0);
+  
+  if (!apiCart.items || apiCart.items.length === 0) {
+    console.log('⚠️ No items in cart to transform');
+    return [];
+  }
+  
   // Create a map to cache product data and avoid duplicate API calls
   const productCache = new Map<string, any>();
   
   // Process all cart items in parallel
-  const transformPromises = apiCart.items.map(async (item: ApiCartItem) => {
+  const transformPromises = apiCart.items.map(async (item: ApiCartItem, index: number) => {
+    console.log(`🔄 Transforming item ${index + 1}/${apiCart.items.length}:`, {
+      productName: item.productName,
+      variantId: item.variant.id,
+      quantity: item.quantity
+    });
+    
     try {
       // Try to get shop info from cart API first
       let shopId = item.productShopId;
@@ -109,7 +122,7 @@ async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
         hasRealShopData: !shopId.startsWith('shop-')
       });
       
-      return {
+      const transformedItem = {
         id: item.variant.id,
         cartItemId: item.id,
         variantId: item.variant.id,
@@ -130,14 +143,17 @@ async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
         flashSaleStart: item.variant.flashSaleStart,
         flashSaleEnd: item.variant.flashSaleEnd,
       };
+      
+      console.log(`✅ Item ${index + 1} transformed successfully:`, transformedItem.title);
+      return transformedItem;
     } catch (error) {
-      console.error('Error transforming cart item:', error);
+      console.error(`❌ Error transforming cart item ${index + 1}:`, error);
       
       // Fallback transformation
       const fallbackShopId = `shop-${item.variant.productBrand.toLowerCase().replace(/\s+/g, '-')}`;
       const fallbackShopName = `${item.variant.productBrand} Official Store`;
       
-      return {
+      const fallbackItem = {
         id: item.variant.id,
         cartItemId: item.id,
         variantId: item.variant.id,
@@ -158,17 +174,22 @@ async function transformApiCartToLocal(apiCart: ApiCart): Promise<CartItem[]> {
         flashSaleStart: item.variant.flashSaleStart,
         flashSaleEnd: item.variant.flashSaleEnd,
       };
+      
+      console.log(`⚠️ Item ${index + 1} using fallback transformation:`, fallbackItem.title);
+      return fallbackItem;
     }
   });
   
   // Wait for all transformations to complete
   const transformedItems = await Promise.all(transformPromises);
+  console.log('✅ Cart transformation complete:', transformedItems.length, 'items transformed');
   return transformedItems;
 }
 
 export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [updateTrigger, setUpdateTrigger] = useState(0); // Trigger for forcing re-renders
   const { data: session, status } = useSession();
   const { message } = useAntdApp();
 
@@ -181,14 +202,20 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     }
   }, [status]);
 
-  const refreshCart = async () => {
+  const refreshCart = useCallback(async () => {
     if (status !== 'authenticated') return;
     
     try {
       setLoading(true);
+      console.log('🔄 Refreshing cart...');
       const apiCart = await cartService.getCart();
+      console.log('✅ Cart fetched:', apiCart);
       const transformedItems = await transformApiCartToLocal(apiCart);
-      setItems(transformedItems);
+      console.log('✅ Items transformed:', transformedItems.length);
+      // Force new array reference
+      setItems([...transformedItems]);
+      setUpdateTrigger(prev => prev + 1);
+      console.log('✅ Cart state updated');
     } catch (error: any) {
       console.error('Failed to load cart:', error);
       // Don't show error message on initial load, cart might be empty
@@ -199,9 +226,9 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     } finally {
       setLoading(false);
     }
-  };
+  }, [status, message]);
 
-  const addItem = async (variantId: string, quantity: number = 1) => {
+  const addItem = useCallback(async (variantId: string, quantity: number = 1) => {
     if (status !== 'authenticated') {
       message.warning('Vui lòng đăng nhập để thêm vào giỏ hàng');
       return;
@@ -209,36 +236,60 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
 
     try {
       setLoading(true);
-      const apiCart = await cartService.addItem({ variantId, quantity });
-      const transformedItems = await transformApiCartToLocal(apiCart);
-      setItems(transformedItems);
-
+      console.log('🛒 Adding item to cart:', { variantId, quantity });
       
+      // Add item to cart
+      await cartService.addItem({ variantId, quantity });
+      console.log('✅ Item added to cart via API');
+      
+      // Immediately fetch fresh cart data to ensure we have the latest items
+      const freshCart = await cartService.getCart();
+      console.log('✅ Fresh cart fetched after add:', freshCart);
+      
+      const transformedItems = await transformApiCartToLocal(freshCart);
+      console.log('✅ Transformed items:', transformedItems.length, 'items');
+      
+      // Update state with completely new array
+      setItems(() => {
+        console.log('🔄 Setting new items array');
+        return [...transformedItems];
+      });
+      
+      // Force trigger update
+      setUpdateTrigger(prev => {
+        const newTrigger = prev + 1;
+        console.log('🔄 Trigger updated:', prev, '->', newTrigger);
+        return newTrigger;
+      });
+      
+      console.log('✅ Cart updated successfully, new items count:', transformedItems.length);
 
     } catch (error: any) {
-      console.error('Failed to add item to cart:', error);
+      console.error('❌ Failed to add item to cart:', error);
       message.error(error?.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng');
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, [status, message]);
 
-  const removeItem = async (cartItemId: string) => {
+  const removeItem = useCallback(async (cartItemId: string) => {
     if (status !== 'authenticated') return;
 
     try {
       setLoading(true);
       await cartService.removeItem(cartItemId);
       setItems(prev => prev.filter(item => item.cartItemId !== cartItemId));
+      setUpdateTrigger(prev => prev + 1);
     } catch (error: any) {
       console.error('Failed to remove item from cart:', error);
       message.error(error?.response?.data?.message || 'Không thể xóa sản phẩm');
     } finally {
       setLoading(false);
     }
-  };
+  }, [status, message]);
 
-  const updateQuantity = async (cartItemId: string, quantity: number) => {
+  const updateQuantity = useCallback(async (cartItemId: string, quantity: number) => {
     if (status !== 'authenticated') return;
     if (quantity < 1) {
       await removeItem(cartItemId);
@@ -254,27 +305,31 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
           : item
       )
     );
+    setUpdateTrigger(prev => prev + 1);
 
     try {
       const apiCart = await cartService.updateItem({ cartItemId, quantity });
       // Update with actual data from server
       const transformedItems = await transformApiCartToLocal(apiCart);
-      setItems(transformedItems);
+      setItems([...transformedItems]);
+      setUpdateTrigger(prev => prev + 1);
     } catch (error: any) {
       console.error('Failed to update cart item:', error);
       message.error(error?.response?.data?.message || 'Không thể cập nhật số lượng');
       // Rollback to previous state on error
       setItems(previousItems);
+      setUpdateTrigger(prev => prev + 1);
     }
-  };
+  }, [status, message, items, removeItem]);
 
-  const clearCart = async () => {
+  const clearCart = useCallback(async () => {
     if (status !== 'authenticated') return;
 
     try {
       setLoading(true);
       await cartService.clearCart();
       setItems([]);
+      setUpdateTrigger(prev => prev + 1);
       message.success('Đã xóa tất cả sản phẩm');
     } catch (error: any) {
       console.error('Failed to clear cart:', error);
@@ -282,15 +337,24 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     } finally {
       setLoading(false);
     }
-  };
+  }, [status, message]);
 
-  const totalCount = useMemo(() => items.reduce((s, it) => s + it.quantity, 0), [items]);
-  const totalPrice = useMemo(() => items.reduce((s, it) => {
-    const displayPrice = it.effectivePrice || it.price;
-    return s + it.quantity * displayPrice;
-  }, 0), [items]);
+  const totalCount = useMemo(() => {
+    const count = items.reduce((s, it) => s + it.quantity, 0);
+    console.log('🔢 Total count recalculated:', count, 'from', items.length, 'items', 'trigger:', updateTrigger);
+    return count;
+  }, [items, updateTrigger]);
+  
+  const totalPrice = useMemo(() => {
+    const price = items.reduce((s, it) => {
+      const displayPrice = it.effectivePrice || it.price;
+      return s + it.quantity * displayPrice;
+    }, 0);
+    console.log('💰 Total price recalculated:', price);
+    return price;
+  }, [items, updateTrigger]);
 
-  const value: CartContextValue = {
+  const value: CartContextValue = useMemo(() => ({
     items,
     totalCount,
     totalPrice,
@@ -300,7 +364,14 @@ export const CartProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     updateQuantity,
     clearCart,
     refreshCart,
-  };
+  }), [items, totalCount, totalPrice, loading]);
+
+  console.log('🔄 CartContext value updated:', {
+    itemsCount: items.length,
+    totalCount,
+    totalPrice,
+    trigger: updateTrigger
+  });
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
