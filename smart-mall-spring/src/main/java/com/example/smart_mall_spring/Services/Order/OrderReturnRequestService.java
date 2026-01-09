@@ -114,11 +114,11 @@ public class OrderReturnRequestService {
     @Transactional
     public OrderReturnResponseDto updateReturnStatusByShop(UUID requestId, ReturnStatus newStatus) {
         OrderReturnRequest request = returnRequestRepository.findById(requestId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn trả."));
+                .orElseThrow(() -> new RuntimeException("Return request not found"));
 
         // Shop chỉ được phép xử lý khi trạng thái hiện tại là PENDING hoặc APPROVED
         if (request.getStatus() == ReturnStatus.REJECTED || request.getStatus() == ReturnStatus.COMPLETED) {
-            throw new RuntimeException("Yêu cầu này đã được xử lý, không thể thay đổi trạng thái.");
+            throw new RuntimeException("This request has already been processed and cannot be changed");
         }
 
         // Cho phép chuyển từ PENDING → APPROVED/REJECTED

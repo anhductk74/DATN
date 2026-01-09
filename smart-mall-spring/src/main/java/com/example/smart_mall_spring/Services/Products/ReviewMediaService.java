@@ -30,7 +30,7 @@
 //    @Transactional
 //    public List<ReviewMediaResponseDto> uploadReviewMedia(UUID reviewId, List<MultipartFile> files) throws IOException {
 //        Review review = reviewRepository.findById(reviewId)
-//                .orElseThrow(() -> new RuntimeException("Không tìm thấy review với ID: " + reviewId));
+//                .orElseThrow(() -> new RuntimeException("Review not found with ID: " + reviewId));
 //
 //        List<ReviewMediaResponseDto> uploadedFiles = new ArrayList<>();
 //

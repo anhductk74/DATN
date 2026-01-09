@@ -157,7 +157,7 @@ public class VnPayService {
 
         } catch (Exception e) {
             throw new RuntimeException(
-                    "Lỗi khi tạo URL thanh toán VNPay",
+                    "Error creating VNPay payment URL",
                     e
             );
         }
@@ -181,7 +181,7 @@ public class VnPayService {
 
         Optional<Transaction> optionalTx = transactionRepository.findByTransactionCode(vnp_TxnRef);
         if (optionalTx.isEmpty()) {
-            return new VnPayPaymentResponseDto(vnp_TxnRef, vnp_ResponseCode, 2, "Không tìm thấy giao dịch");
+            return new VnPayPaymentResponseDto(vnp_TxnRef, vnp_ResponseCode, 2, "Transaction not found");
         }
 
         Transaction tx = optionalTx.get();
@@ -208,7 +208,7 @@ public class VnPayService {
                 }
             }
 
-            return new VnPayPaymentResponseDto(vnp_TxnRef, vnp_ResponseCode, 1, "Thanh toán thành công");
+            return new VnPayPaymentResponseDto(vnp_TxnRef, vnp_ResponseCode, 1, "Payment successful");
 
         }
         // 3. Xử lý thất bại
@@ -230,7 +230,7 @@ public class VnPayService {
             }
         }
 
-            return new VnPayPaymentResponseDto(vnp_TxnRef, vnp_ResponseCode, 2, "Thanh toán thất bại - mã lỗi: " + vnp_ResponseCode);
+            return new VnPayPaymentResponseDto(vnp_TxnRef, vnp_ResponseCode, 2, "Payment failed - error code: " + vnp_ResponseCode);
 
     }
 
@@ -240,20 +240,20 @@ public class VnPayService {
     public VnPayPaymentResponseDto refundPayment(String originalTxnCode, double amount, User user) {
         Optional<Transaction> optionalTx = transactionRepository.findByTransactionCode(originalTxnCode);
         if (optionalTx.isEmpty()) {
-            return new VnPayPaymentResponseDto(originalTxnCode, "404", 2, "Không tìm thấy giao dịch để hoàn tiền");
+            return new VnPayPaymentResponseDto(originalTxnCode, "404", 2, "Transaction not found for refund");
         }
 
         Transaction refund = new Transaction();
         refund.setTransactionCode("REFUND_" + originalTxnCode);
         refund.setAmount(amount);
-        refund.setDescription("Hoàn tiền cho giao dịch " + originalTxnCode);
-        refund.setTransactionType(3); // 3 = hoàn tiền
+        refund.setDescription("Refund for transaction " + originalTxnCode);
+        refund.setTransactionType(3); // 3 = refund
         refund.setTransactionDate(new Date(System.currentTimeMillis()));
-        refund.setStatus(1); // 1 = thành công
+        refund.setStatus(1); // 1 = success
         refund.setUser(user);
         transactionRepository.save(refund);
 
-        return new VnPayPaymentResponseDto(refund.getTransactionCode(), "00", 1, "Hoàn tiền thành công");
+        return new VnPayPaymentResponseDto(refund.getTransactionCode(), "00", 1, "Refund successful");
     }
 
     /**

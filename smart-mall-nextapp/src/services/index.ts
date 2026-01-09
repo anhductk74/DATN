@@ -16,6 +16,7 @@ export { default as dashboardService } from './DashboardService';
 export { default as walletService } from './WalletService';
 export { VirtualTryOnService } from './VirtualTryOnService';
 export { default as wishlistService } from './WishlistService';
+export { default as notificationService } from './NotificationService';
 
 // New API services based on backend controllers
 export { orderApiService } from './OrderApiService';

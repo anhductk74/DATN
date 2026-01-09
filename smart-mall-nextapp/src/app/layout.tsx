@@ -4,12 +4,14 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import AntdProvider from "@/components/AntdProvider";
 import SessionProvider from "@/components/SessionProvider";
 import QueryProvider from "@/components/QueryProvider";
 import ClearLegacyStorage from "@/components/ClearLegacyStorage";
 import ChatUserSync from "@/components/ChatUserSync";
 import WidgetsContainer from "@/components/WidgetsContainer";
+import NotificationToast from "@/components/NotificationToast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,10 +49,13 @@ export default function RootLayout({
               <AuthProvider>
                 <UserProfileProvider>
                   <CartProvider>
-                    <ClearLegacyStorage />
-                    <ChatUserSync />
-                    {children}
-                    <WidgetsContainer />
+                    <NotificationProvider>
+                      <ClearLegacyStorage />
+                      <ChatUserSync />
+                      {children}
+                      <WidgetsContainer />
+                      <NotificationToast />
+                    </NotificationProvider>
                   </CartProvider>
                 </UserProfileProvider>
               </AuthProvider>

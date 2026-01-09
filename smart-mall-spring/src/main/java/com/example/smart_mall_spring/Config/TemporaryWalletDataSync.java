@@ -63,7 +63,7 @@ public class TemporaryWalletDataSync {
                     tempWallet.setOrder(order);
                     tempWallet.setAmount(order.getFinalAmount());
                     tempWallet.setIsTransferred(false);
-                    tempWallet.setNote("Đồng bộ đơn hàng DELIVERED từ " + order.getUpdatedAt().toLocalDate());
+                    tempWallet.setNote("Synced DELIVERED order from " + order.getUpdatedAt().toLocalDate());
                     
                     temporaryWalletRepository.save(tempWallet);
                     syncedToTempWallet++;
@@ -93,7 +93,7 @@ public class TemporaryWalletDataSync {
                     transaction.setBalanceBefore(balanceBefore);
                     transaction.setBalanceAfter(wallet.getBalance());
                     transaction.setOrder(order);
-                    transaction.setDescription("Đồng bộ thanh toán từ đơn hàng #" + order.getId());
+                    transaction.setDescription("Synced payment from order #" + order.getId());
                     transaction.setReferenceCode(order.getId().toString());
                     
                     transactionRepository.save(transaction);

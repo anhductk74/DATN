@@ -39,10 +39,10 @@ public class WalletService {
     @Transactional
     public WalletResponse createWallet(UUID shopId, UpdateBankInfoRequest bankInfo) {
         Shop shop = shopRepository.findById(shopId)
-            .orElseThrow(() -> new RuntimeException("Shop không tồn tại"));
+            .orElseThrow(() -> new RuntimeException("Shop not found"));
         
         if (walletRepository.existsByShopId(shopId)) {
-            throw new RuntimeException("Shop đã có ví");
+            throw new RuntimeException("Shop already has a wallet");
         }
         
         // Kiểm tra thông tin ngân hàng
@@ -50,7 +50,7 @@ public class WalletService {
             bankInfo.getBankName() == null || bankInfo.getBankName().trim().isEmpty() ||
             bankInfo.getBankAccountNumber() == null || bankInfo.getBankAccountNumber().trim().isEmpty() ||
             bankInfo.getBankAccountName() == null || bankInfo.getBankAccountName().trim().isEmpty()) {
-            throw new RuntimeException("Thông tin ngân hàng không được để trống");
+            throw new RuntimeException("Bank information cannot be empty");
         }
         
         // Lấy tổng số tiền từ ví tạm
@@ -95,7 +95,7 @@ public class WalletService {
             balanceBefore += tempWallet.getAmount();
             transaction.setBalanceAfter(balanceBefore);
             transaction.setOrder(tempWallet.getOrder());
-            transaction.setDescription("Chuyển từ ví tạm - Đơn hàng #" + tempWallet.getOrder().getId());
+            transaction.setDescription("Transfer from temporary wallet - Order #" + tempWallet.getOrder().getId());
             transaction.setReferenceCode(tempWallet.getOrder().getId().toString());
             
             transactionRepository.save(transaction);
@@ -103,7 +103,7 @@ public class WalletService {
             // Đánh dấu ví tạm đã chuyển
             tempWallet.setIsTransferred(true);
             tempWallet.setTransferredAt(LocalDateTime.now());
-            tempWallet.setNote("Đã chuyển vào ví chính");
+            tempWallet.setNote("Transferred to main wallet");
             temporaryWalletRepository.save(tempWallet);
         }
         
@@ -113,7 +113,7 @@ public class WalletService {
     // Lấy thông tin ví
     public WalletResponse getWalletByShopId(UUID shopId) {
         ShopWallet wallet = walletRepository.findByShopId(shopId)
-            .orElseThrow(() -> new RuntimeException("Ví không tồn tại"));
+            .orElseThrow(() -> new RuntimeException("Wallet not found"));
         
         return mapToWalletResponse(wallet);
     }
@@ -136,7 +136,7 @@ public class WalletService {
     @Transactional
     public WalletResponse updateBankInfo(UUID shopId, UpdateBankInfoRequest request) {
         ShopWallet wallet = walletRepository.findByShopId(shopId)
-            .orElseThrow(() -> new RuntimeException("Ví không tồn tại"));
+            .orElseThrow(() -> new RuntimeException("Wallet not found"));
         
         wallet.setBankName(request.getBankName());
         wallet.setBankAccountNumber(request.getBankAccountNumber());
@@ -164,7 +164,7 @@ public class WalletService {
                 tempWallet.setOrder(order);
                 tempWallet.setAmount(amount);
                 tempWallet.setIsTransferred(false);
-                tempWallet.setNote("Đơn hàng hoàn thành khi shop chưa có ví");
+                tempWallet.setNote("Order completed when shop has no wallet");
                 
                 temporaryWalletRepository.save(tempWallet);
                 
@@ -193,7 +193,7 @@ public class WalletService {
         transaction.setBalanceBefore(balanceBefore);
         transaction.setBalanceAfter(wallet.getBalance());
         transaction.setOrder(order);
-        transaction.setDescription("Thanh toán từ đơn hàng #" + order.getId());
+        transaction.setDescription("Payment from order #" + order.getId());
         transaction.setReferenceCode(order.getId().toString());
         
         transactionRepository.save(transaction);
@@ -233,14 +233,14 @@ public class WalletService {
     @Transactional
     public WithdrawalResponse createWithdrawalRequest(UUID shopId, WithdrawalRequestDto requestDto) {
         ShopWallet wallet = walletRepository.findByShopId(shopId)
-            .orElseThrow(() -> new RuntimeException("Ví không tồn tại"));
+            .orElseThrow(() -> new RuntimeException("Wallet not found"));
         
         if (!wallet.getIsActive()) {
-            throw new RuntimeException("Ví đã bị khóa");
+            throw new RuntimeException("Wallet is locked");
         }
         
         if (wallet.getBalance() < requestDto.getAmount()) {
-            throw new RuntimeException("Số dư không đủ");
+            throw new RuntimeException("Insufficient balance");
         }
         
         WithdrawalRequest withdrawal = new WithdrawalRequest();
@@ -262,10 +262,10 @@ public class WalletService {
     @Transactional
     public WithdrawalResponse processWithdrawalRequest(UUID requestId, ProcessWithdrawalRequest processRequest, String adminUsername) {
         WithdrawalRequest withdrawal = withdrawalRepository.findById(requestId)
-            .orElseThrow(() -> new RuntimeException("Yêu cầu rút tiền không tồn tại"));
+            .orElseThrow(() -> new RuntimeException("Withdrawal request not found"));
         
         if (withdrawal.getStatus() != WithdrawalStatus.PENDING) {
-            throw new RuntimeException("Yêu cầu đã được xử lý");
+            throw new RuntimeException("Request has already been processed");
         }
         
         withdrawal.setStatus(processRequest.getStatus());
@@ -277,7 +277,7 @@ public class WalletService {
             ShopWallet wallet = withdrawal.getWallet();
             
             if (wallet.getBalance() < withdrawal.getAmount()) {
-                throw new RuntimeException("Số dư không đủ");
+                throw new RuntimeException("Insufficient balance");
             }
             
             Double balanceBefore = wallet.getBalance();
@@ -293,7 +293,7 @@ public class WalletService {
             transaction.setBalanceBefore(balanceBefore);
             transaction.setBalanceAfter(wallet.getBalance());
             transaction.setWithdrawalRequest(withdrawal);
-            transaction.setDescription("Rút tiền - Yêu cầu #" + withdrawal.getId());
+            transaction.setDescription("Withdrawal - Request #" + withdrawal.getId());
             transaction.setReferenceCode(withdrawal.getId().toString());
             
             transactionRepository.save(transaction);

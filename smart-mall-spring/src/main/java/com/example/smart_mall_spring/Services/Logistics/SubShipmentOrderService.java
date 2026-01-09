@@ -494,7 +494,7 @@
                 history.setOrder(order);
                 history.setFromStatus(oldStatus);
                 history.setToStatus(newStatus);
-                history.setNote("Đơn hàng đã được giao thông công sau chặn cuối");
+                history.setNote("Order successfully delivered after final checkpoint");
                 history.setChangedAt(LocalDateTime.now());
 
                 orderStatusHistoryRepository.save(history);
@@ -505,7 +505,7 @@
             Order order = sub.getShipmentOrder().getOrder();
 
             if (order.getItems() == null || order.getItems().isEmpty()) {
-                throw new IllegalStateException("Order không có sản phẩm nào");
+                throw new IllegalStateException("Order has no items");
             }
 
             ProductVariant variant = order.getItems().get(0).getVariant();

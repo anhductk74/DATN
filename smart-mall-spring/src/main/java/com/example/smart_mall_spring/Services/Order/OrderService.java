@@ -16,6 +16,9 @@ import com.example.smart_mall_spring.Entities.Users.UserAddress;
 import com.example.smart_mall_spring.Enum.*;
 import com.example.smart_mall_spring.Repositories.*;
 import com.example.smart_mall_spring.Services.Wallet.WalletService;
+import com.example.smart_mall_spring.Services.NotificationService;
+import com.example.smart_mall_spring.Dtos.Notification.NotificationRequestDto;
+import com.example.smart_mall_spring.Enum.NotificationType;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -45,6 +48,7 @@ public class OrderService {
     private final ProductVariantRepository productVariantRepository;
     private final WalletService walletService;
     private final OrderTrackingLogService orderTrackingLogService;
+    private final NotificationService notificationService;
 
     /**
      * 🛒 Tạo đơn hàng mới
@@ -212,6 +216,12 @@ public class OrderService {
         } catch (Exception e) {
             System.err.println("Failed to add pending amount to wallet: " + e.getMessage());
         }
+
+        // Send notification to user about order created
+        sendOrderCreatedNotificationToUser(order, user);
+        
+        // Send notification to shop about new order
+        sendNewOrderNotificationToShop(order, shop);
 
         // 8️ Map dữ liệu trả về
         return mapToOrderResponseDto(order, subtotal, shippingFeeAmount, totalDiscount, appliedVouchers);
@@ -435,10 +445,10 @@ public class OrderService {
 
         if (dto.getStatus() == StatusOrder.PACKED) {
             orderTrackingLogService.recordTrackingLog(order, new OrderTrackingLogRequest(
-                    "SHOP",                         // Carrier hoặc đơn vị xử lý
-                    order.getId().toString(),       // trackingNumber - có thể dùng orderId
+                    "SHOP",                         // Carrier or handler
+                    order.getId().toString(),       // trackingNumber - can use orderId
                     order.getShop().getAddress().getStreet(),
-                    "Đơn hàng đã được đóng gói"
+                    "Order has been packed"
             ));
         }
         // Cập nhật wallet khi đơn hàng hoàn thành
@@ -458,6 +468,9 @@ public class OrderService {
                 System.err.println("Failed to remove pending amount from wallet: " + e.getMessage());
             }
         }
+
+        // Send notification about order status update
+        sendOrderStatusUpdateNotification(order, dto.getStatus());
 
         return true;
     }
@@ -596,5 +609,111 @@ public class OrderService {
                         .collect(Collectors.toList()))
 
                 .build();
+    }
+    
+    /**
+     * Send notification to user when order is created
+     */
+    private void sendOrderCreatedNotificationToUser(Order order, User user) {
+        String message = String.format(
+            "Your order #%s has been created successfully. Total amount: %,.0f VND",
+            order.getId().toString().substring(0, 8),
+            order.getFinalAmount()
+        );
+        
+        NotificationRequestDto notification = NotificationRequestDto.builder()
+            .userId(user.getId())
+            .type(NotificationType.ORDER_CREATED)
+            .title(NotificationType.ORDER_CREATED.getTitle())
+            .message(message)
+            .referenceId(order.getId())
+            .referenceType("ORDER")
+            .deepLink("/orders/" + order.getId())
+            .build();
+            
+        notificationService.createAndSendNotification(notification);
+    }
+    
+    /**
+     * Send notification to shop when new order is received
+     */
+    private void sendNewOrderNotificationToShop(Order order, Shop shop) {
+        String message = String.format(
+            "You have a new order #%s from %s. Total: %,.0f VND",
+            order.getId().toString().substring(0, 8),
+            order.getUser().getProfile().getFullName(),
+            order.getFinalAmount()
+        );
+        
+        NotificationRequestDto notification = NotificationRequestDto.builder()
+            .userId(shop.getOwner().getId())
+            .type(NotificationType.ORDER_CREATED)
+            .title("New Order")
+            .message(message)
+            .referenceId(order.getId())
+            .referenceType("ORDER")
+            .deepLink("/shop/orders/" + order.getId())
+            .imageUrl(order.getShop().getAvatar())
+            .build();
+            
+        notificationService.createAndSendNotification(notification);
+    }
+    
+    /**
+     * Send notification to user when order status is updated
+     */
+    private void sendOrderStatusUpdateNotification(Order order, StatusOrder newStatus) {
+        NotificationType notificationType;
+        String message;
+        UUID recipientId = order.getUser().getId(); // Mặc định gửi cho người mua
+        
+        switch (newStatus) {
+            case CONFIRMED:
+                notificationType = NotificationType.ORDER_CONFIRMED;
+                message = String.format(
+                    "Your order #%s has been confirmed by the shop",
+                    order.getId().toString().substring(0, 8)
+                );
+                break;
+                
+            case SHIPPING:
+                notificationType = NotificationType.ORDER_SHIPPED;
+                message = String.format(
+                    "Your order #%s is being delivered to you",
+                    order.getId().toString().substring(0, 8)
+                );
+                break;
+                
+            case DELIVERED:
+                notificationType = NotificationType.ORDER_DELIVERED;
+                message = String.format(
+                    "Your order #%s has been delivered successfully. Please confirm receipt!",
+                    order.getId().toString().substring(0, 8)
+                );
+                break;
+                
+            case CANCELLED:
+                notificationType = NotificationType.ORDER_CANCELLED;
+                message = String.format(
+                    "Your order #%s has been cancelled",
+                    order.getId().toString().substring(0, 8)
+                );
+                break;
+                
+            default:
+                return; // Không gửi notification cho các status khác
+        }
+        
+        NotificationRequestDto notification = NotificationRequestDto.builder()
+            .userId(recipientId)
+            .type(notificationType)
+            .title(notificationType.getTitle())
+            .message(message)
+            .referenceId(order.getId())
+            .referenceType("ORDER")
+            .deepLink("/orders/" + order.getId())
+            .build();
+            
+        notificationService.createAndSendNotification(notification);
     }
 }

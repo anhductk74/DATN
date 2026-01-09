@@ -8,7 +8,6 @@ import {
   HeartOutlined, 
   ShoppingCartOutlined,
   UserOutlined,
-  BellOutlined,
   DownOutlined,
   MenuOutlined,
   HomeOutlined,
@@ -30,12 +29,12 @@ import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { getCloudinaryUrl } from "@/config/config";
 import Image from "next/image";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showCartPopup, setShowCartPopup] = useState(false);
-  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [cartHideTimeout, setCartHideTimeout] = useState<NodeJS.Timeout | null>(null);
   const { count: wishlistCount } = useWishlist();
@@ -66,48 +65,6 @@ export default function Header() {
     // Also add image field for compatibility
     image: userProfile?.avatar || sessionUser?.image || sessionUser?.avatar
   } : null;
-
-  // Mock notifications data
-  const mockNotifications = [
-    {
-      id: '1',
-      title: 'Order Shipped',
-      message: 'Your order #ORD001 has been shipped',
-      timestamp: '2 hours ago',
-      isRead: false,
-      type: 'order',
-      icon: <ShoppingCartOutlined className="text-green-500" />,
-    },
-    {
-      id: '2',
-      title: 'Flash Sale Alert! 🔥',
-      message: '50% OFF on Electronics! Limited time',
-      timestamp: '4 hours ago',
-      isRead: false,
-      type: 'promotion',
-      icon: <TagOutlined className="text-orange-500" />,
-    },
-    {
-      id: '3',
-      title: 'Payment Confirmed',
-      message: 'Payment for order #ORD003 confirmed',
-      timestamp: '1 day ago',
-      isRead: true,
-      type: 'order',
-      icon: <ShoppingCartOutlined className="text-blue-500" />,
-    },
-    {
-      id: '4',
-      title: 'New Voucher Available',
-      message: 'Get $20 OFF with code SAVE20',
-      timestamp: '2 days ago',
-      isRead: true,
-      type: 'promotion',
-      icon: <TagOutlined className="text-purple-500" />,
-    },
-  ];
-
-  const unreadNotifications = mockNotifications.filter(n => !n.isRead);
   
   // helper: resolve avatar from both Google users (image field) and registered users (avatar field)
   const resolveAvatar = (user: any) => {
@@ -267,9 +224,6 @@ export default function Header() {
           setCartHideTimeout(null);
         }
       }
-      if (!target.closest('.notification-popup-container')) {
-        setShowNotificationPopup(false);
-      }
       if (!target.closest('.relative.w-full')) {
         setShowSearchPopup(false);
       }
@@ -379,100 +333,7 @@ export default function Header() {
             {mergedUser && (
               <>
                 {/* Notifications */}
-                <div className="relative notification-popup-container">
-                  <button
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleNavigate('/notifications')}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNavigate('/notifications'); }}
-                    onMouseEnter={() => setShowNotificationPopup(true)}
-                    onMouseLeave={() => setShowNotificationPopup(false)}
-                    className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group"
-                  >
-                    <BellOutlined className="text-xl transition-transform group-hover:scale-110" />
-                    {unreadNotifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold transition-transform group-hover:scale-105">
-                        {unreadNotifications.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Notification Popup */}
-                  {showNotificationPopup && (
-                    <div 
-                      className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[100]"
-                      onMouseEnter={() => setShowNotificationPopup(true)}
-                      onMouseLeave={() => setShowNotificationPopup(false)}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-lg font-semibold text-gray-900">Notifications</div>
-                        <Badge count={unreadNotifications.length} size="small" />
-                      </div>
-                      
-                      <div className="max-h-80 overflow-auto">
-                        {mockNotifications.slice(0, 4).map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`flex items-start space-x-3 p-3 rounded-lg mb-2 cursor-pointer transition-all duration-200 ${
-                              !notification.isRead 
-                                ? 'bg-blue-50 border-l-4 border-blue-500' 
-                                : 'hover:bg-gray-50'
-                            }`}
-                            onClick={() => {
-                              setShowNotificationPopup(false);
-                              handleNavigate('/notifications');
-                            }}
-                          >
-                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                              {notification.icon}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <h4 className={`text-sm ${!notification.isRead ? 'font-semibold text-gray-900' : 'font-medium text-gray-800'}`}>
-                                  {notification.title}
-                                </h4>
-                                {!notification.isRead && (
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-600 line-clamp-2 mb-1">
-                                {notification.message}
-                              </p>
-                              <span className="text-xs text-gray-400">
-                                {notification.timestamp}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <Divider className="my-3" />
-                      <div className="flex justify-between">
-                        <Button 
-                          size="small" 
-                          type="text"
-                          onClick={() => {
-                            setShowNotificationPopup(false);
-                            // Mark all as read logic here
-                          }}
-                        >
-                          Mark all read
-                        </Button>
-                        <Button 
-                          size="small" 
-                          type="primary"
-                          onClick={() => {
-                            setShowNotificationPopup(false);
-                            handleNavigate('/notifications');
-                          }}
-                          className="bg-blue-600 hover:bg-blue-700 border-none"
-                        >
-                          View All
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <NotificationBell className="notification-popup-container" />
 
                 {/* Wishlist */}
                 <button
