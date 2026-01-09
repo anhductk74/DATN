@@ -347,7 +347,7 @@ function ShopLayoutContent({ children }: ShopLayoutProps) {
 
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <NotificationBell />
+              <NotificationBell className="notification-popup-container" />
 
               {/* User Menu */}
               <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>

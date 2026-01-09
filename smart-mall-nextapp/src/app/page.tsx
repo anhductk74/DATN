@@ -358,10 +358,10 @@ export default function Home() {
               WebkitOverflowScrolling: 'touch'
             }}
           >
-            {categories.map((category) => {
+            {categories.map((category, index) => {
               return (
                 <div
-                  key={category.id}
+                  key={`category-${category.id || index}`}
                   onClick={() => router.push(`/products?category=${category.id}`)}
                   className="group relative bg-white border-2 border-gray-100 rounded-2xl p-6 text-center cursor-pointer
                              hover:border-blue-300 hover:shadow-xl hover:-translate-y-2 transition-all duration-300
@@ -433,7 +433,7 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                {flashSaleProducts.map((item) => {
+                {flashSaleProducts.map((item, index) => {
                   // Use timeRemaining from API response (in seconds)
                   const timeRemaining = item.timeRemaining || 0;
                   const hours = Math.floor(timeRemaining / 3600);
@@ -447,7 +447,7 @@ export default function Home() {
                   
                   return (
                     <div
-                      key={item.variantId}
+                      key={`flash-${item.variantId || item.productId || index}`}
                       onClick={() => router.push(`/product/${item.productId}`)}
                       className="group relative bg-white border-2 border-red-100 rounded-2xl p-4 cursor-pointer
                                  hover:border-red-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"
@@ -548,14 +548,14 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-            {products.map((p) => {
+            {products.map((p, index) => {
               const v = p.variants?.[0];
               const rating = p.averageRating || 4.5;
               const reviews = p.reviewCount || 0;
               
               return (
                 <div
-                  key={p.id}
+                  key={`product-${p.id || index}`}
                   onClick={() => router.push(`/product/${p.id}`)}
                   className="group relative bg-white border-2 border-gray-100 rounded-2xl p-4 cursor-pointer
                              hover:border-blue-300 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300"

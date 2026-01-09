@@ -255,16 +255,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ className })
       placement="bottomRight"
     >
       <button
-        className={`relative p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group ${className}`}
+        className={`relative inline-flex items-center justify-center w-9 h-9 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition group ${className}`}
         aria-label="Notifications"
       >
         <BellOutlined className="text-xl transition-transform group-hover:scale-110" />
         {unreadCount > 0 && (
           <span 
             key={`notification-count-${unreadCount}`}
-            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center font-semibold transition-transform group-hover:scale-105"
+            className="absolute top-0 right-0 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold transition-transform group-hover:scale-105 shadow-md"
           >
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>

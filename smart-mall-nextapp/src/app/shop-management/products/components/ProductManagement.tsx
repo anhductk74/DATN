@@ -1206,45 +1206,53 @@ export default function ProductManagement() {
               {
                 key: 'active',
                 label: (
-                  <span>
-                    <Badge count={allProductsCount.total} showZero>
-                      Active Products
-                    </Badge>
+                  <span className="flex items-center gap-2">
+                    Active Products
+                    <Badge 
+                      count={allProductsCount.total} 
+                      showZero
+                      style={{ backgroundColor: '#52c41a' }}
+                    />
                   </span>
                 ),
               },
               {
                 key: 'flashsale',
                 label: (
-                  <span>
-                    <ThunderboltOutlined className="text-red-500 mr-1" />
+                  <span className="flex items-center gap-2">
+                    <ThunderboltOutlined style={{ color: '#ff4d4f' }} />
+                    Flash Sale
                     <Badge 
                       count={allProductsCount.flashSale} 
                       showZero
                       style={{ backgroundColor: '#ff4d4f' }}
-                    >
-                      Flash Sale
-                    </Badge>
+                    />
                   </span>
                 ),
               },
               {
                 key: 'all',
                 label: (
-                  <span>
-                    <Badge count={allProductsCount.total + allProductsCount.deleted} showZero>
-                      All Products
-                    </Badge>
+                  <span className="flex items-center gap-2">
+                    All Products
+                    <Badge 
+                      count={allProductsCount.total + allProductsCount.deleted} 
+                      showZero
+                      style={{ backgroundColor: '#1890ff' }}
+                    />
                   </span>
                 ),
               },
               {
                 key: 'deleted',
                 label: (
-                  <span>
-                    <Badge count={allProductsCount.deleted} showZero>
-                      Trash
-                    </Badge>
+                  <span className="flex items-center gap-2">
+                    Trash
+                    <Badge 
+                      count={allProductsCount.deleted} 
+                      showZero
+                      style={{ backgroundColor: '#d9d9d9', color: '#666' }}
+                    />
                   </span>
                 ),
               },
