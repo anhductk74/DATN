@@ -971,29 +971,43 @@ def ai_smart_search():
         URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={API_KEY}"
         
         analysis_prompt = f"""
-Bạn là AI trợ lý tìm kiếm sản phẩm thương mại điện tử.
+You are a multilingual e-commerce search AI assistant. Support BOTH Vietnamese and English queries.
 
-Phân tích câu tìm kiếm sau và trích xuất ý định người dùng:
+Analyze this search query and extract user intent:
 "{query}"
 
-Trả về JSON với format sau (chỉ JSON, không giải thích):
+Return JSON (ONLY JSON, no explanation):
 {{
-  "product_keywords": ["từ khóa 1", "từ khóa 2"],
-  "brand": "thương hiệu nếu có (hoặc null)",
-  "category_hints": ["danh mục có thể", "danh mục khác"],
+  "product_keywords": ["keyword 1", "keyword 2"],
+  "product_keywords_vi": ["từ khóa tiếng Việt 1", "từ khóa tiếng Việt 2"],
+  "product_keywords_en": ["English keyword 1", "English keyword 2"],
+  "brand": "brand name if mentioned (or null)",
+  "category_hints": ["possible category"],
+  "category_hints_vi": ["danh mục tiếng Việt"],
+  "category_hints_en": ["English category"],
   "price_range": {{
-    "min": số tiền tối thiểu (VND) hoặc null,
-    "max": số tiền tối đa (VND) hoặc null
+    "min": minimum price in VND (or null),
+    "max": maximum price in VND (or null)
   }},
-  "color": "màu sắc nếu đề cập (hoặc null)",
-  "features": ["tính năng 1", "tính năng 2"],
+  "color": "color if mentioned (or null)",
+  "color_vi": "màu tiếng Việt (or null)",
+  "color_en": "English color (or null)",
+  "features": ["feature 1", "feature 2"],
   "sort_preference": "price_asc|price_desc|rating|newest|null"
 }}
 
-Ví dụ:
-- "tìm điện thoại Samsung giá dưới 10 triệu" → {{"product_keywords": ["điện thoại"], "brand": "Samsung", "price_range": {{"max": 10000000}}}}
-- "laptop gaming MSI màu đen" → {{"product_keywords": ["laptop", "gaming"], "brand": "MSI", "color": "đen"}}
-- "áo thun nam giá rẻ" → {{"product_keywords": ["áo thun", "nam"], "price_range": {{"max": 200000}}}}
+IMPORTANT RULES:
+1. Detect the query language automatically (Vietnamese or English)
+2. Provide keywords in BOTH Vietnamese and English for cross-language search
+3. For price keywords: "dưới/under" = max, "trên/above" = min, "khoảng/around" = both
+4. Translate color terms: red=đỏ, blue=xanh dương, white=trắng, black=đen, green=xanh lá, yellow=vàng, pink=hồng, gray=xám
+5. Common translations: shirt=áo, pants=quần, shoes=giày, dress=váy, bag=túi, watch=đồng hồ, phone=điện thoại, laptop=máy tính
+
+Examples:
+- "red shirt under 500k" → {{"product_keywords": ["red shirt"], "product_keywords_vi": ["áo đỏ", "áo màu đỏ"], "product_keywords_en": ["red shirt"], "color": "red", "color_vi": "đỏ", "color_en": "red", "price_range": {{"max": 500000}}}}
+- "tìm điện thoại Samsung dưới 10 triệu" → {{"product_keywords": ["điện thoại"], "product_keywords_vi": ["điện thoại"], "product_keywords_en": ["phone", "smartphone"], "brand": "Samsung", "price_range": {{"max": 10000000}}}}
+- "kitchen knife set" → {{"product_keywords": ["kitchen knife"], "product_keywords_vi": ["dao bếp", "bộ dao"], "product_keywords_en": ["knife", "kitchen knife set"], "category_hints_vi": ["đồ dùng nhà bếp"], "category_hints_en": ["kitchen utensils", "kitchenware"]}}
+- "đèn bàn Nordic" → {{"product_keywords": ["đèn bàn", "Nordic"], "product_keywords_vi": ["đèn bàn"], "product_keywords_en": ["table lamp", "desk lamp"], "brand": "Nordic"}}
 """
         
         parts = [{"text": analysis_prompt}]
@@ -1016,10 +1030,16 @@ Ví dụ:
             print(f"[WARNING] AI analysis failed: {str(e)}, using simple search")
             search_intent = {
                 "product_keywords": [query],
+                "product_keywords_vi": [query],
+                "product_keywords_en": [query],
                 "brand": None,
                 "category_hints": [],
+                "category_hints_vi": [],
+                "category_hints_en": [],
                 "price_range": {"min": None, "max": None},
                 "color": None,
+                "color_vi": None,
+                "color_en": None,
                 "features": [],
                 "sort_preference": None
             }
@@ -1087,38 +1107,62 @@ Ví dụ:
             score = 0
             matching_reasons = []
             
-            # Check keywords
+            # Check keywords (support multilingual)
+            all_keywords = []
             if search_intent.get('product_keywords'):
+                all_keywords.extend(search_intent['product_keywords'])
+            if search_intent.get('product_keywords_vi'):
+                all_keywords.extend(search_intent['product_keywords_vi'])
+            if search_intent.get('product_keywords_en'):
+                all_keywords.extend(search_intent['product_keywords_en'])
+            
+            # Remove duplicates and filter
+            all_keywords = list(set([k.lower() for k in all_keywords if k]))
+            
+            if all_keywords:
                 keyword_matches = 0
-                for keyword in search_intent['product_keywords']:
-                    keyword_lower = keyword.lower()
-                    if keyword_lower in product_name:
+                matched_keywords = []
+                for keyword in all_keywords:
+                    if keyword in product_name:
                         keyword_matches += 2  # Name match more important
                         score += 20
-                    elif keyword_lower in product_description:
+                        matched_keywords.append(keyword)
+                    elif keyword in product_description:
                         keyword_matches += 1
                         score += 10
-                    elif keyword_lower in product_category:
+                        matched_keywords.append(keyword)
+                    elif keyword in product_category:
                         keyword_matches += 1
                         score += 15
+                        matched_keywords.append(keyword)
                 
                 if keyword_matches > 0:
-                    matching_reasons.append(f"Khớp {keyword_matches} từ khóa")
+                    unique_keywords = list(set(matched_keywords))[:3]
+                    matching_reasons.append(f"Matched {keyword_matches} keywords: {', '.join(unique_keywords)}")
             
             # Check brand
             if search_intent.get('brand') and search_intent['brand'] != 'null':
                 brand_search = search_intent['brand'].lower()
                 if brand_search in product_brand or brand_search in product_name:
                     score += 30
-                    matching_reasons.append(f"Thương hiệu: {search_intent['brand']}")
+                    matching_reasons.append(f"Brand: {search_intent['brand']}")
             
-            # Check category hints
+            # Check category hints (multilingual)
+            all_category_hints = []
             if search_intent.get('category_hints'):
-                for hint in search_intent['category_hints']:
-                    hint_lower = hint.lower()
-                    if hint_lower in product_category or hint_lower in product_name:
+                all_category_hints.extend(search_intent['category_hints'])
+            if search_intent.get('category_hints_vi'):
+                all_category_hints.extend(search_intent['category_hints_vi'])
+            if search_intent.get('category_hints_en'):
+                all_category_hints.extend(search_intent['category_hints_en'])
+            
+            all_category_hints = list(set([c.lower() for c in all_category_hints if c]))
+            
+            if all_category_hints:
+                for hint in all_category_hints:
+                    if hint in product_category or hint in product_name:
                         score += 15
-                        matching_reasons.append(f"Danh mục: {hint}")
+                        matching_reasons.append(f"Category: {hint}")
                         break
             
             # Check price range
@@ -1143,16 +1187,27 @@ Ví dụ:
                             price_text = f"< {max_price_filter:,.0f} VNĐ"
                         else:
                             price_text = f"> {min_price_filter:,.0f} VNĐ"
-                        matching_reasons.append(f"Giá phù hợp: {price_text}")
+                        matching_reasons.append(f"Price: {price_text}")
                 else:
                     continue  # Skip products outside price range
             
-            # Check color
+            # Check color (multilingual)
+            all_colors = []
             if search_intent.get('color') and search_intent['color'] != 'null':
-                color = search_intent['color'].lower()
-                if color in product_name or color in product_description:
-                    score += 10
-                    matching_reasons.append(f"Màu: {search_intent['color']}")
+                all_colors.append(search_intent['color'])
+            if search_intent.get('color_vi') and search_intent['color_vi'] != 'null':
+                all_colors.append(search_intent['color_vi'])
+            if search_intent.get('color_en') and search_intent['color_en'] != 'null':
+                all_colors.append(search_intent['color_en'])
+            
+            all_colors = list(set([c.lower() for c in all_colors if c]))
+            
+            if all_colors:
+                for color in all_colors:
+                    if color in product_name or color in product_description:
+                        score += 10
+                        matching_reasons.append(f"Color: {color}")
+                        break
             
             # Check features
             if search_intent.get('features'):
@@ -1163,7 +1218,7 @@ Ví dụ:
                         feature_matches += 1
                 if feature_matches > 0:
                     score += feature_matches * 5
-                    matching_reasons.append(f"Khớp {feature_matches} tính năng")
+                    matching_reasons.append(f"Matched {feature_matches} features")
             
             # Only include products with score > 0
             if score > 0:
