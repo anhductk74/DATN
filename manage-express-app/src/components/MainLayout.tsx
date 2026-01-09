@@ -18,7 +18,6 @@ import Sidebar from './Sidebar';
 // Import page components
 import DashboardPage from '@/app/dashboard/page';
 import ShipmentsPage from '@/app/shipments/page';
-import OrderListPage from '@/app/shipments/order-list/page';
 import ShipmentOrderPage from '@/app/shipments/shipment-order/page';
 import ShippersPage from '@/app/shippers/page';
 import WarehousesPage from '@/app/warehouses/page';
@@ -55,7 +54,6 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
     const routeMap: Record<string, string> = {
       'dashboard': '/dashboard',
       'shipments': '/shipments',
-      'shipments/order-list': '/shipments/order-list',
       'shipments/shipment-order': '/shipments/shipment-order',
       'shippers': '/shippers',
       'warehouses': '/warehouses',
@@ -81,8 +79,6 @@ export default function MainLayout({ children, activeMenu = 'dashboard' }: MainL
         return <DashboardPage />;
       case 'shipments':
         return <ShipmentsPage {...pageProps} />;
-      case 'shipments/order-list':
-        return <OrderListPage />;
       case 'shipments/shipment-order':
         return <ShipmentOrderPage />;
       case 'shippers':
