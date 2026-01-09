@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -25,6 +26,8 @@ import OrderDetailScreen from '../screens/OrderDetailScreen';
 import OrderTrackingDetailScreen from '../screens/OrderTrackingDetailScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import OrderReturnRequestScreen from '../screens/OrderReturnRequestScreen';
+import { NotificationProvider } from '../contexts/NotificationContext';
+import { NotificationBell } from '../components/NotificationBell';
 import type { CartItem } from '../services/CartService';
 import type { Address } from '../services/addressService';
 
@@ -58,6 +61,31 @@ export type TabParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
+
+// Header Right Component with all icons
+const HeaderRightIcons = ({ navigation }: any) => (
+  <View style={headerStyles.headerRight}>
+    <TouchableOpacity 
+      style={headerStyles.iconButton}
+      onPress={() => navigation.navigate('Wishlist')}
+    >
+      <Ionicons name="heart-outline" size={24} color="#fff" />
+    </TouchableOpacity>
+    <NotificationBell />
+  </View>
+);
+
+const headerStyles = StyleSheet.create({
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+    gap: 4,
+  },
+  iconButton: {
+    padding: 8,
+  },
+});
 
 function MainTabs() {
   return (
@@ -130,20 +158,21 @@ function MainTabs() {
 export default function AppNavigator() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-      <Stack.Navigator
-        initialRouteName="Login"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: '#2563eb',
-          },
-          headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
-          headerShown: false,
-        }}
-      >
+      <NotificationProvider>
+        <NavigationContainer>
+        <Stack.Navigator
+          initialRouteName="Login"
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: '#2563eb',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+            headerShown: false,
+          }}
+        >
         <Stack.Screen
           name="Login"
           component={LoginScreen}
@@ -161,15 +190,19 @@ export default function AppNavigator() {
         <Stack.Screen
           name="MainTabs"
           component={MainTabs}
-          options={{
-            headerShown: false,
-          }}
+          options={({ navigation }) => ({
+            headerShown: true,
+            headerRight: () => <HeaderRightIcons navigation={navigation} />,
+            title: 'Smart Mall',
+          })}
         />
         <Stack.Screen
           name="Wishlist"
           component={WishlistScreen}
           options={{
             title: 'My Wishlist',
+            headerShown: true,
+            headerRight: () => <NotificationBell />,
           }}
         />
         <Stack.Screen
@@ -240,6 +273,8 @@ export default function AppNavigator() {
           component={OrderDetailScreen}
           options={{
             title: 'Order Detail',
+            headerShown: true,
+            headerRight: () => <NotificationBell />,
           }}
         />
         <Stack.Screen
@@ -265,6 +300,7 @@ export default function AppNavigator() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+      </NotificationProvider>
     </SafeAreaProvider>
   );
 }

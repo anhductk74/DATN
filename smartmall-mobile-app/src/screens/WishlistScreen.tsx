@@ -157,7 +157,7 @@ export default function WishlistScreen({ navigation }: WishlistScreenProps) {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -176,7 +176,7 @@ export default function WishlistScreen({ navigation }: WishlistScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}

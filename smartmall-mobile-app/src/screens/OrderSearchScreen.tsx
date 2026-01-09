@@ -258,7 +258,7 @@ export default function OrderSearchScreen({ navigation, route }: OrderSearchScre
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Search Header */}
       <View style={styles.searchHeader}>
         <TouchableOpacity 

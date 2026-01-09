@@ -30,4 +30,27 @@ public interface ShopRepository extends JpaRepository<Shop, UUID> {
     @Modifying
     @Query("UPDATE Shop s SET s.viewCount = s.viewCount + 1 WHERE s.id = :shopId")
     void incrementViewCount(@Param("shopId") UUID shopId);
+    
+    // === Dashboard Queries ===
+    
+    // Count shops created after date
+    @Query("SELECT COUNT(s) FROM Shop s WHERE s.createdAt >= :date")
+    Long countByCreatedAtAfter(@Param("date") java.time.LocalDateTime date);
+    
+    // Get top shops by revenue (for dashboard)
+    @Query(value = "SELECT DISTINCT s.* FROM shops s " +
+           "JOIN orders o ON o.shop_id = s.id " +
+           "WHERE o.status = 'DELIVERED' AND o.created_at BETWEEN ?1 AND ?2 " +
+           "GROUP BY s.id " +
+           "ORDER BY SUM(o.total_amount) DESC " +
+           "LIMIT ?3", nativeQuery = true)
+    List<Shop> findTopShopsByRevenue(java.time.LocalDateTime startDate, java.time.LocalDateTime endDate, int limit);
+    
+    // Get recent shops
+    @Query("SELECT s FROM Shop s ORDER BY s.createdAt DESC")
+    List<Shop> findTopByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
+    
+    default List<Shop> findTopByOrderByCreatedAtDesc(int limit) {
+        return findTopByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(0, limit));
+    }
 }

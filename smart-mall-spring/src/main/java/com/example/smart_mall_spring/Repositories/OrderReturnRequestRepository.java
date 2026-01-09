@@ -24,5 +24,11 @@ public interface OrderReturnRequestRepository extends JpaRepository<OrderReturnR
 
     @Query("SELECT r FROM OrderReturnRequest r WHERE r.order.shop.id = :shopId")
     List<OrderReturnRequest> findByShopId(UUID shopId);
+    
+    // === Dashboard Queries ===
+    
+    // Count pending return requests
+    @Query("SELECT COUNT(r) FROM OrderReturnRequest r WHERE r.status = 'PENDING'")
+    Long countPendingRequests();
 
 }

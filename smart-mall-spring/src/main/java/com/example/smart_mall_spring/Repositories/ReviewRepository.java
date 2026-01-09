@@ -104,5 +104,19 @@ public interface ReviewRepository extends JpaRepository<Review, UUID>, JpaSpecif
 
     @Query("SELECT COUNT(r) FROM Review r WHERE r.product.shop.id = :shopId AND r.rating = :rating")
     Long countByShopIdAndRating(@Param("shopId") UUID shopId, @Param("rating") Integer rating);
+    
+    // === Dashboard Queries ===
+    
+    // Get average rating by shop
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.product.shop.id = :shopId")
+    Double getAverageRatingByShop(@Param("shopId") UUID shopId);
+    
+    // Get recent reviews
+    @Query("SELECT r FROM Review r ORDER BY r.createdAt DESC")
+    List<Review> findTopByOrderByCreatedAtDesc(org.springframework.data.domain.Pageable pageable);
+    
+    default List<Review> findTopByOrderByCreatedAtDesc(int limit) {
+        return findTopByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(0, limit));
+    }
 
 }

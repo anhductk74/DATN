@@ -243,7 +243,7 @@ export default function AllProductsScreen({ navigation }: AllProductsScreenProps
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

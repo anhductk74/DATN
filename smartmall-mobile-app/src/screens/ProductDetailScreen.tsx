@@ -44,6 +44,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [totalReviews, setTotalReviews] = useState(0);
+  const [flashSaleTimer, setFlashSaleTimer] = useState<string>('');
 
   useEffect(() => {
     loadProductDetail();
@@ -169,27 +170,54 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
       return;
     }
 
+    if (!selectedVariant || !product) {
+      Alert.alert('Error', 'Selected variant not found');
+      return;
+    }
+
     setIsAddingToCart(true);
     try {
-      const addResponse = await CartService.addItem({
-        variantId: selectedVariantId,
+      setShowVariantModal(false);
+      
+      // Create a temporary cart item for this single product (without adding to cart)
+      const temporaryCartItem = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        variantId: selectedVariant.id,
         quantity: quantity,
-      });
+        variant: {
+          ...selectedVariant,
+          product: {
+            id: product.id,
+            name: product.name,
+            images: product.images,
+            shop: product.shop,
+            category: product.category,
+            description: product.description,
+            averageRating: product.averageRating,
+            reviewCount: product.reviewCount,
+          }
+        },
+        product: {
+          id: product.id,
+          name: product.name,
+          images: product.images,
+          shop: product.shop,
+        },
+        // Fields expected by CheckoutScreen
+        productName: product.name,
+        productImage: product.images && product.images.length > 0 ? product.images[0] : null,
+        productShopId: product.shop?.id,
+        shopId: product.shop?.id,
+        price: selectedVariant.isFlashSaleActive && selectedVariant.flashSalePrice 
+          ? selectedVariant.flashSalePrice 
+          : selectedVariant.price,
+        subtotal: (selectedVariant.isFlashSaleActive && selectedVariant.flashSalePrice 
+          ? selectedVariant.flashSalePrice 
+          : selectedVariant.price) * quantity,
+      };
 
-      if (addResponse.success) {
-        setShowVariantModal(false);
-        
-        // Get updated cart to pass items to checkout
-        const cartResponse = await CartService.getCart();
-        if (cartResponse.success && cartResponse.data && cartResponse.data.items) {
-          // Navigate to checkout with all cart items
-          navigation.navigate('Checkout', { items: cartResponse.data.items });
-        } else {
-          Alert.alert('Error', 'Failed to load cart data');
-        }
-      } else {
-        Alert.alert('Error', addResponse.message || 'Failed to add item to cart');
-      }
+      // Navigate to checkout with only this item
+      navigation.navigate('Checkout', { items: [temporaryCartItem] });
     } catch (error: any) {
       console.error('Error in buy now:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -274,7 +302,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
 
   if (isLoading || !product) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
@@ -290,7 +318,7 @@ export default function ProductDetailScreen({ navigation, route }: ProductDetail
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>

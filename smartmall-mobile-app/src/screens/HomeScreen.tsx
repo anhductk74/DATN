@@ -492,28 +492,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.logo}>Smart Mall</Text>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Ionicons name="notifications-outline" size={24} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
-              <Ionicons name="chatbubble-outline" size={24} color="#333" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.iconButton}
-              onPress={() => navigation.navigate('Wishlist')}
-            >
-              <Ionicons name="heart-outline" size={24} color="#333" />
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {/* Search Bar */}
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Search Bar */}
+      <View style={styles.searchWrapper}>
         <TouchableOpacity 
           style={styles.searchContainer}
           onPress={() => navigation.navigate('Search')}
@@ -669,34 +650,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  header: {
+  searchWrapper: {
     backgroundColor: '#fff',
-    paddingTop: 10,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2563eb',
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  iconButton: {
-    padding: 6,
-  },
-  icon: {
-    fontSize: 20,
   },
   searchContainer: {
     flexDirection: 'row',

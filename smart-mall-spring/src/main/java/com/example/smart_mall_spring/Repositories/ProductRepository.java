@@ -52,6 +52,12 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             @Param("status") Status status
     );
     
+    // === Dashboard Queries ===
+    
+    // Count products by status
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.status = 'PENDING'")
+    Long countByStatusPending();
+    
     // Đếm sản phẩm theo shop
     long countByShopId(UUID shopId);
     

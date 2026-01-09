@@ -90,7 +90,10 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
       if (response.success && response.data) {
         // Lưu token vào AsyncStorage
         await AsyncStorage.setItem('accessToken', response.data.accessToken);
+        await AsyncStorage.setItem('token', response.data.accessToken); // For NotificationContext
         await AsyncStorage.setItem('refreshToken', response.data.refreshToken);
+        // Lưu user info
+        await AsyncStorage.setItem('userInfo', JSON.stringify(response.data.userInfo));
         navigation.replace('MainTabs');
       } else {
         Alert.alert('Error', response.message || 'Registration failed');

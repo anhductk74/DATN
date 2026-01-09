@@ -42,5 +42,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         """)
     List<User> findByRoleAndEmailDomainExcludeShipper(@Param("roleName") String roleName,
                                                       @Param("domain") String domain);
+    
+    // === Dashboard Queries ===
+    
+    // Count users by active status
+    Long countByIsActive(Integer isActive);
+    
+    // Count users created after date
+    @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt >= :date")
+    Long countByCreatedAtAfter(@Param("date") java.time.LocalDateTime date);
 
 }
