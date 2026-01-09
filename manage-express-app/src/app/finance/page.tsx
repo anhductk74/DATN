@@ -331,17 +331,17 @@ export default function FinancePage() {
         </div>
       )
     },
-    {
-      title: 'Tổng thu',
-      dataIndex: 'totalCollected',
-      key: 'totalCollected',
-      width: 120,
-      render: (amount: number) => (
-        <span className="font-medium text-green-600">
-          {financeService.formatCurrency(amount)}
-        </span>
-      )
-    },
+    // {
+    //   title: 'Tổng thu',
+    //   dataIndex: 'totalCollected',
+    //   key: 'totalCollected',
+    //   width: 120,
+    //   render: (amount: number) => (
+    //     <span className="font-medium text-green-600">
+    //       {financeService.formatCurrency(amount)}
+    //     </span>
+    //   )
+    // },
     {
       title: 'Tổng nộp',
       dataIndex: 'totalDeposited',
@@ -353,20 +353,20 @@ export default function FinancePage() {
         </span>
       )
     },
-    {
-      title: 'Chênh lệch',
-      dataIndex: 'difference',
-      key: 'difference',
-      width: 120,
-      render: (difference: number) => {
-        const { color, text } = financeService.calculateDifferenceType(difference);
-        return (
-          <span className={`font-medium text-${color}-600`}>
-            {financeService.formatCurrency(Math.abs(difference))} ({text})
-          </span>
-        );
-      }
-    },
+    // {
+    //   title: 'Chênh lệch',
+    //   dataIndex: 'difference',
+    //   key: 'difference',
+    //   width: 120,
+    //   render: (difference: number) => {
+    //     const { color, text } = financeService.calculateDifferenceType(difference);
+    //     return (
+    //       <span className={`font-medium text-${color}-600`}>
+    //         {financeService.formatCurrency(Math.abs(difference))} ({text})
+    //       </span>
+    //     );
+    //   }
+    // },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
@@ -397,7 +397,7 @@ export default function FinancePage() {
       fixed: 'right' as const,
       render: (_: any, record: CodReconciliationResponseDto) => (
         <Space>
-          <Button 
+          {/* <Button 
             type="text" 
             icon={<EyeOutlined />} 
             size="small"
@@ -406,7 +406,7 @@ export default function FinancePage() {
             }}
           >
             Chi tiết
-          </Button>
+          </Button> */}
           {record.status === ReconciliationStatus.PENDING && (
             <Popconfirm
               title="Xác nhận chuyển đổi trạng thái"
@@ -1036,7 +1036,7 @@ export default function FinancePage() {
                 <div className="flex flex-col">
                   <div className="font-medium">{option.data.shipper.fullName}</div>
                   <div className="text-sm text-gray-500">
-                    {option.data.shipper.phoneNumber} • {option.data.shipper.region} • {shipperApiService.formatStatus(option.data.shipper.status)}
+                    {option.data.shipper.phoneNumber} • {option.data.shipper.operationalRegionFull} • {shipperApiService.formatStatus(option.data.shipper.status)}
                   </div>
                 </div>
               )}
@@ -1058,7 +1058,7 @@ export default function FinancePage() {
                       <div className="mt-2">
                         <p><strong>Tên:</strong> {selectedShipper.fullName}</p>
                         <p><strong>Điện thoại:</strong> {selectedShipper.phoneNumber}</p>
-                        <p><strong>Khu vực:</strong> {selectedShipper.region}</p>
+                        <p><strong>Khu vực:</strong> {selectedShipper.operationalRegionFull}</p>
                         <p><strong>Phương tiện:</strong> {selectedShipper.vehicleType} - {selectedShipper.licensePlate}</p>
                         <p><strong>Trạng thái:</strong> <Tag color={shipperApiService.getStatusColor(selectedShipper.status)}>
                           {shipperApiService.formatStatus(selectedShipper.status)}

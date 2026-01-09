@@ -265,6 +265,9 @@ export default function ProcessingOrdersPage() {
   };
 
   const handleCreateShipment = (order: OrderResponseDto) => {
+    console.log('Creating shipment for order:', order);
+    console.log('Shipping address:', order.shippingAddress);
+    
     setSelectedOrderForShipment(order);
     setCreateShipmentModalVisible(true);
     setSelectedCompanyId(null);
@@ -299,9 +302,13 @@ export default function ProcessingOrdersPage() {
         : '';
       
       // Build delivery address from order
-      const shippingAddr = selectedOrderForShipment.shippingAddress;
-      const deliveryAddress = shippingAddr 
-        ? `${shippingAddr.address}, ${shippingAddr.ward}, ${shippingAddr.district}, ${shippingAddr.province}` 
+      const addressUser = selectedOrderForShipment.addressUser;
+      const shippingAddr = selectedOrderForShipment.shippingAddress; // Legacy fallback
+      
+      const deliveryAddress = addressUser
+        ? `${addressUser.addressLine1}${addressUser.addressLine2 ? ', ' + addressUser.addressLine2 : ''}, ${addressUser.city}, ${addressUser.state}`
+        : shippingAddr
+        ? `${shippingAddr.address}, ${shippingAddr.ward}, ${shippingAddr.district}, ${shippingAddr.province}`
         : '';
       
       // Convert date to ISO format
@@ -348,8 +355,8 @@ export default function ProcessingOrdersPage() {
       
       setCreateShipmentModalVisible(false);
       
-      // Refresh shipment info
-      await checkShipmentOrders([selectedOrderForShipment]);
+      // Refresh shipment info for all current orders
+      await checkShipmentOrders(orders);
       
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 
@@ -928,18 +935,36 @@ export default function ProcessingOrdersPage() {
             )}
 
             {/* Shipping Address */}
-            {selectedOrder.shippingAddress && (
+            {(selectedOrder.addressUser || selectedOrder.shippingAddress) && (
               <div>
                 <h4 className="text-lg font-medium mb-3">Shipping Address</h4>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="font-medium">{selectedOrder.shippingAddress.fullName}</div>
-                  <div className="text-gray-600">{selectedOrder.shippingAddress.phone}</div>
-                  <div className="text-gray-600 mt-1">
-                    {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.ward}, {' '}
-                    {selectedOrder.shippingAddress.district}, {selectedOrder.shippingAddress.province}
-                  </div>
-                  {selectedOrder.shippingAddress.isDefault && (
-                    <Tag color="blue" className="mt-2 text-xs">Default Address</Tag>
+                  {selectedOrder.addressUser ? (
+                    <>
+                      <div className="font-medium">{selectedOrder.addressUser.fullName}</div>
+                      <div className="text-gray-600">{selectedOrder.addressUser.phoneNumber}</div>
+                      <div className="text-gray-600 mt-1">
+                        {selectedOrder.addressUser.addressLine1}
+                        {selectedOrder.addressUser.addressLine2 && `, ${selectedOrder.addressUser.addressLine2}`}
+                        {', '}{selectedOrder.addressUser.city}, {selectedOrder.addressUser.state}
+                        {selectedOrder.addressUser.postalCode && `, ${selectedOrder.addressUser.postalCode}`}
+                      </div>
+                      {selectedOrder.addressUser.isDefault && (
+                        <Tag color="blue" className="mt-2 text-xs">Default Address</Tag>
+                      )}
+                    </>
+                  ) : selectedOrder.shippingAddress && (
+                    <>
+                      <div className="font-medium">{selectedOrder.shippingAddress.fullName}</div>
+                      <div className="text-gray-600">{selectedOrder.shippingAddress.phone}</div>
+                      <div className="text-gray-600 mt-1">
+                        {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.ward}, {' '}
+                        {selectedOrder.shippingAddress.district}, {selectedOrder.shippingAddress.province}
+                      </div>
+                      {selectedOrder.shippingAddress.isDefault && (
+                        <Tag color="blue" className="mt-2 text-xs">Default Address</Tag>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1194,7 +1219,18 @@ export default function ProcessingOrdersPage() {
                 <div>
                   <div className="text-sm font-medium text-gray-700 mb-1">Delivery Address (Customer):</div>
                   <div className="text-sm text-gray-600">
-                    {selectedOrderForShipment.shippingAddress ? (
+                    {selectedOrderForShipment.addressUser ? (
+                      <>
+                        <div className="font-medium">{selectedOrderForShipment.addressUser.fullName}</div>
+                        <div>{selectedOrderForShipment.addressUser.phoneNumber}</div>
+                        <div>
+                          {selectedOrderForShipment.addressUser.addressLine1}
+                          {selectedOrderForShipment.addressUser.addressLine2 && `, ${selectedOrderForShipment.addressUser.addressLine2}`}
+                          {', '}{selectedOrderForShipment.addressUser.city}, {selectedOrderForShipment.addressUser.state}
+                          {selectedOrderForShipment.addressUser.postalCode && `, ${selectedOrderForShipment.addressUser.postalCode}`}
+                        </div>
+                      </>
+                    ) : selectedOrderForShipment.shippingAddress ? (
                       <>
                         <div className="font-medium">{selectedOrderForShipment.shippingAddress.fullName}</div>
                         <div>{selectedOrderForShipment.shippingAddress.phone}</div>

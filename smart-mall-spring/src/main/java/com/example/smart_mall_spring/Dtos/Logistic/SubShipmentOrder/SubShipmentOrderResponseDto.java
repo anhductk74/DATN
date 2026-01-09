@@ -18,6 +18,8 @@ public class SubShipmentOrderResponseDto {
     private UUID fromWarehouseId;
     private String fromWarehouseName;
 
+    private String trackingCode;
+
     private UUID toWarehouseId;
     private String toWarehouseName;
 
