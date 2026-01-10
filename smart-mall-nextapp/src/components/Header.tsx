@@ -162,7 +162,7 @@ export default function Header() {
     formData.append('max_results', '20');
 
     try {
-      const apiUrl = 'http://localhost:5001';
+      const apiUrl = process.env.NEXT_PUBLIC_URL_PYTHON || 'http://localhost:5001';
       console.log('📸 Uploading image to:', `${apiUrl}/ai_search_by_image`);
       
       const response = await fetch(`${apiUrl}/ai_search_by_image`, {

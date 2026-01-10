@@ -88,8 +88,8 @@ function ProductsContent() {
         console.log('🔍 Starting text search:', { searchQuery, searchMode });
         setIsSearching(true);
         try {
-          // Use hardcoded URL for client-side (env vars may not work in client components)
-          const apiUrl = 'http://localhost:5001';
+          // Use environment variable for API URL
+          const apiUrl = process.env.NEXT_PUBLIC_URL_PYTHON || 'http://localhost:5001';
           const fullUrl = `${apiUrl}/ai_smart_search?query=${encodeURIComponent(searchQuery)}`;
           console.log('🌐 API URL:', apiUrl);
           console.log('📡 Calling API with URL:', fullUrl);

@@ -164,12 +164,15 @@ export default function WalletPage() {
 
   const fetchWalletData = async () => {
     if (!shopId) {
+      console.log('⚠️ No shopId available');
       return;
     }
     
+    console.log('🔄 Fetching wallet data for shopId:', shopId);
     setLoading(true);
     try {
       const response = await walletService.getWallet(shopId);
+      console.log('📦 Wallet response:', response);
       
       // Backend may return: { status, message, data: wallet } OR just wallet object
       // Check both cases
@@ -178,33 +181,40 @@ export default function WalletPage() {
       if (response?.data) {
         // Case 1: { status, message, data: wallet }
         walletData = response.data;
+        console.log('✅ Wallet data found (wrapped):', walletData);
       } else if (response && 'id' in response) {
         // Case 2: Direct wallet object
         walletData = response as unknown as WalletResponse;
+        console.log('✅ Wallet data found (direct):', walletData);
       }
       
       if (walletData && walletData.id) {
         setWallet(walletData);
         setTemporaryWallet(null); // Clear temporary wallet when main wallet exists
         
+        console.log('📊 Wallet exists, fetching withdrawal requests and transactions...');
         // If wallet exists, fetch withdrawal requests and transactions
         await Promise.all([
           fetchWithdrawalRequests(),
           fetchTransactions(),
         ]);
       } else {
+        console.log('⚠️ No wallet found, fetching temporary wallet...');
         setWallet(null);
         // Fetch temporary wallet if main wallet doesn't exist
         await fetchTemporaryWallet();
       }
     } catch (error: any) {
+      console.error('❌ Failed to fetch wallet:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
       // If wallet doesn't exist (404), fetch temporary wallet
       if (error.response?.status === 404) {
+        console.log('404 - Wallet not found, fetching temporary wallet...');
         setWallet(null);
         await fetchTemporaryWallet();
       } else {
         message.error(error.response?.data?.message || 'Failed to fetch wallet data');
-        console.error('Failed to fetch wallet:', error);
       }
     } finally {
       setLoading(false);
@@ -214,18 +224,28 @@ export default function WalletPage() {
   const fetchWithdrawalRequests = async (page: number = 0) => {
     if (!shopId) return;
     
+    console.log('📥 Fetching withdrawal requests for shopId:', shopId, 'page:', page);
+    
     try {
       const response = await walletService.getWithdrawalRequests(shopId, page, 10);
-      if (response?.data?.content) {
-        setWithdrawalRequests(response.data.content);
-        setWithdrawalTotal(response.data.totalElements || 0);
+      console.log('✅ Withdrawal requests response:', response);
+      
+      // response is ApiResponse<PageResponse<WithdrawalResponse>>
+      // So response.data is PageResponse<WithdrawalResponse>
+      if (response?.data) {
+        const pageData = response.data;
+        console.log('✅ Found withdrawal requests:', pageData.content?.length || 0);
+        setWithdrawalRequests(pageData.content || []);
+        setWithdrawalTotal(pageData.totalElements || 0);
         setWithdrawalPage(page);
       } else {
+        console.log('⚠️ No withdrawal requests found');
         setWithdrawalRequests([]);
         setWithdrawalTotal(0);
       }
-    } catch (error) {
-      console.error('Failed to fetch withdrawal requests:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch withdrawal requests:', error);
+      console.error('❌ Error response:', error.response?.data);
       setWithdrawalRequests([]);
       setWithdrawalTotal(0);
     }
@@ -234,18 +254,28 @@ export default function WalletPage() {
   const fetchTransactions = async (page: number = 0) => {
     if (!shopId) return;
     
+    console.log('📥 Fetching transactions for shopId:', shopId, 'page:', page);
+    
     try {
       const response = await walletService.getTransactions(shopId, page, 20);
-      if (response?.data?.content) {
-        setTransactions(response.data.content);
-        setTransactionTotal(response.data.totalElements || 0);
+      console.log('✅ Transactions response:', response);
+      
+      // response is ApiResponse<PageResponse<WalletTransactionResponse>>
+      // So response.data is PageResponse<WalletTransactionResponse>
+      if (response?.data) {
+        const pageData = response.data;
+        console.log('✅ Found transactions:', pageData.content?.length || 0);
+        setTransactions(pageData.content || []);
+        setTransactionTotal(pageData.totalElements || 0);
         setTransactionPage(page);
       } else {
+        console.log('⚠️ No transactions found');
         setTransactions([]);
         setTransactionTotal(0);
       }
-    } catch (error) {
-      console.error('Failed to fetch transactions:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to fetch transactions:', error);
+      console.error('❌ Error response:', error.response?.data);
       setTransactions([]);
       setTransactionTotal(0);
     }
@@ -320,15 +350,35 @@ export default function WalletPage() {
       return;
     }
     
+    // Validate bank info
+    if (!values.bankName || !values.bankAccountNumber || !values.bankAccountName) {
+      message.error('Please provide complete bank account information');
+      return;
+    }
+    
+    // Ensure all fields are strings and trimmed
+    const requestData: CreateWithdrawalRequest = {
+      amount: Number(values.amount),
+      bankName: String(values.bankName).trim(),
+      bankAccountNumber: String(values.bankAccountNumber).trim(),
+      bankAccountName: String(values.bankAccountName).trim(),
+      note: values.note ? String(values.note).trim() : undefined,
+    };
+    
+    console.log('📤 Sending withdrawal request:', requestData);
+    
     try {
-      await walletService.createWithdrawalRequest(shopId, values);
+      const response = await walletService.createWithdrawalRequest(shopId, requestData);
+      console.log('✅ Withdrawal request created:', response);
       message.success('Withdrawal request created successfully');
       setWithdrawalModalVisible(false);
       withdrawalForm.resetFields();
+      setUseDefaultBank(true);
       fetchWalletData();
     } catch (error: any) {
+      console.error('❌ Failed to create withdrawal:', error);
+      console.error('❌ Error response:', error.response?.data);
       message.error(error.response?.data?.message || 'Failed to create withdrawal request');
-      console.error('Failed to create withdrawal:', error);
     }
   };
 
@@ -342,26 +392,26 @@ export default function WalletPage() {
 
   // Withdrawal status tag
   const getStatusTag = (status: string) => {
-    const statusMap: { [key: string]: { color: string; text: string } } = {
-      PENDING: { color: 'gold', text: 'Pending' },
-      APPROVED: { color: 'blue', text: 'Approved' },
-      REJECTED: { color: 'red', text: 'Rejected' },
-      COMPLETED: { color: 'green', text: 'Completed' },
+    const statusMap: { [key: string]: { color: string; text: string; icon: string } } = {
+      PENDING: { color: 'gold', text: 'Pending', icon: '⏳' },
+      APPROVED: { color: 'blue', text: 'Approved', icon: '✓' },
+      REJECTED: { color: 'red', text: 'Rejected', icon: '✗' },
+      COMPLETED: { color: 'green', text: 'Completed', icon: '✓' },
     };
-    const { color, text } = statusMap[status] || { color: 'default', text: status };
-    return <Tag color={color}>{text}</Tag>;
+    const config = statusMap[status] || { color: 'default', text: status, icon: '•' };
+    return <Tag color={config.color}>{config.icon} {config.text}</Tag>;
   };
 
   // Transaction type tag
   const getTransactionTypeTag = (type: string) => {
-    const typeMap: { [key: string]: { color: string; text: string } } = {
-      ORDER_PAYMENT: { color: 'green', text: 'Order Payment' },
-      WITHDRAWAL: { color: 'orange', text: 'Withdrawal' },
-      REFUND: { color: 'blue', text: 'Refund' },
-      ADJUSTMENT: { color: 'purple', text: 'Adjustment' },
+    const typeMap: { [key: string]: { color: string; text: string; icon: string } } = {
+      ORDER_PAYMENT: { color: 'green', text: 'Order Payment', icon: '💰' },
+      WITHDRAWAL: { color: 'orange', text: 'Withdrawal', icon: '💸' },
+      REFUND: { color: 'blue', text: 'Refund', icon: '🔄' },
+      ADJUSTMENT: { color: 'purple', text: 'Adjustment', icon: '⚙️' },
     };
-    const { color, text } = typeMap[type] || { color: 'default', text: type };
-    return <Tag color={color}>{text}</Tag>;
+    const config = typeMap[type] || { color: 'default', text: type, icon: '📝' };
+    return <Tag color={config.color}>{config.icon} {config.text}</Tag>;
   };
 
   // Withdrawal columns
@@ -385,46 +435,34 @@ export default function WalletPage() {
       ),
     },
     {
-      title: 'Bank',
-      dataIndex: 'bankName',
-      key: 'bankName',
-      width: 200,
+      title: 'Bank Account',
+      key: 'bankAccount',
+      width: 240,
       ellipsis: true,
-    },
-    {
-      title: 'Account',
-      dataIndex: 'bankAccountNumber',
-      key: 'bankAccountNumber',
-      width: 150,
-      render: (acc: string) => <span className="font-mono">{acc}</span>,
+      render: (_: any, record: WithdrawalResponse) => {
+        const shortBankName = record.bankName.split(' - ')[0] || record.bankName;
+        return (
+          <div className="space-y-0.5">
+            <div className="font-semibold text-xs" title={record.bankName}>{shortBankName}</div>
+            <div className="font-mono text-xs text-gray-600">{record.bankAccountNumber}</div>
+            <div className="text-xs text-gray-500 uppercase truncate">{record.bankAccountName}</div>
+          </div>
+        );
+      },
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
+      width: 130,
       render: (status: string) => getStatusTag(status),
-    },
-    {
-      title: 'Note',
-      dataIndex: 'note',
-      key: 'note',
-      ellipsis: true,
-      render: (note: string) => note || '-',
-    },
-    {
-      title: 'Admin Note',
-      dataIndex: 'adminNote',
-      key: 'adminNote',
-      ellipsis: true,
-      render: (adminNote: string) => adminNote || '-',
     },
     {
       title: 'Created',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 160,
-      render: (date: string) => new Date(date).toLocaleString('vi-VN'),
+      render: (date: string) => new Date(date).toLocaleString('en-US'),
     },
   ];
 
@@ -443,7 +481,7 @@ export default function WalletPage() {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      width: 150,
+      width: 160,
       render: (type: string) => getTransactionTypeTag(type),
     },
     {
@@ -452,7 +490,7 @@ export default function WalletPage() {
       key: 'amount',
       width: 150,
       render: (amount: number, record: WalletTransactionResponse) => {
-        const isPositive = record.type === 'ORDER_PAYMENT' || record.type === 'REFUND';
+        const isPositive = record.type === 'ORDER_PAYMENT' || record.type === 'ADJUSTMENT' && amount > 0;
         return (
           <span className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
             {isPositive ? '+' : '-'}{formatCurrency(Math.abs(amount))}
@@ -490,13 +528,14 @@ export default function WalletPage() {
       key: 'referenceCode',
       width: 120,
       ellipsis: true,
+      render: (code: string) => code || <span className="text-gray-400">-</span>,
     },
     {
       title: 'Date',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 160,
-      render: (date: string) => new Date(date).toLocaleString('vi-VN'),
+      render: (date: string) => new Date(date).toLocaleString('en-US'),
     },
   ];
 
@@ -832,48 +871,74 @@ export default function WalletPage() {
               <span>
                 <DollarOutlined />
                 <span className="ml-2">Withdrawal Requests</span>
+                {withdrawalTotal > 0 && (
+                  <Tag color="blue" className="ml-2">{withdrawalTotal}</Tag>
+                )}
               </span>
             } 
             key="withdrawals"
           >
-            <Table
-              dataSource={withdrawalRequests}
-              columns={withdrawalColumns}
-              rowKey="id"
-              scroll={{ x: 1200 }}
-              pagination={{
-                current: withdrawalPage + 1,
-                pageSize: 10,
-                total: withdrawalTotal,
-                onChange: (page) => fetchWithdrawalRequests(page - 1),
-                showSizeChanger: false,
-                showTotal: (total) => `Total ${total} requests`,
-              }}
-            />
+            {withdrawalRequests.length === 0 ? (
+              <div className="text-center py-12">
+                <DollarOutlined className="text-5xl text-gray-300 mb-4" />
+                <div className="text-gray-400 text-lg">No withdrawal requests yet</div>
+                <div className="text-gray-400 text-sm mt-2">
+                  You can create a withdrawal request by clicking the "Withdraw" button above
+                </div>
+              </div>
+            ) : (
+              <Table
+                dataSource={withdrawalRequests}
+                columns={withdrawalColumns}
+                rowKey="id"
+                scroll={{ x: 900 }}
+                pagination={{
+                  current: withdrawalPage + 1,
+                  pageSize: 10,
+                  total: withdrawalTotal,
+                  onChange: (page) => fetchWithdrawalRequests(page - 1),
+                  showSizeChanger: false,
+                  showTotal: (total) => `Total ${total} requests`,
+                }}
+              />
+            )}
           </TabPane>
           <TabPane 
             tab={
               <span>
                 <HistoryOutlined />
                 <span className="ml-2">Transaction History</span>
+                {transactionTotal > 0 && (
+                  <Tag color="green" className="ml-2">{transactionTotal}</Tag>
+                )}
               </span>
             } 
             key="transactions"
           >
-            <Table
-              dataSource={transactions}
-              columns={transactionColumns}
-              rowKey="id"
-              scroll={{ x: 1200 }}
-              pagination={{
-                current: transactionPage + 1,
-                pageSize: 20,
-                total: transactionTotal,
-                onChange: (page) => fetchTransactions(page - 1),
-                showSizeChanger: false,
-                showTotal: (total) => `Total ${total} transactions`,
-              }}
-            />
+            {transactions.length === 0 ? (
+              <div className="text-center py-12">
+                <HistoryOutlined className="text-5xl text-gray-300 mb-4" />
+                <div className="text-gray-400 text-lg">No transactions yet</div>
+                <div className="text-gray-400 text-sm mt-2">
+                  Transaction history will appear when you have completed orders or withdrawals
+                </div>
+              </div>
+            ) : (
+              <Table
+                dataSource={transactions}
+                columns={transactionColumns}
+                rowKey="id"
+                scroll={{ x: 1400 }}
+                pagination={{
+                  current: transactionPage + 1,
+                  pageSize: 20,
+                  total: transactionTotal,
+                  onChange: (page) => fetchTransactions(page - 1),
+                  showSizeChanger: false,
+                  showTotal: (total) => `Total ${total} transactions`,
+                }}
+              />
+            )}
           </TabPane>
         </Tabs>
       </Card>
@@ -1114,7 +1179,7 @@ export default function WalletPage() {
               <Form.Item
                 name="bankName"
                 label="Bank Name"
-                rules={[{ required: true, message: 'Please select or enter bank name' }]}
+                rules={[{ required: !useDefaultBank, message: 'Please select or enter bank name' }]}
               >
                 <AutoComplete
                   options={VIETNAMESE_BANKS.map(bank => ({ value: bank }))}
@@ -1128,7 +1193,7 @@ export default function WalletPage() {
                 name="bankAccountNumber"
                 label="Bank Account Number"
                 rules={[
-                  { required: true, message: 'Please enter account number' },
+                  { required: !useDefaultBank, message: 'Please enter account number' },
                   { pattern: /^\d+$/, message: 'Account number must be numeric' }
                 ]}
               >
@@ -1137,9 +1202,24 @@ export default function WalletPage() {
               <Form.Item
                 name="bankAccountName"
                 label="Account Holder Name"
-                rules={[{ required: true, message: 'Please enter account holder name' }]}
+                rules={[{ required: !useDefaultBank, message: 'Please enter account holder name' }]}
               >
                 <Input placeholder="NGUYEN VAN A" />
+              </Form.Item>
+            </>
+          )}
+          
+          {/* Hidden fields to ensure values are always present */}
+          {useDefaultBank && (
+            <>
+              <Form.Item name="bankName" hidden>
+                <Input />
+              </Form.Item>
+              <Form.Item name="bankAccountNumber" hidden>
+                <Input />
+              </Form.Item>
+              <Form.Item name="bankAccountName" hidden>
+                <Input />
               </Form.Item>
             </>
           )}

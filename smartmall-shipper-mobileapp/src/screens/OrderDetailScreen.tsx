@@ -472,19 +472,23 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
               <View style={styles.routeDot} />
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>Điểm xuất phát</Text>
-                <Text style={styles.routeValue}>
-                  {(orderData.sequence === 1 || orderData.shopName) && orderData.shopName 
-                    ? orderData.shopName 
-                    : orderData.fromWarehouseName}
-                </Text>
-                {orderData.shopAddress && (
-                  <Text style={styles.routeAddress}>{formatAddress(orderData.shopAddress)}</Text>
-                )}
-                {orderData.shopPhone && (
-                  <View style={styles.routeContact}>
-                    <Ionicons name="call" size={14} color="#666" />
-                    <Text style={styles.routePhone}>{orderData.shopPhone}</Text>
-                  </View>
+                {orderData.sequence === 1 ? (
+                  // Tab Lấy hàng: Từ Shop
+                  <>
+                    <Text style={styles.routeValue}>{orderData.shopName || 'Shop'}</Text>
+                    {orderData.shopAddress && (
+                      <Text style={styles.routeAddress}>{formatAddress(orderData.shopAddress)}</Text>
+                    )}
+                    {orderData.shopPhone && (
+                      <View style={styles.routeContact}>
+                        <Ionicons name="call" size={14} color="#666" />
+                        <Text style={styles.routePhone}>{orderData.shopPhone}</Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  // Tab Vận chuyển & Giao hàng: Từ Kho
+                  <Text style={styles.routeValue}>{orderData.fromWarehouseName}</Text>
                 )}
               </View>
             </View>
@@ -495,19 +499,23 @@ export default function OrderDetailScreen({ order, onBack, onOrderUpdated }: Ord
               <View style={[styles.routeDot, styles.routeDotEnd]} />
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>Điểm đến</Text>
-                <Text style={styles.routeValue}>
-                  {(orderData.sequence === 3 || orderData.customerName) && orderData.customerName 
-                    ? orderData.customerName 
-                    : orderData.toWarehouseName}
-                </Text>
-                {orderData.customerAddress && (
-                  <Text style={styles.routeAddress}>{formatAddress(orderData.customerAddress)}</Text>
-                )}
-                {orderData.customerPhone && (
-                  <View style={styles.routeContact}>
-                    <Ionicons name="call" size={14} color="#666" />
-                    <Text style={styles.routePhone}>{orderData.customerPhone}</Text>
-                  </View>
+                {orderData.sequence === 3 ? (
+                  // Tab Giao hàng: Đến Khách hàng
+                  <>
+                    <Text style={styles.routeValue}>{orderData.customerName || 'Khách hàng'}</Text>
+                    {orderData.customerAddress && (
+                      <Text style={styles.routeAddress}>{formatAddress(orderData.customerAddress)}</Text>
+                    )}
+                    {orderData.customerPhone && (
+                      <View style={styles.routeContact}>
+                        <Ionicons name="call" size={14} color="#666" />
+                        <Text style={styles.routePhone}>{orderData.customerPhone}</Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  // Tab Lấy hàng & Vận chuyển: Đến Kho
+                  <Text style={styles.routeValue}>{orderData.toWarehouseName}</Text>
                 )}
               </View>
             </View>

@@ -218,7 +218,8 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
             <View style={styles.routeDot} />
             <View style={styles.routeContent}>
               <Text style={styles.routeLabel}>Từ</Text>
-              {item.sequence === 1 || (item.shopName && item.shopAddress) ? (
+              {item.sequence === 1 ? (
+                // Tab Lấy hàng: Từ Shop
                 <>
                   <Text style={styles.routeValue} numberOfLines={1}>{item.shopName || 'Shop'}</Text>
                   {item.shopAddress && (
@@ -228,9 +229,10 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
                   )}
                 </>
               ) : (
-                <Text style={styles.routeValue} numberOfLines={1}>
-                  {item.fromWarehouseName}
-                </Text>
+                // Tab Vận chuyển & Giao hàng: Từ Kho
+                <>
+                  <Text style={styles.routeValue} numberOfLines={1}>{item.fromWarehouseName}</Text>
+                </>
               )}
             </View>
           </View>
@@ -241,7 +243,8 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
             <View style={[styles.routeDot, styles.routeDotEnd]} />
             <View style={styles.routeContent}>
               <Text style={styles.routeLabel}>Đến</Text>
-              {item.sequence === 3 || (item.customerName && item.customerAddress) ? (
+              {item.sequence === 3 ? (
+                // Tab Giao hàng: Đến Khách hàng
                 <>
                   <Text style={styles.routeValue} numberOfLines={1}>{item.customerName || 'Khách hàng'}</Text>
                   {item.customerAddress && (
@@ -251,9 +254,10 @@ export default function OrdersScreen({ onBack, onNavigateToDetail }: OrdersScree
                   )}
                 </>
               ) : (
-                <Text style={styles.routeValue} numberOfLines={1}>
-                  {item.toWarehouseName}
-                </Text>
+                // Tab Lấy hàng & Vận chuyển: Đến Kho
+                <>
+                  <Text style={styles.routeValue} numberOfLines={1}>{item.toWarehouseName}</Text>
+                </>
               )}
             </View>
           </View>
