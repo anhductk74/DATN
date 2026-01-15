@@ -15,6 +15,7 @@ import Users from '../pages/Users/Users';
 import Managers from '../pages/Managers/Managers';
 import RegisterManager from '../pages/Managers/RegisterManager';
 import Vouchers from '../pages/Vouchers/Vouchers';
+import Wallets from '../pages/Wallets/Wallets';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminLayout from '../components/AdminLayout/AdminLayout';
 
@@ -109,6 +110,11 @@ export const router = createBrowserRouter([
       {
         path: 'vouchers/shipping',
         element: <Vouchers />,
+      },
+      // Wallets route
+      {
+        path: 'wallets',
+        element: <Wallets />,
       },
       // Marketing routes (deprecated - redirects to vouchers)
       {

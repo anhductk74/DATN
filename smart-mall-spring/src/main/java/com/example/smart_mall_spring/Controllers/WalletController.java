@@ -2,6 +2,7 @@ package com.example.smart_mall_spring.Controllers;
 
 import com.example.smart_mall_spring.Dtos.Wallet.*;
 import com.example.smart_mall_spring.Enum.WithdrawalStatus;
+import com.example.smart_mall_spring.Exception.ApiResponse;
 import com.example.smart_mall_spring.Services.Wallet.WalletService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,14 +34,16 @@ public class WalletController {
      */
     @PostMapping("/shops/{shopId}")
     @PreAuthorize("@shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> createWallet(
+    public ResponseEntity<ApiResponse<WalletResponse>> createWallet(
             @PathVariable UUID shopId,
             @Valid @RequestBody UpdateBankInfoRequest bankInfo) {
         try {
             WalletResponse wallet = walletService.createWallet(shopId, bankInfo);
-            return ResponseEntity.status(HttpStatus.CREATED).body(wallet);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("Ví đã được tạo thành công", wallet));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -50,12 +53,13 @@ public class WalletController {
      */
     @GetMapping("/shops/{shopId}")
     @PreAuthorize("hasRole('ADMIN') or @shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> getWallet(@PathVariable UUID shopId) {
+    public ResponseEntity<ApiResponse<WalletResponse>> getWallet(@PathVariable UUID shopId) {
         try {
             WalletResponse wallet = walletService.getWalletByShopId(shopId);
-            return ResponseEntity.ok(wallet);
+            return ResponseEntity.ok(ApiResponse.success(wallet));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -65,14 +69,15 @@ public class WalletController {
      */
     @PutMapping("/shops/{shopId}/bank-info")
     @PreAuthorize("@shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> updateBankInfo(
+    public ResponseEntity<ApiResponse<WalletResponse>> updateBankInfo(
             @PathVariable UUID shopId,
             @Valid @RequestBody UpdateBankInfoRequest request) {
         try {
             WalletResponse wallet = walletService.updateBankInfo(shopId, request);
-            return ResponseEntity.ok(wallet);
+            return ResponseEntity.ok(ApiResponse.success("Thông tin ngân hàng đã được cập nhật", wallet));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -82,14 +87,16 @@ public class WalletController {
      */
     @PostMapping("/shops/{shopId}/withdrawal-requests")
     @PreAuthorize("@shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> createWithdrawalRequest(
+    public ResponseEntity<ApiResponse<WithdrawalResponse>> createWithdrawalRequest(
             @PathVariable UUID shopId,
             @Valid @RequestBody WithdrawalRequestDto requestDto) {
         try {
             WithdrawalResponse withdrawal = walletService.createWithdrawalRequest(shopId, requestDto);
-            return ResponseEntity.status(HttpStatus.CREATED).body(withdrawal);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("Yêu cầu rút tiền đã được tạo thành công", withdrawal));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -99,16 +106,17 @@ public class WalletController {
      */
     @GetMapping("/shops/{shopId}/withdrawal-requests")
     @PreAuthorize("hasRole('ADMIN') or @shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> getWithdrawalRequests(
+    public ResponseEntity<ApiResponse<Page<WithdrawalResponse>>> getWithdrawalRequests(
             @PathVariable UUID shopId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
             Page<WithdrawalResponse> withdrawals = walletService.getWithdrawalRequestsByShop(shopId, pageable);
-            return ResponseEntity.ok(withdrawals);
+            return ResponseEntity.ok(ApiResponse.success(withdrawals));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -118,7 +126,7 @@ public class WalletController {
      */
     @GetMapping("/withdrawal-requests")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> getAllWithdrawalRequests(
+    public ResponseEntity<ApiResponse<Page<WithdrawalResponse>>> getAllWithdrawalRequests(
             @RequestParam(required = false) WithdrawalStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -132,9 +140,10 @@ public class WalletController {
                 withdrawals = walletService.getWithdrawalRequestsByStatus(WithdrawalStatus.PENDING, pageable);
             }
             
-            return ResponseEntity.ok(withdrawals);
+            return ResponseEntity.ok(ApiResponse.success(withdrawals));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -144,7 +153,7 @@ public class WalletController {
      */
     @PutMapping("/withdrawal-requests/{requestId}/process")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> processWithdrawalRequest(
+    public ResponseEntity<ApiResponse<WithdrawalResponse>> processWithdrawalRequest(
             @PathVariable UUID requestId,
             @Valid @RequestBody ProcessWithdrawalRequest processRequest,
             Authentication authentication) {
@@ -152,9 +161,13 @@ public class WalletController {
             String adminUsername = authentication.getName();
             WithdrawalResponse withdrawal = walletService.processWithdrawalRequest(
                 requestId, processRequest, adminUsername);
-            return ResponseEntity.ok(withdrawal);
+            String message = processRequest.getStatus() == WithdrawalStatus.APPROVED 
+                    ? "Yêu cầu rút tiền đã được phê duyệt thành công" 
+                    : "Yêu cầu rút tiền đã bị từ chối";
+            return ResponseEntity.ok(ApiResponse.success(message, withdrawal));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -164,16 +177,17 @@ public class WalletController {
      */
     @GetMapping("/shops/{shopId}/transactions")
     @PreAuthorize("hasRole('ADMIN') or @shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> getTransactionHistory(
+    public ResponseEntity<ApiResponse<Page<TransactionResponse>>> getTransactionHistory(
             @PathVariable UUID shopId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
             Page<TransactionResponse> transactions = walletService.getTransactionHistory(shopId, pageable);
-            return ResponseEntity.ok(transactions);
+            return ResponseEntity.ok(ApiResponse.success(transactions));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -183,7 +197,7 @@ public class WalletController {
      */
     @GetMapping("/shops/{shopId}/statistics")
     @PreAuthorize("hasRole('ADMIN') or @shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> getWalletStatistics(@PathVariable UUID shopId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getWalletStatistics(@PathVariable UUID shopId) {
         try {
             WalletResponse wallet = walletService.getWalletByShopId(shopId);
             
@@ -194,9 +208,10 @@ public class WalletController {
             statistics.put("pendingAmount", wallet.getPendingAmount());
             statistics.put("availableForWithdrawal", wallet.getBalance());
             
-            return ResponseEntity.ok(statistics);
+            return ResponseEntity.ok(ApiResponse.success(statistics));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
     
@@ -206,7 +221,7 @@ public class WalletController {
      */
     @GetMapping("/shops/{shopId}/temporary")
     @PreAuthorize("hasRole('ADMIN') or @shopService.isShopOwner(#shopId, authentication)")
-    public ResponseEntity<?> getTemporaryWallet(@PathVariable UUID shopId) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getTemporaryWallet(@PathVariable UUID shopId) {
         try {
             List<TemporaryWalletResponse> tempWallets = walletService.getTemporaryWalletByShopId(shopId);
             Double totalAmount = walletService.getTemporaryWalletAmount(shopId);
@@ -215,17 +230,13 @@ public class WalletController {
             response.put("temporaryWallets", tempWallets);
             response.put("totalAmount", totalAmount);
             response.put("count", tempWallets.size());
-            response.put("message", "Đây là tiền từ các đơn hàng đã hoàn thành khi shop chưa có ví. Tạo ví để nhận tiền này.");
             
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Đây là tiền từ các đơn hàng đã hoàn thành khi shop chưa có ví. Tạo ví để nhận tiền này.",
+                    response));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
-    }
-    
-    private Map<String, String> createErrorResponse(String message) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", message);
-        return error;
     }
 }

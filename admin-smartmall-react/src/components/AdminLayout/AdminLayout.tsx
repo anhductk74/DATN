@@ -14,6 +14,7 @@ import {
   LogoutOutlined,
   BellOutlined,
   CarOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router';
 import { useAuthStore } from '../../stores/authStore';
@@ -127,6 +128,12 @@ export default function AdminLayout() {
       icon: <GiftOutlined />,
       label: 'Voucher Management',
       onClick: () => navigate('/dashboard/vouchers'),
+    },
+    {
+      key: '/dashboard/wallets',
+      icon: <WalletOutlined />,
+      label: 'Wallet Management',
+      onClick: () => navigate('/dashboard/wallets'),
     },
   ];
 
